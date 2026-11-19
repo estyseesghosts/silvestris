@@ -1,0 +1,10 @@
+# Exact external revisions Silvestris builds against.
+
+[gpui]
+repository = "https://github.com/zed-industries/zed.git"
+rev = "6b720973027999bae402df23d469026f4cced988"
+crate_version = "0.2.2"
+# Taken from Lotus config/pins.toml so both share one GPUI in a process.
+
+[rust]
+channel = "1.98.1"

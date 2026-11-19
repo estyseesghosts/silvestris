@@ -1,0 +1,12 @@
+[package]
+name = "silvestris-fonts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+description = "Bundled Lato, Source Code Pro, Inter and Geist Mono font bytes with their OFL notices."
+include = ["src/**", "fonts/**", "Cargo.toml"]
+
+[dependencies]

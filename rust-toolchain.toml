@@ -1,0 +1,6 @@
+[toolchain]
+# Matches Lotus (config/pins.toml [rust]). Windows builds use the GNU host:
+# `rustup override set 1.98.1-x86_64-pc-windows-gnu` in this directory.
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

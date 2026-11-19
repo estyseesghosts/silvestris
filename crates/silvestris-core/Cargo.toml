@@ -1,0 +1,13 @@
+[package]
+name = "silvestris-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+description = "GPUI-free model for Silvestris: theme identities, measured tokens, commands, shortcuts and the shell layout planner."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,8 @@
+/target
+**/*.rs.bk
+__pycache__/
+/reference/private/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

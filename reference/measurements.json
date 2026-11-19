@@ -1,0 +1,3041 @@
+{
+ "tool": "tools/metrology/measure.py",
+ "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",
+ "measurements": [
+  {
+   "id": "win.finder.bounds",
+   "what": "opaque window bounds inside the shadowed capture",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "geometry",
+   "value": {
+    "x0": 40,
+    "y0": 25,
+    "x1": 936,
+    "y1": 695
+   }
+  },
+  {
+   "id": "win.corner.top_left",
+   "what": "alpha of the 4x4 top-left corner; opaque from the 5th pixel",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "alpha",
+   "samples": [
+    [
+     40,
+     25,
+     34
+    ],
+    [
+     41,
+     25,
+     84
+    ],
+    [
+     42,
+     25,
+     155
+    ],
+    [
+     43,
+     25,
+     223
+    ],
+    [
+     44,
+     25,
+     255
+    ],
+    [
+     40,
+     26,
+     85
+    ],
+    [
+     41,
+     26,
+     203
+    ],
+    [
+     42,
+     26,
+     255
+    ],
+    [
+     43,
+     26,
+     255
+    ],
+    [
+     44,
+     26,
+     255
+    ],
+    [
+     40,
+     27,
+     156
+    ],
+    [
+     41,
+     27,
+     255
+    ],
+    [
+     42,
+     27,
+     255
+    ],
+    [
+     43,
+     27,
+     255
+    ],
+    [
+     44,
+     27,
+     255
+    ],
+    [
+     40,
+     28,
+     224
+    ],
+    [
+     41,
+     28,
+     255
+    ],
+    [
+     42,
+     28,
+     255
+    ],
+    [
+     43,
+     28,
+     255
+    ],
+    [
+     44,
+     28,
+     255
+    ],
+    [
+     40,
+     29,
+     255
+    ],
+    [
+     41,
+     29,
+     255
+    ],
+    [
+     42,
+     29,
+     255
+    ],
+    [
+     43,
+     29,
+     255
+    ],
+    [
+     44,
+     29,
+     255
+    ]
+   ]
+  },
+  {
+   "id": "win.corner.bottom_left",
+   "what": "alpha of the 4x4 bottom-left corner",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "alpha",
+   "samples": [
+    [
+     40,
+     695,
+     89
+    ],
+    [
+     41,
+     695,
+     128
+    ],
+    [
+     42,
+     695,
+     184
+    ],
+    [
+     43,
+     695,
+     232
+    ],
+    [
+     44,
+     695,
+     255
+    ],
+    [
+     40,
+     694,
+     127
+    ],
+    [
+     41,
+     694,
+     217
+    ],
+    [
+     42,
+     694,
+     255
+    ],
+    [
+     43,
+     694,
+     255
+    ],
+    [
+     44,
+     694,
+     255
+    ],
+    [
+     40,
+     693,
+     181
+    ],
+    [
+     41,
+     693,
+     255
+    ],
+    [
+     42,
+     693,
+     255
+    ],
+    [
+     43,
+     693,
+     255
+    ],
+    [
+     44,
+     693,
+     255
+    ],
+    [
+     40,
+     692,
+     232
+    ],
+    [
+     41,
+     692,
+     255
+    ],
+    [
+     42,
+     692,
+     255
+    ],
+    [
+     43,
+     692,
+     255
+    ],
+    [
+     44,
+     692,
+     255
+    ],
+    [
+     40,
+     691,
+     255
+    ],
+    [
+     41,
+     691,
+     255
+    ],
+    [
+     42,
+     691,
+     255
+    ],
+    [
+     43,
+     691,
+     255
+    ],
+    [
+     44,
+     691,
+     255
+    ]
+   ]
+  },
+  {
+   "id": "win.shadow.left",
+   "what": "shadow alpha leaving the left edge at mid height, outward",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "alpha",
+   "samples": [
+    [
+     39,
+     360,
+     100
+    ],
+    [
+     38,
+     360,
+     59
+    ],
+    [
+     37,
+     360,
+     57
+    ],
+    [
+     36,
+     360,
+     53
+    ],
+    [
+     35,
+     360,
+     50
+    ],
+    [
+     34,
+     360,
+     47
+    ],
+    [
+     33,
+     360,
+     44
+    ],
+    [
+     32,
+     360,
+     40
+    ],
+    [
+     31,
+     360,
+     38
+    ],
+    [
+     30,
+     360,
+     34
+    ],
+    [
+     29,
+     360,
+     32
+    ],
+    [
+     28,
+     360,
+     29
+    ],
+    [
+     27,
+     360,
+     27
+    ],
+    [
+     26,
+     360,
+     24
+    ],
+    [
+     25,
+     360,
+     22
+    ],
+    [
+     24,
+     360,
+     20
+    ],
+    [
+     23,
+     360,
+     18
+    ],
+    [
+     22,
+     360,
+     16
+    ],
+    [
+     21,
+     360,
+     14
+    ],
+    [
+     20,
+     360,
+     13
+    ],
+    [
+     19,
+     360,
+     11
+    ],
+    [
+     18,
+     360,
+     9
+    ],
+    [
+     17,
+     360,
+     8
+    ],
+    [
+     16,
+     360,
+     7
+    ],
+    [
+     15,
+     360,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "win.shadow.top",
+   "what": "shadow alpha above the top edge at mid width, outward",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "alpha",
+   "samples": [
+    [
+     488,
+     24,
+     52
+    ],
+    [
+     488,
+     23,
+     18
+    ],
+    [
+     488,
+     22,
+     16
+    ],
+    [
+     488,
+     21,
+     14
+    ],
+    [
+     488,
+     20,
+     13
+    ],
+    [
+     488,
+     19,
+     11
+    ],
+    [
+     488,
+     18,
+     9
+    ],
+    [
+     488,
+     17,
+     8
+    ],
+    [
+     488,
+     16,
+     7
+    ],
+    [
+     488,
+     15,
+     6
+    ],
+    [
+     488,
+     14,
+     5
+    ],
+    [
+     488,
+     13,
+     4
+    ],
+    [
+     488,
+     12,
+     3
+    ],
+    [
+     488,
+     11,
+     3
+    ],
+    [
+     488,
+     10,
+     2
+    ],
+    [
+     488,
+     9,
+     1
+    ],
+    [
+     488,
+     8,
+     1
+    ],
+    [
+     488,
+     7,
+     1
+    ],
+    [
+     488,
+     6,
+     0
+    ],
+    [
+     488,
+     5,
+     0
+    ],
+    [
+     488,
+     4,
+     0
+    ],
+    [
+     488,
+     3,
+     0
+    ],
+    [
+     488,
+     2,
+     0
+    ],
+    [
+     488,
+     1,
+     0
+    ],
+    [
+     488,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "win.shadow.bottom",
+   "what": "shadow alpha below the bottom edge at mid width, outward",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "alpha",
+   "samples": [
+    [
+     488,
+     696,
+     136
+    ],
+    [
+     488,
+     697,
+     94
+    ],
+    [
+     488,
+     698,
+     93
+    ],
+    [
+     488,
+     699,
+     91
+    ],
+    [
+     488,
+     700,
+     89
+    ],
+    [
+     488,
+     701,
+     87
+    ],
+    [
+     488,
+     702,
+     85
+    ],
+    [
+     488,
+     703,
+     83
+    ],
+    [
+     488,
+     704,
+     81
+    ],
+    [
+     488,
+     705,
+     78
+    ],
+    [
+     488,
+     706,
+     76
+    ],
+    [
+     488,
+     707,
+     73
+    ],
+    [
+     488,
+     708,
+     70
+    ],
+    [
+     488,
+     709,
+     68
+    ],
+    [
+     488,
+     710,
+     65
+    ],
+    [
+     488,
+     711,
+     62
+    ],
+    [
+     488,
+     712,
+     59
+    ],
+    [
+     488,
+     713,
+     56
+    ],
+    [
+     488,
+     714,
+     53
+    ],
+    [
+     488,
+     715,
+     50
+    ],
+    [
+     488,
+     716,
+     47
+    ],
+    [
+     488,
+     717,
+     43
+    ],
+    [
+     488,
+     718,
+     40
+    ],
+    [
+     488,
+     719,
+     38
+    ],
+    [
+     488,
+     720,
+     34
+    ],
+    [
+     488,
+     721,
+     32
+    ],
+    [
+     488,
+     722,
+     29
+    ],
+    [
+     488,
+     723,
+     27
+    ],
+    [
+     488,
+     724,
+     24
+    ],
+    [
+     488,
+     725,
+     22
+    ],
+    [
+     488,
+     726,
+     20
+    ],
+    [
+     488,
+     727,
+     18
+    ],
+    [
+     488,
+     728,
+     16
+    ],
+    [
+     488,
+     729,
+     14
+    ],
+    [
+     488,
+     730,
+     13
+    ],
+    [
+     488,
+     731,
+     11
+    ],
+    [
+     488,
+     732,
+     9
+    ],
+    [
+     488,
+     733,
+     8
+    ],
+    [
+     488,
+     734,
+     7
+    ],
+    [
+     488,
+     735,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "chrome.unified.active",
+   "what": "title+toolbar, blank column: row 0 highlight, rows 1-52 gradient, row 53 separator",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 640,
+   "y": [
+    25,
+    80
+   ],
+   "srgb": [
+    "#e2e2e2",
+    "#d0d0d0",
+    "#cfcfcf",
+    "#cecece",
+    "#cecece",
+    "#cdcdcd",
+    "#cdcdcd",
+    "#cccccc",
+    "#cbcbcb",
+    "#cbcbcb",
+    "#cacaca",
+    "#cacaca",
+    "#c9c9c9",
+    "#c8c8c8",
+    "#c7c7c7",
+    "#c6c6c6",
+    "#c5c5c5",
+    "#c5c5c5",
+    "#c4c4c4",
+    "#c3c3c3",
+    "#c2c2c2",
+    "#c1c1c1",
+    "#bfbfbf",
+    "#bfbfbf",
+    "#bebebe",
+    "#bdbdbd",
+    "#bcbcbc",
+    "#bbbbbb",
+    "#bababa",
+    "#b9b9b9",
+    "#b8b8b8",
+    "#b8b8b8",
+    "#b6b6b6",
+    "#b5b5b5",
+    "#b4b4b4",
+    "#b3b3b3",
+    "#b2b2b2",
+    "#b1b1b1",
+    "#b0b0b0",
+    "#b0b0b0",
+    "#afafaf",
+    "#aeaeae",
+    "#adadad",
+    "#adadad",
+    "#acacac",
+    "#ababab",
+    "#aaaaaa",
+    "#a9a9a9",
+    "#a9a9a9",
+    "#a8a8a8",
+    "#a8a8a8",
+    "#a8a8a8",
+    "#a7a7a7",
+    "#515151",
+    "#808080",
+    "#747474"
+   ]
+  },
+  {
+   "id": "chrome.titlebar.active",
+   "what": "title bar without toolbar (alert): 22 px including the separator row",
+   "capture": "10-6-Snow-Leopard-Finder-Copy-Replace.png",
+   "sha256": "da11b66e3f19fb044b5ecb1fe16126a36dfbf98ad168be5e06fcdfdd58ff9902",
+   "kind": "column",
+   "x": 340,
+   "y": [
+    25,
+    48
+   ],
+   "srgb": [
+    "#e2e2e2",
+    "#cfcfcf",
+    "#cdcdcd",
+    "#cbcbcb",
+    "#cacaca",
+    "#c8c8c8",
+    "#c6c6c6",
+    "#c4c4c4",
+    "#c1c1c1",
+    "#bfbfbf",
+    "#bdbdbd",
+    "#bababa",
+    "#b8b8b8",
+    "#b6b6b6",
+    "#b3b3b3",
+    "#b0b0b0",
+    "#afafaf",
+    "#adadad",
+    "#ababab",
+    "#a9a9a9",
+    "#a8a8a8",
+    "#515151",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "chrome.unified.inactive.scaled",
+   "what": "inactive Utilities window title+toolbar, 10.6.8 capture at ~1.4875x; colours only",
+   "capture": "Screenshot 2026-11-18 220259.png",
+   "sha256": "1272d33ce626cc33ce663beca5fff5070d9a9c7af29f5baa610e6442963fba1c",
+   "kind": "column",
+   "x": 800,
+   "y": [
+    73,
+    151
+   ],
+   "srgb": [
+    "#857b89",
+    "#f3f3f3",
+    "#eeeeee",
+    "#ecedec",
+    "#ecedec",
+    "#ecedec",
+    "#ecedec",
+    "#ecedec",
+    "#ebecec",
+    "#ebecec",
+    "#ebecec",
+    "#ebecec",
+    "#ebebeb",
+    "#ebebeb",
+    "#ebebeb",
+    "#eaeaea",
+    "#eaeaea",
+    "#eaeaea",
+    "#e9e9e9",
+    "#e9e9e9",
+    "#e9e9e9",
+    "#e8e9e8",
+    "#e8e9e8",
+    "#e8e9e8",
+    "#e7e8e8",
+    "#e7e8e8",
+    "#e7e8e8",
+    "#e7e7e7",
+    "#e7e7e7",
+    "#e7e7e7",
+    "#e6e6e6",
+    "#e5e5e5",
+    "#e5e5e5",
+    "#e5e5e5",
+    "#e4e4e4",
+    "#e4e4e4",
+    "#e4e4e4",
+    "#e3e4e3",
+    "#e3e4e3",
+    "#e2e3e3",
+    "#e2e3e3",
+    "#e2e3e3",
+    "#e2e2e2",
+    "#e1e1e1",
+    "#e1e1e1",
+    "#e1e1e1",
+    "#e0e0e0",
+    "#e0e0e0",
+    "#e0e0e0",
+    "#dfdfdf",
+    "#dfdfdf",
+    "#dedfdf",
+    "#dedfdf",
+    "#dedfdf",
+    "#dedede",
+    "#dedede",
+    "#dedede",
+    "#dddddd",
+    "#dddddd",
+    "#dddddd",
+    "#dcdcdc",
+    "#dcdcdc",
+    "#dcdcdc",
+    "#dbdbdb",
+    "#dbdbdb",
+    "#dbdbdb",
+    "#dadbda",
+    "#dadbda",
+    "#d9dada",
+    "#d9dada",
+    "#d9dada",
+    "#d9dada",
+    "#d9dada",
+    "#d9d9d9",
+    "#d9d9d9",
+    "#d9d9d9",
+    "#d9d9d9",
+    "#d8d8d8",
+    "#c8c8c8"
+   ]
+  },
+  {
+   "id": "chrome.titlebar.active.scaled",
+   "what": "active Terminal title bar in the same 10.6.8 capture, for cross-checking active colours",
+   "capture": "Screenshot 2026-11-18 220259.png",
+   "sha256": "1272d33ce626cc33ce663beca5fff5070d9a9c7af29f5baa610e6442963fba1c",
+   "kind": "column",
+   "x": 1650,
+   "y": [
+    61,
+    99
+   ],
+   "srgb": [
+    "#83637d",
+    "#e1e2e2",
+    "#d5d5d5",
+    "#cecece",
+    "#cdcdcd",
+    "#cbcbcb",
+    "#cacbcb",
+    "#c9caca",
+    "#c8c8c8",
+    "#c7c7c7",
+    "#c6c6c6",
+    "#c4c4c4",
+    "#c2c2c2",
+    "#c1c1c1",
+    "#bfbfbf",
+    "#bebebe",
+    "#bcbcbc",
+    "#bababa",
+    "#b8b9b9",
+    "#b7b8b8",
+    "#b6b6b6",
+    "#b4b4b4",
+    "#b2b2b2",
+    "#b0b1b0",
+    "#afb0af",
+    "#aeaeae",
+    "#adadad",
+    "#acacac",
+    "#aaaaaa",
+    "#a9a9a9",
+    "#a8a8a8",
+    "#a7a8a7",
+    "#a6a7a7",
+    "#6c6d6d",
+    "#8f8f8f",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "traffic.close.column",
+   "what": "close button vertical centre line",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 55,
+   "y": [
+    27,
+    44
+   ],
+   "srgb": [
+    "#cfcfcf",
+    "#cecece",
+    "#733a37",
+    "#9d6967",
+    "#f4dddd",
+    "#f1aaa8",
+    "#f36762",
+    "#fa483e",
+    "#fd554c",
+    "#fd746e",
+    "#fd918e",
+    "#fda8a6",
+    "#feb5b3",
+    "#febdbb",
+    "#f0b8b6",
+    "#cb9a98",
+    "#d8d8d8",
+    "#c2c2c2"
+   ]
+  },
+  {
+   "id": "traffic.minimize.column",
+   "what": "minimize button vertical centre line",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 76,
+   "y": [
+    27,
+    44
+   ],
+   "srgb": [
+    "#cfcfcf",
+    "#cecece",
+    "#9b3c33",
+    "#bf786d",
+    "#f6e9db",
+    "#f1d0b0",
+    "#f0ba79",
+    "#f6bc60",
+    "#fbcb66",
+    "#fdd773",
+    "#fee27b",
+    "#fee882",
+    "#fee985",
+    "#fee985",
+    "#f5dd80",
+    "#cdaa68",
+    "#d8d8d8",
+    "#c2c2c2"
+   ]
+  },
+  {
+   "id": "traffic.zoom.column",
+   "what": "zoom button vertical centre line",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 97,
+   "y": [
+    27,
+    44
+   ],
+   "srgb": [
+    "#cfcfcf",
+    "#cecece",
+    "#496d34",
+    "#6f9b5b",
+    "#d6e5cc",
+    "#b7d3a2",
+    "#95c771",
+    "#90cc60",
+    "#a0d468",
+    "#b3dd76",
+    "#c4e585",
+    "#cee98e",
+    "#d2eb93",
+    "#cfe892",
+    "#bbd483",
+    "#95b06d",
+    "#d8d8d8",
+    "#c2c2c2"
+   ]
+  },
+  {
+   "id": "traffic.row",
+   "what": "horizontal line through all three buttons",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 36,
+   "x": [
+    44,
+    105
+   ],
+   "srgb": [
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#a63f3e",
+    "#cd423d",
+    "#f55149",
+    "#fd5a52",
+    "#fd625b",
+    "#fd6a64",
+    "#fd736d",
+    "#fd746e",
+    "#fd6d67",
+    "#fd645d",
+    "#fd5c54",
+    "#f5534c",
+    "#ce4540",
+    "#a6423f",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#c17034",
+    "#dd9845",
+    "#f3b859",
+    "#f8c663",
+    "#fbcd6b",
+    "#fdd36f",
+    "#fdd773",
+    "#fdd773",
+    "#fdd46f",
+    "#fbce6b",
+    "#f8c663",
+    "#f3b85a",
+    "#dd9845",
+    "#c17034",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#cacaca",
+    "#65894d",
+    "#82b35a",
+    "#9ad269",
+    "#a0d56b",
+    "#a5d86e",
+    "#addb73",
+    "#b3dd77",
+    "#b3dd76",
+    "#acdb72",
+    "#a4d86e",
+    "#9fd56b",
+    "#9ad268",
+    "#80b25a",
+    "#63894b",
+    "#cacaca",
+    "#cacaca"
+   ]
+  },
+  {
+   "id": "toolbar.textured.normal",
+   "what": "textured rounded button (Back), clean column: border, fill, border, emboss",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 53,
+   "y": [
+    47,
+    72
+   ],
+   "srgb": [
+    "#bfbfbf",
+    "#bfbfbf",
+    "#555555",
+    "#fefefe",
+    "#fcfcfc",
+    "#f9f9f9",
+    "#f6f6f6",
+    "#f3f3f3",
+    "#efefef",
+    "#ebebeb",
+    "#e7e7e7",
+    "#e3e3e3",
+    "#dedede",
+    "#dadada",
+    "#d5d5d5",
+    "#d0d0d0",
+    "#cccccc",
+    "#c8c8c8",
+    "#c4c4c4",
+    "#c0c0c0",
+    "#bdbdbd",
+    "#bababa",
+    "#b8b8b8",
+    "#4d4d4d",
+    "#b9b9b9",
+    "#a9a9a9"
+   ]
+  },
+  {
+   "id": "toolbar.textured.selected",
+   "what": "selected segment of the textured view selector",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 114,
+   "y": [
+    47,
+    72
+   ],
+   "srgb": [
+    "#bfbfbf",
+    "#bfbfbf",
+    "#555555",
+    "#323232",
+    "#414141",
+    "#505050",
+    "#5c5c5c",
+    "#646464",
+    "#686868",
+    "#6a6a6a",
+    "#6b6b6b",
+    "#6c6c6c",
+    "#6e6e6e",
+    "#6f6f6f",
+    "#707070",
+    "#717171",
+    "#727272",
+    "#747474",
+    "#757575",
+    "#757575",
+    "#757575",
+    "#737373",
+    "#6c6c6c",
+    "#4d4d4d",
+    "#b9b9b9",
+    "#a9a9a9"
+   ]
+  },
+  {
+   "id": "toolbar.textured.row",
+   "what": "row through Back/Forward pair and the view selector: segment seams",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 60,
+   "x": [
+    45,
+    114
+   ],
+   "srgb": [
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#505050",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#cecece",
+    "#8d8d8d",
+    "#8d8d8d",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#3e3e3e",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#929292",
+    "#8d8d8d",
+    "#8e8e8e",
+    "#cecece",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#dadada",
+    "#505050",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#505050",
+    "#505050",
+    "#5e5e5e",
+    "#686868",
+    "#6d6d6d",
+    "#6f6f6f"
+   ]
+  },
+  {
+   "id": "toolbar.search.column",
+   "what": "toolbar search field, unfocused",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 840,
+   "y": [
+    43,
+    74
+   ],
+   "srgb": [
+    "#c4c4c4",
+    "#c3c3c3",
+    "#c2c2c2",
+    "#c1c1c1",
+    "#bfbfbf",
+    "#bfbfbf",
+    "#848484",
+    "#d8d8d8",
+    "#fafafa",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#fefefe",
+    "#e1e1e1",
+    "#aaaaaa",
+    "#a9a9a9",
+    "#a9a9a9",
+    "#a8a8a8"
+   ]
+  },
+  {
+   "id": "toolbar.search.left",
+   "what": "search field left cap and magnifier",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 60,
+   "x": [
+    670,
+    699
+   ],
+   "srgb": [
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b3b3b3",
+    "#b9b9b9",
+    "#f8f8f8",
+    "#fefefe",
+    "#ffffff",
+    "#fcfcfc",
+    "#8b8b8b",
+    "#595959",
+    "#aeaeae",
+    "#fefefe",
+    "#ffffff",
+    "#ffffff",
+    "#fefefe",
+    "#aeaeae",
+    "#595959",
+    "#8b8b8b",
+    "#fbfbfb",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "sidebar.background",
+   "what": "sidebar fill under the toolbar separator",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 160,
+   "y": [
+    78,
+    84
+   ],
+   "srgb": [
+    "#515151",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea"
+   ]
+  },
+  {
+   "id": "sidebar.selection.active",
+   "what": "selected row 'shackett', key window",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 165,
+   "y": [
+    331,
+    360
+   ],
+   "srgb": [
+    "#67a1da",
+    "#649fd9",
+    "#5f9bd6",
+    "#5a97d4",
+    "#5795d3",
+    "#5392d1",
+    "#508fcf",
+    "#4b8bcd",
+    "#4587ca",
+    "#4385c9",
+    "#3d81c7",
+    "#3a7fc5",
+    "#347ac3",
+    "#3179c2",
+    "#2b75c0",
+    "#2671be",
+    "#226ebc",
+    "#1a6ab9",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea"
+   ]
+  },
+  {
+   "id": "sidebar.divider",
+   "what": "sidebar / content divider",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 175,
+   "x": [
+    168,
+    179
+   ],
+   "srgb": [
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#b4b4b4",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "sidebar.header.text",
+   "what": "DEVICES heading glyph row",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 91,
+   "x": [
+    44,
+    109
+   ],
+   "srgb": [
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#d7dbdf",
+    "#9da8b4",
+    "#9da8b4",
+    "#9da8b4",
+    "#d5d8dc",
+    "#dfe4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dde3e9",
+    "#738193",
+    "#9ba6b3",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#97a2b0",
+    "#738193",
+    "#d1d7df",
+    "#c4ccd5",
+    "#738193",
+    "#9aa5b2",
+    "#b3bbc7",
+    "#b3bbc7",
+    "#d9dee5",
+    "#dee4ea",
+    "#dfe5ea",
+    "#95a0ae",
+    "#758395",
+    "#d6dce3",
+    "#929dac",
+    "#b1b9c3",
+    "#dee4ea",
+    "#dee4ea",
+    "#aab4c0",
+    "#738193",
+    "#cfd6de",
+    "#ccd3db",
+    "#738193",
+    "#99a4b2",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#dee4ea",
+    "#8f9ba9",
+    "#798698",
+    "#b3bbc7",
+    "#b3bbc7",
+    "#c4ccd4",
+    "#dee4ea",
+    "#dee4ea",
+    "#e4e9ee",
+    "#c6cdd5",
+    "#808c9d",
+    "#738193",
+    "#a6b0bd",
+    "#dee4ea",
+    "#dee4ea"
+   ]
+  },
+  {
+   "id": "sidebar.row_pitch",
+   "what": "source-list row pitch from Desktop (y=318) to shackett (y=338) label baselines",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "geometry",
+   "value": {
+    "pitch_px": 20
+   }
+  },
+  {
+   "id": "bottombar.column",
+   "what": "content, separator, bottom bar gradient",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 340,
+   "y": [
+    665,
+    695
+   ],
+   "srgb": [
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#515151",
+    "#cbcbcb",
+    "#cacaca",
+    "#c9c9c9",
+    "#c7c7c7",
+    "#c5c5c5",
+    "#c5c5c5",
+    "#c3c3c3",
+    "#c1c1c1",
+    "#bfbfbf",
+    "#bdbdbd",
+    "#bbbbbb",
+    "#b9b9b9",
+    "#b7b7b7",
+    "#b5b5b5",
+    "#b3b3b3",
+    "#b0b0b0",
+    "#afafaf",
+    "#adadad",
+    "#acacac",
+    "#aaaaaa",
+    "#a8a8a8",
+    "#a8a8a8",
+    "#a7a7a7"
+   ]
+  },
+  {
+   "id": "button.push.normal",
+   "what": "small push button 'Stop' (Copy panel uses small controls, see button.push.label_widths), clean column",
+   "capture": "10-6-Snow-Leopard-Finder-Copy-Replace.png",
+   "sha256": "da11b66e3f19fb044b5ecb1fe16126a36dfbf98ad168be5e06fcdfdd58ff9902",
+   "kind": "column",
+   "x": 270,
+   "y": [
+    112,
+    137
+   ],
+   "srgb": [
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#f7f7f7",
+    "#5e5e5e",
+    "#fcfcfc",
+    "#f9f9f9",
+    "#f6f6f6",
+    "#f5f5f5",
+    "#f3f3f3",
+    "#efefee",
+    "#e9e9e9",
+    "#ebebeb",
+    "#ededed",
+    "#efefef",
+    "#f1f1f1",
+    "#f4f4f4",
+    "#f6f6f6",
+    "#fcfcfc",
+    "#ffffff",
+    "#ffffff",
+    "#696969",
+    "#c9c9c9",
+    "#f8f8f8",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "button.push.default",
+   "what": "regular default push button 'Force Quit', text-free column between the words",
+   "capture": "10-6-Snow-Leopard-Force-Quit.png",
+   "sha256": "125af6309292b98a4ea9340552453da807ad43914a88710d09bf5e30c4c7d613",
+   "kind": "column",
+   "x": 320,
+   "y": [
+    264,
+    292
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#eaeaea",
+    "#3540a2",
+    "#d2e5f8",
+    "#d1e7fd",
+    "#c7e3fc",
+    "#c0dffb",
+    "#bcdcfa",
+    "#b7daf9",
+    "#a5d1f9",
+    "#88c3f6",
+    "#8dc5f7",
+    "#93caf9",
+    "#99ccfb",
+    "#9ed1fd",
+    "#a5d6fe",
+    "#abdbff",
+    "#b3dfff",
+    "#bbe7ff",
+    "#c6f1ff",
+    "#d0f9ff",
+    "#d7fdff",
+    "#616161",
+    "#b0b0b0",
+    "#e1e1e1",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
+   "id": "button.push.label_widths",
+   "what": "label ink widths: 'Stop' 22 px (cols 278-299) vs 'Force Quit' 63 px (cols 285-347); 13 pt Lucida Grande sets 'Stop' near 29 px, so the Copy panel's buttons are the small size",
+   "capture": "10-6-Snow-Leopard-Finder-Copy-Replace.png",
+   "sha256": "da11b66e3f19fb044b5ecb1fe16126a36dfbf98ad168be5e06fcdfdd58ff9902",
+   "kind": "geometry",
+   "value": {
+    "stop_px": 22,
+    "force_quit_px": 63
+   }
+  },
+  {
+   "id": "button.push.widths",
+   "what": "bezel border-to-border width and label ink inside it, ink = pixels 50 below the row median in the label band: Stop 246-331 ink 277-299; Replace 342-427 ink 365-404 (both 86 px, an equal-width pair); Force Quit 267-365 (99 px) ink 284-347, so 16 px left / 17 px right",
+   "capture": "10-6-Snow-Leopard-Force-Quit.png",
+   "sha256": "125af6309292b98a4ea9340552453da807ad43914a88710d09bf5e30c4c7d613",
+   "kind": "geometry",
+   "value": {
+    "stop": [
+     246,
+     331,
+     277,
+     299
+    ],
+    "replace": [
+     342,
+     427,
+     365,
+     404
+    ],
+    "force_quit": [
+     267,
+     365,
+     284,
+     347
+    ]
+   }
+  },
+  {
+   "id": "button.push.label_rows",
+   "what": "label ink rows against the bezel border rows (same ink rule as button.push.widths): Force Quit (regular) border 268-288, ink 273-284; Stop (small) border 116-133, ink 121-130; Replace border 116-133, ink 120-130",
+   "capture": "10-6-Snow-Leopard-Force-Quit.png",
+   "sha256": "125af6309292b98a4ea9340552453da807ad43914a88710d09bf5e30c4c7d613",
+   "kind": "geometry",
+   "value": {
+    "force_quit": [
+     268,
+     288,
+     273,
+     284
+    ],
+    "stop": [
+     116,
+     133,
+     121,
+     130
+    ],
+    "replace": [
+     116,
+     133,
+     120,
+     130
+    ]
+   }
+  },
+  {
+   "id": "grip.bar.row",
+   "what": "bottom row of the bottom-bar grip, 4 rows above the window's last row: three [shade, line, highlight] triples",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "row",
+   "y": 691,
+   "x": [
+    920,
+    936
+   ],
+   "srgb": [
+    "#acacac",
+    "#acacac",
+    "#939393",
+    "#646464",
+    "#c6c6c6",
+    "#acacac",
+    "#939393",
+    "#646464",
+    "#c6c6c6",
+    "#acacac",
+    "#939393",
+    "#646464",
+    "#c6c6c6",
+    "#acacac",
+    "#acacac",
+    "#acacac",
+    "#acacac"
+   ]
+  },
+  {
+   "id": "grip.bar.column",
+   "what": "right column of the bottom-bar grip, 4 columns in from the window's last column",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "column",
+   "x": 932,
+   "y": [
+    680,
+    695
+   ],
+   "srgb": [
+    "#c1c1c1",
+    "#a4a4a4",
+    "#6d6d6d",
+    "#cdcdcd",
+    "#b9b9b9",
+    "#9d9d9d",
+    "#696969",
+    "#c9c9c9",
+    "#b0b0b0",
+    "#959595",
+    "#656565",
+    "#c6c6c6",
+    "#aaaaaa",
+    "#a8a8a8",
+    "#a8a8a8",
+    "#a7a7a7"
+   ]
+  },
+  {
+   "id": "grip.body.row",
+   "what": "bottom row of the window-body grip, directly above the window's bottom edge row",
+   "capture": "10-6-Snow-Leopard-Activity-Monitor.png",
+   "sha256": "cf2d4a84df4074637cfe8869e54f33c1897b9391077646abacbba3ec164ee79a",
+   "kind": "row",
+   "y": 595,
+   "x": [
+    750,
+    766
+   ],
+   "srgb": [
+    "#e4e4e4",
+    "#e4e4e4",
+    "#e4e4e4",
+    "#e4e4e4",
+    "#e4e4e4",
+    "#c3c3c3",
+    "#7f7f7f",
+    "#e0e0e0",
+    "#e4e4e4",
+    "#c3c3c3",
+    "#7f7f7f",
+    "#e0e0e0",
+    "#e4e4e4",
+    "#c3c3c3",
+    "#7f7f7f",
+    "#e0e0e0",
+    "#e4e4e4"
+   ]
+  },
+  {
+   "id": "grip.body.column",
+   "what": "right column of the window-body grip",
+   "capture": "10-6-Snow-Leopard-Activity-Monitor.png",
+   "sha256": "cf2d4a84df4074637cfe8869e54f33c1897b9391077646abacbba3ec164ee79a",
+   "kind": "column",
+   "x": 765,
+   "y": [
+    584,
+    596
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#c6c6c6",
+    "#808080",
+    "#e1e1e1",
+    "#e6e6e6",
+    "#c6c6c6",
+    "#808080",
+    "#e1e1e1",
+    "#e6e6e6",
+    "#c5c5c5",
+    "#808080",
+    "#e0e0e0",
+    "#dbdbdb"
+   ]
+  },
+  {
+   "id": "grip.geometry",
+   "what": "three 45-degree lines of 10, 6 and 2 line pixels, 4 px apart along the bottom row, upper ends in one column; bar grip inset 4 from right/bottom, body grip inset 1",
+   "capture": "10-6-Snow-Leopard-Finder-Home.png",
+   "sha256": "b29c5f91ab6deb5682e7f98e5d96813dcebd77f46aabcf69da3c981b8c7cb162",
+   "kind": "geometry",
+   "value": {
+    "lengths": [
+     10,
+     6,
+     2
+    ],
+    "pitch": 4,
+    "inset_bar": 4,
+    "inset_body": 1
+   }
+  },
+  {
+   "id": "field.caret.column",
+   "what": "caret column: border row 67, inner rows 68-69, caret 00 on rows 70-86, border 88",
+   "capture": "10-6-Snow-Leopard-Finder-Go-To.png",
+   "sha256": "c6792c5647429c1bcf07da8fb0abcb1bde81ffaeb4ff78d332864b8ffbca44bd",
+   "kind": "column",
+   "x": 157,
+   "y": [
+    89,
+    116
+   ],
+   "srgb": [
+    "#c5d7e7",
+    "#9ec1e2",
+    "#78acdd",
+    "#6e91b2",
+    "#b3c5d5",
+    "#f8f8f8",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#000000",
+    "#d1e3f3",
+    "#99bcdd",
+    "#78acdd",
+    "#9ec1e2",
+    "#c5d7e7"
+   ]
+  },
+  {
+   "id": "field.text.row",
+   "what": "left edge through the text: ring 17-19, border 20, fill 21-24, first ink (~) at 25",
+   "capture": "10-6-Snow-Leopard-Finder-Go-To.png",
+   "sha256": "c6792c5647429c1bcf07da8fb0abcb1bde81ffaeb4ff78d332864b8ffbca44bd",
+   "kind": "row",
+   "y": 104,
+   "x": [
+    54,
+    69
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#c5d7e7",
+    "#9ec1e2",
+    "#78acdd",
+    "#8aadce",
+    "#cddfef",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#929292",
+    "#383838",
+    "#7b7b7b",
+    "#e7e7e7",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "field.geometry",
+   "what": "focused field 22 rows border to border (67-88); text ink starts 5 px right of the left border; caret 1 px wide, black, from 3 rows under the top border to 2 rows over the bottom",
+   "capture": "10-6-Snow-Leopard-Finder-Go-To.png",
+   "sha256": "c6792c5647429c1bcf07da8fb0abcb1bde81ffaeb4ff78d332864b8ffbca44bd",
+   "kind": "geometry",
+   "value": {
+    "border_rows": [
+     67,
+     88
+    ],
+    "left_border_x": 20,
+    "first_ink_x": 25,
+    "caret_rows": [
+     70,
+     86
+    ]
+   }
+  },
+  {
+   "id": "button.push.left_cap",
+   "what": "left cap of 'Stop' at its vertical middle",
+   "capture": "10-6-Snow-Leopard-Finder-Copy-Replace.png",
+   "sha256": "da11b66e3f19fb044b5ecb1fe16126a36dfbf98ad168be5e06fcdfdd58ff9902",
+   "kind": "row",
+   "y": 125,
+   "x": [
+    240,
+    261
+   ],
+   "srgb": [
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#f9f9f9",
+    "#cccccc",
+    "#a0a0a0",
+    "#e0e0e0",
+    "#e9e9e9",
+    "#ebebeb",
+    "#ececec",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
+   "id": "window.body",
+   "what": "System Preferences window body",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 60,
+   "y": [
+    90,
+    99
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
+   "id": "groupbox.fill",
+   "what": "group box fill",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 70,
+   "y": [
+    195,
+    204
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "focus.ring.search",
+   "what": "focused search field: ring above and below",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 620,
+   "y": [
+    44,
+    73
+   ],
+   "srgb": [
+    "#c3c3c3",
+    "#c2c2c2",
+    "#c1c1c1",
+    "#89accc",
+    "#6fa3d4",
+    "#6e91b1",
+    "#b6c8d9",
+    "#fafafa",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#d2e4f5",
+    "#99bcdc",
+    "#6b9fd0",
+    "#7fa2c2",
+    "#94a6b7"
+   ]
+  },
+  {
+   "id": "checkbox.off",
+   "what": "unchecked checkbox, centre column",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 248,
+   "y": [
+    490,
+    509
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#838383",
+    "#ffffff",
+    "#fefefe",
+    "#fbfbfb",
+    "#f7f7f7",
+    "#f4f4f4",
+    "#e9e9e9",
+    "#ececec",
+    "#f1f1f1",
+    "#f9f9f9",
+    "#ffffff",
+    "#ffffff",
+    "#e5e5e5",
+    "#5f5f5f",
+    "#c2c2c2",
+    "#e5e5e5",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "checkbox.off.row",
+   "what": "unchecked checkbox, centre row",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 499,
+   "x": [
+    238,
+    259
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#dedede",
+    "#a4a4a4",
+    "#e4e4e4",
+    "#e9e9e9",
+    "#eaeaea",
+    "#ebebeb",
+    "#ececec",
+    "#ececec",
+    "#ececec",
+    "#ebebeb",
+    "#ebebeb",
+    "#eae9ea",
+    "#e8e8e8",
+    "#e4e4e4",
+    "#a4a4a4",
+    "#dedede",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "checkbox.off.disabled",
+   "what": "disabled unchecked checkbox",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 248,
+   "y": [
+    510,
+    529
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#b4b4b4",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f0f0f0",
+    "#eeedee",
+    "#ededed",
+    "#e7e7e7",
+    "#e9e9e9",
+    "#ebebeb",
+    "#efefef",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#e5e5e5",
+    "#a2a2a2",
+    "#d4d4d4",
+    "#e5e5e5",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "checkbox.on",
+   "what": "checked checkbox, centre column",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 248,
+   "y": [
+    530,
+    549
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#2e3893",
+    "#deebf7",
+    "#c5dcf1",
+    "#adcfee",
+    "#9dc7ec",
+    "#86b4dc",
+    "#395c78",
+    "#1c2d3d",
+    "#21303e",
+    "#3a4d60",
+    "#9ac2d7",
+    "#c8f7ff",
+    "#c6f5fc",
+    "#5f5f5f",
+    "#c2c2c2",
+    "#e5e5e5",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "checkbox.on.row",
+   "what": "checked checkbox, row below the mark",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 541,
+   "x": [
+    238,
+    259
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#dedede",
+    "#2e78c5",
+    "#7db9ec",
+    "#92c7f6",
+    "#9ccffb",
+    "#a0d2fe",
+    "#9dcdf7",
+    "#3a4d60",
+    "#496176",
+    "#a1d2fd",
+    "#9fd0fc",
+    "#9bcdfa",
+    "#93c7f5",
+    "#80baec",
+    "#377dc8",
+    "#dedede",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "popup.disabled",
+   "what": "disabled pop-up button body",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 450,
+   "y": [
+    486,
+    513
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#b5b5b5",
+    "#f0f0f0",
+    "#f2f2f2",
+    "#f0f0f0",
+    "#eeeeee",
+    "#e5e5e5",
+    "#dcdcdc",
+    "#e9e9e9",
+    "#d7d6d7",
+    "#d2d2d2",
+    "#d2d2d2",
+    "#d2d2d2",
+    "#d3d3d3",
+    "#d4d4d4",
+    "#d7d7d7",
+    "#ebebeb",
+    "#f0f0f0",
+    "#f1f1f1",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#a2a2a2",
+    "#cfcfcf",
+    "#e5e5e5",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "popup.disabled.right",
+   "what": "pop-up right cap with the double arrow",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 499,
+   "x": [
+    560,
+    583
+   ],
+   "srgb": [
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e2e2e2",
+    "#e1e1e1",
+    "#e1e1e1",
+    "#dfdfdf",
+    "#dcdcdc",
+    "#bdbdbd",
+    "#dddddd",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "segmented.selected",
+   "what": "selected 'Desktop' tab segment",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 320,
+   "y": [
+    100,
+    125
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#353c97",
+    "#eaf2fb",
+    "#dcebf9",
+    "#d0e4f6",
+    "#c7dff5",
+    "#c1dcf5",
+    "#bbd8f4",
+    "#b7d7f3",
+    "#aed2f1",
+    "#7bb8eb",
+    "#79b7ed",
+    "#82bdf0",
+    "#8cc3f3",
+    "#95c9f8",
+    "#9ed0fd",
+    "#a8d8ff",
+    "#b4e4ff",
+    "#c2f2ff",
+    "#d0ffff",
+    "#ccf9ff",
+    "#5e5e5e",
+    "#b9b9b9",
+    "#e4e4e4"
+   ]
+  },
+  {
+   "id": "segmented.normal",
+   "what": "unselected 'Screen Saver' segment (crosses text)",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 420,
+   "y": [
+    100,
+    125
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#777777",
+    "#f9f8f9",
+    "#f9f8f8",
+    "#f6f6f6",
+    "#f5f5f5",
+    "#787878",
+    "#787878",
+    "#f1f1f1",
+    "#e6e6e6",
+    "#292929",
+    "#373737",
+    "#e6e6e6",
+    "#e9e9e9",
+    "#eaeaea",
+    "#272727",
+    "#c9c9c9",
+    "#f2f2f2",
+    "#f7f7f7",
+    "#fdfdfd",
+    "#ffffff",
+    "#5e5e5e",
+    "#b9b9b9",
+    "#e4e4e4"
+   ]
+  },
+  {
+   "id": "segmented.left_cap",
+   "what": "left cap of the selected segment",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 113,
+   "x": [
+    280,
+    299
+   ],
+   "srgb": [
+    "#ababab",
+    "#ababab",
+    "#ababab",
+    "#9f9f9f",
+    "#0853af",
+    "#53a2e2",
+    "#68aee8",
+    "#71b2e9",
+    "#73b4eb",
+    "#75b5eb",
+    "#77b6ec",
+    "#78b7ec",
+    "#79b7ed",
+    "#79b7ed",
+    "#79b7ec",
+    "#79b7ec",
+    "#79b7ed",
+    "#79b7ed",
+    "#192733",
+    "#37536c"
+   ]
+  },
+  {
+   "id": "scroller.thumb.row",
+   "what": "vertical thumb, horizontal cross-section",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 300,
+   "x": [
+    658,
+    679
+   ],
+   "srgb": [
+    "#ffffff",
+    "#ffffff",
+    "#b7b7b7",
+    "#0751c0",
+    "#88b4e5",
+    "#a5c8ec",
+    "#a1c8ef",
+    "#98c3ef",
+    "#5da5e9",
+    "#72b6f3",
+    "#84c3ff",
+    "#94d2ff",
+    "#a0dcff",
+    "#ace8ff",
+    "#a4e0ff",
+    "#5e5e5e",
+    "#aeaeae",
+    "#b3b3b3",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "scroller.thumb.top",
+   "what": "track top and thumb top cap",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 669,
+   "y": [
+    226,
+    249
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#b3b3b3",
+    "#d2d2d2",
+    "#e9e9e9",
+    "#ebebeb",
+    "#f2f2f2",
+    "#f0f0f0",
+    "#e5e5e5",
+    "#8f8f8f",
+    "#3e6d97",
+    "#3f90d9",
+    "#579fe2",
+    "#6ab0ee",
+    "#78baf7",
+    "#82c4ff",
+    "#86c6ff",
+    "#88c8ff",
+    "#8ac9ff",
+    "#88c9ff",
+    "#85c9ff",
+    "#82c8ff",
+    "#87c9ff",
+    "#8ccaff"
+   ]
+  },
+  {
+   "id": "scroller.thumb.bottom",
+   "what": "thumb bottom cap and track",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 669,
+   "y": [
+    370,
+    384
+   ],
+   "srgb": [
+    "#94d2ff",
+    "#91ceff",
+    "#88c9ff",
+    "#8bcbff",
+    "#88c8ff",
+    "#85c5ff",
+    "#7dbdf9",
+    "#73b6f1",
+    "#67aae7",
+    "#549dde",
+    "#3f90d9",
+    "#5382ac",
+    "#c7c7c7",
+    "#eeeeee",
+    "#fafafa"
+   ]
+  },
+  {
+   "id": "scroller.track.row",
+   "what": "empty track cross-section",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "row",
+   "y": 420,
+   "x": [
+    658,
+    679
+   ],
+   "srgb": [
+    "#ffffff",
+    "#ffffff",
+    "#c5c5c5",
+    "#cbcbcb",
+    "#d2d2d2",
+    "#dbdbdb",
+    "#e2e2e2",
+    "#e9e9e9",
+    "#efefef",
+    "#f4f4f4",
+    "#f8f8f8",
+    "#fbfbfb",
+    "#fcfcfc",
+    "#fdfdfd",
+    "#fafafa",
+    "#f6f6f6",
+    "#f2f2f2",
+    "#b3b3b3",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6"
+   ]
+  },
+  {
+   "id": "scroller.arrows",
+   "what": "track end and the paired up/down arrows",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 669,
+   "y": [
+    440,
+    481
+   ],
+   "srgb": [
+    "#f5f5f5",
+    "#f1f1f1",
+    "#ededed",
+    "#e9e9e9",
+    "#e2e2e2",
+    "#d9d9d9",
+    "#c8c8c8",
+    "#b1b1b1",
+    "#b4b4b4",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f2f2f2",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f0f0f0",
+    "#ededed",
+    "#b9b9b9",
+    "#666666",
+    "#595959",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#b8b8b8",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#f1f1f1",
+    "#595959",
+    "#666666",
+    "#b9b9b9",
+    "#ededed",
+    "#f0f0f0",
+    "#f1f1f1",
+    "#efefef",
+    "#eeeeee",
+    "#ebebeb",
+    "#e9e9e9",
+    "#d2d2d2",
+    "#b3b3b3"
+   ]
+  },
+  {
+   "id": "table.header_and_rows",
+   "what": "separator, column header, header border, alternating rows",
+   "capture": "10-6-Snow-Leopard-Activity-Monitor.png",
+   "sha256": "cf2d4a84df4074637cfe8869e54f33c1897b9391077646abacbba3ec164ee79a",
+   "kind": "column",
+   "x": 60,
+   "y": [
+    101,
+    164
+   ],
+   "srgb": [
+    "#a7a7a7",
+    "#515151",
+    "#ffffff",
+    "#fefefe",
+    "#f9faf9",
+    "#f6f6f6",
+    "#f3f3f3",
+    "#f0f0f0",
+    "#ededed",
+    "#e8e8e8",
+    "#e9e9e9",
+    "#ededed",
+    "#f0f0f0",
+    "#f4f4f4",
+    "#f8f8f8",
+    "#fdfdfd",
+    "#ffffff",
+    "#c0c0c0",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#edf3fe",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "table.header.divider",
+   "what": "column header divider",
+   "capture": "10-6-Snow-Leopard-Activity-Monitor.png",
+   "sha256": "cf2d4a84df4074637cfe8869e54f33c1897b9391077646abacbba3ec164ee79a",
+   "kind": "row",
+   "y": 110,
+   "x": [
+    85,
+    99
+   ],
+   "srgb": [
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#c0c0c0",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#e8e8e8",
+    "#050505",
+    "#272727"
+   ]
+  },
+  {
+   "id": "menu.bar_and_selection",
+   "what": "menu bar title selection and first item selection",
+   "capture": "10-6-Snow-Leopard-Finder-Menu.png",
+   "sha256": "6469538bf64a137a74361cbb88a0f10b436897824bfa9e4850edafd0bc6aa5bb",
+   "kind": "column",
+   "x": 60,
+   "y": [
+    0,
+    49
+   ],
+   "srgb": [
+    "#7696f8",
+    "#6388f8",
+    "#6087f8",
+    "#5c84f7",
+    "#5880f8",
+    "#ffffff",
+    "#bacbfc",
+    "#4c79f8",
+    "#4876f8",
+    "#4373f8",
+    "#d2ddfd",
+    "#9cb5fb",
+    "#366af7",
+    "#3269f7",
+    "#2d67f6",
+    "#2b65f6",
+    "#2762f6",
+    "#2460f6",
+    "#215ff6",
+    "#2460f5",
+    "#215ef4",
+    "#0c4bd7",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#5980ee",
+    "#6388f8",
+    "#5e86f8",
+    "#5b83f7",
+    "#5880f8",
+    "#527df8",
+    "#4d7af8",
+    "#4a78f8",
+    "#4574f8",
+    "#4072f7",
+    "#3c6ff7",
+    "#376bf7",
+    "#3369f7",
+    "#2f67f7",
+    "#2b65f6",
+    "#2863f6",
+    "#2460f6",
+    "#215ff6",
+    "#1054ec",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#f2f2f2",
+    "#f2f2f2"
+   ]
+  },
+  {
+   "id": "menu.body",
+   "what": "menu body, selected item, separators",
+   "capture": "10-6-Snow-Leopard-Finder-Menu.png",
+   "sha256": "6469538bf64a137a74361cbb88a0f10b436897824bfa9e4850edafd0bc6aa5bb",
+   "kind": "column",
+   "x": 230,
+   "y": [
+    20,
+    139
+   ],
+   "srgb": [
+    "#8d8e94",
+    "#02030a",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#5980ee",
+    "#6388f8",
+    "#5e86f8",
+    "#5b83f7",
+    "#5880f8",
+    "#527df8",
+    "#4d7af8",
+    "#4a78f8",
+    "#4574f8",
+    "#4072f7",
+    "#3c6ff7",
+    "#376bf7",
+    "#3369f7",
+    "#2f67f7",
+    "#2b65f6",
+    "#2863f6",
+    "#2460f6",
+    "#215ff6",
+    "#1054ec",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#d7d7d8",
+    "#f4f4f5",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f3",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#d7d7d9",
+    "#f4f4f5",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#dbdbdd",
+    "#0b0b0b",
+    "#cfcfd1",
+    "#ccccce",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#f2f2f4",
+    "#eaeaec",
+    "#d7d7d9",
+    "#b7b7b9",
+    "#060606",
+    "#f2f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f2f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#d8d7d9",
+    "#f5f4f6",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4",
+    "#f3f3f4"
+   ]
+  }
+ ]
+}
