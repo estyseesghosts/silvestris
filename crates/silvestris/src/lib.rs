@@ -30,3 +30,5 @@ pub mod sidebar;
 pub mod command;
 
 pub mod menu;
+
+pub mod shell;

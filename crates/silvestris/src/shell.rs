@@ -1,0 +1,679 @@
+//! Measured application shell (#130-#132; handbook 13).
+//! GPUI container_query supplies the actual allocated logical size before
+//! child layout, so overlay presentation never changes workspace geometry.
+use crate::{
+    controls::{Button, ButtonStyle, ControlSize},
+    convert::hsla,
+    sidebar::Sidebar,
+    ActiveTheme,
+};
+use gpui::{
+    container_query, div, prelude::*, px, AnyElement, App, ElementId, FocusHandle, MouseButton,
+    Pixels, Window,
+};
+use silvestris_core::layout::{
+    self, InspectorPreference, PlanInput, Presentation, ShellGeometry, ShellPlan, SidebarPreference,
+};
+use std::{cell::Cell, rc::Rc};
+
+type InspectorHandler = Rc<dyn Fn(&InspectorPreference, &mut Window, &mut App)>;
+type SidebarHandler = Rc<dyn Fn(&SidebarPreference, &mut Window, &mut App)>;
+struct Runtime {
+    previous: Option<ShellPlan>,
+    inspector_focus: FocusHandle,
+    divider_focus: FocusHandle,
+    return_focus: Option<FocusHandle>,
+    drag_x: Rc<Cell<Pixels>>,
+}
+#[derive(Clone)]
+struct InspectorDrag {
+    owner: ElementId,
+    start_x: Rc<Cell<Pixels>>,
+    width: f32,
+    preference: InspectorPreference,
+}
+
+#[derive(IntoElement)]
+pub struct Shell {
+    id: ElementId,
+    sidebar: SidebarPreference,
+    inspector: InspectorPreference,
+    geometry: ShellGeometry,
+    sidebar_content: AnyElement,
+    sidebar_rail: AnyElement,
+    workspace: AnyElement,
+    inspector_content: Option<AnyElement>,
+    inspector_title: gpui::SharedString,
+    inspector_rail: Option<AnyElement>,
+    on_sidebar: Option<SidebarHandler>,
+    on_inspector: Option<InspectorHandler>,
+}
+impl Shell {
+    pub fn new(
+        id: impl Into<ElementId>,
+        sidebar: SidebarPreference,
+        inspector: InspectorPreference,
+        sidebar_content: impl IntoElement,
+        sidebar_rail: impl IntoElement,
+        workspace: impl IntoElement,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            sidebar,
+            inspector,
+            geometry: ShellGeometry::LOTUS_LEGACY,
+            sidebar_content: sidebar_content.into_any_element(),
+            sidebar_rail: sidebar_rail.into_any_element(),
+            workspace: workspace.into_any_element(),
+            inspector_content: None,
+            inspector_title: "Inspector".into(),
+            inspector_rail: None,
+            on_sidebar: None,
+            on_inspector: None,
+        }
+    }
+    pub fn geometry(mut self, geometry: ShellGeometry) -> Self {
+        self.geometry = geometry;
+        self
+    }
+    pub fn inspector(
+        mut self,
+        title: impl Into<gpui::SharedString>,
+        content: impl IntoElement,
+    ) -> Self {
+        self.inspector_title = title.into();
+        self.inspector_content = Some(content.into_any_element());
+        self
+    }
+    pub fn inspector_rail(mut self, content: impl IntoElement) -> Self {
+        self.inspector_rail = Some(content.into_any_element());
+        self
+    }
+    pub fn on_sidebar_change(
+        mut self,
+        f: impl Fn(&SidebarPreference, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_sidebar = Some(Rc::new(f));
+        self
+    }
+    pub fn on_inspector_change(
+        mut self,
+        f: impl Fn(&InspectorPreference, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_inspector = Some(Rc::new(f));
+        self
+    }
+}
+impl RenderOnce for Shell {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let runtime = window.use_keyed_state(self.id.clone(), cx, |_, cx| Runtime {
+            previous: None,
+            inspector_focus: cx.focus_handle(),
+            divider_focus: cx.focus_handle().tab_stop(true),
+            return_focus: None,
+            drag_x: Rc::new(Cell::new(px(0.))),
+        });
+        container_query(move |size, window, cx| {
+            let (plan, focus, divider_focus, start_x) = runtime.update(cx, |state, cx| {
+                let plan = layout::plan(PlanInput {
+                    viewport: size.width.as_f32(),
+                    geometry: self.geometry,
+                    sidebar: self.sidebar,
+                    inspector: self.inspector,
+                    rail_enabled: self.inspector_rail.is_some(),
+                    previous: state.previous.as_ref(),
+                });
+                let was_open = state
+                    .previous
+                    .is_some_and(|p| p.presentation != Presentation::Closed);
+                let is_open = plan.presentation != Presentation::Closed;
+                if is_open && !was_open {
+                    state.return_focus = window.focused(cx);
+                    window.focus(&state.inspector_focus, cx);
+                } else if was_open && !is_open && state.inspector_focus.contains_focused(window, cx)
+                {
+                    if let Some(target) = state.return_focus.take() {
+                        window.focus(&target, cx);
+                    } else {
+                        window.blur(cx);
+                    }
+                }
+                state.previous = Some(plan);
+                (
+                    plan,
+                    state.inspector_focus.clone(),
+                    state.divider_focus.clone(),
+                    state.drag_x.clone(),
+                )
+            });
+            let theme = cx.theme().clone();
+            let mut root = div()
+                .id(self.id.clone())
+                .relative()
+                .size_full()
+                .overflow_hidden()
+                .font_family(theme.type_.ui)
+                .text_size(px(theme.type_.size_regular))
+                .text_color(hsla(theme.colors.text))
+                .child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top_0()
+                        .bottom_0()
+                        .w(px(plan.sidebar.width))
+                        .child(
+                            Sidebar::new(
+                                "sidebar",
+                                self.sidebar,
+                                self.sidebar_content,
+                                self.sidebar_rail,
+                            )
+                            .geometry(self.geometry)
+                            .effective(plan.sidebar.width, plan.sidebar_expanded)
+                            .on_change({
+                                let callback = self.on_sidebar;
+                                move |p, w, cx| {
+                                    if let Some(f) = &callback {
+                                        f(p, w, cx);
+                                    }
+                                }
+                            }),
+                        ),
+                )
+                .child(
+                    div()
+                        .id("workspace")
+                        .debug_selector(|| "shell-workspace".into())
+                        .absolute()
+                        .left(px(plan.workspace.x))
+                        .top_0()
+                        .bottom_0()
+                        .w(px(plan.workspace.width))
+                        .overflow_hidden()
+                        .child(self.workspace),
+                );
+            let preference = self.inspector;
+            if plan.presentation == Presentation::Overlay {
+                let callback = self.on_inspector.clone();
+                let right_callback = callback.clone();
+                root = root.child(
+                    div()
+                        .id("inspector-shield")
+                        .absolute()
+                        .inset_0()
+                        .on_mouse_down(MouseButton::Left, move |_, w, cx| {
+                            cx.stop_propagation();
+                            if let Some(f) = &callback {
+                                f(
+                                    &InspectorPreference {
+                                        visible: false,
+                                        ..preference
+                                    },
+                                    w,
+                                    cx,
+                                );
+                            }
+                        })
+                        .on_mouse_down(MouseButton::Right, move |_, w, cx| {
+                            cx.stop_propagation();
+                            if let Some(f) = &right_callback {
+                                f(
+                                    &InspectorPreference {
+                                        visible: false,
+                                        ..preference
+                                    },
+                                    w,
+                                    cx,
+                                );
+                            }
+                        })
+                        .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_up(MouseButton::Right, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_move(|_, _, cx| cx.stop_propagation())
+                        .on_scroll(|_, _, cx| cx.stop_propagation()),
+                );
+            }
+            if let (Some(span), Some(rail)) = (plan.rail, self.inspector_rail) {
+                root = root.child(
+                    div()
+                        .id("inspector-rail")
+                        .debug_selector(|| "shell-inspector-rail".into())
+                        .absolute()
+                        .left(px(span.x))
+                        .top_0()
+                        .bottom_0()
+                        .w(px(span.width))
+                        .bg(hsla(theme.colors.sidebar))
+                        .child(rail),
+                );
+            }
+            if let Some(span) = plan.dock.or(plan.overlay) {
+                let pin = self.on_inspector.clone();
+                let close = self.on_inspector.clone();
+                let escape = self.on_inspector.clone();
+                let resize = self.on_inspector;
+                let key_resize = resize.clone();
+                let down_x = start_x.clone();
+                let owner = self.id.clone();
+                let geometry = self.geometry;
+                let drag = InspectorDrag {
+                    owner: owner.clone(),
+                    start_x,
+                    width: span.width,
+                    preference,
+                };
+                root = root.child(
+                    div()
+                        .id("inspector")
+                        .debug_selector(|| "shell-inspector".into())
+                        .role(gpui::Role::Group)
+                        .aria_label(self.inspector_title.clone())
+                        .absolute()
+                        .left(px(span.x))
+                        .top_0()
+                        .bottom_0()
+                        .w(px(span.width))
+                        .flex()
+                        .flex_col()
+                        .overflow_hidden()
+                        .track_focus(&focus)
+                        .key_context("SilvestrisInspector")
+                        .bg(hsla(theme.colors.window))
+                        .border_l_1()
+                        .border_color(hsla(theme.colors.divider))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_move(|_, _, cx| cx.stop_propagation())
+                        .on_scroll(|_, _, cx| cx.stop_propagation())
+                        .on_key_down(move |event, w, cx| {
+                            if event.keystroke.key == "escape"
+                                && plan.presentation == Presentation::Overlay
+                            {
+                                if let Some(f) = &escape {
+                                    f(
+                                        &InspectorPreference {
+                                            visible: false,
+                                            ..preference
+                                        },
+                                        w,
+                                        cx,
+                                    );
+                                }
+                            }
+                            cx.stop_propagation();
+                        })
+                        .child(
+                            div()
+                                .flex()
+                                .flex_none()
+                                .items_center()
+                                .gap(px(6.))
+                                .p(px(8.))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .child(self.inspector_title),
+                                )
+                                .child(
+                                    Button::new(
+                                        "pin",
+                                        if preference.pinned { "Unpin" } else { "Pin" },
+                                    )
+                                    .size(ControlSize::Small)
+                                    .style(ButtonStyle::Textured)
+                                    .on_click(
+                                        move |_, w, cx| {
+                                            if let Some(f) = &pin {
+                                                f(
+                                                    &InspectorPreference {
+                                                        pinned: !preference.pinned,
+                                                        ..preference
+                                                    },
+                                                    w,
+                                                    cx,
+                                                );
+                                            }
+                                        },
+                                    ),
+                                )
+                                .child(
+                                    Button::new("close", "Close")
+                                        .size(ControlSize::Small)
+                                        .style(ButtonStyle::Textured)
+                                        .on_click(move |_, w, cx| {
+                                            if let Some(f) = &close {
+                                                f(
+                                                    &InspectorPreference {
+                                                        visible: false,
+                                                        ..preference
+                                                    },
+                                                    w,
+                                                    cx,
+                                                );
+                                            }
+                                        }),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_h_0()
+                                .overflow_hidden()
+                                .children(self.inspector_content),
+                        )
+                        .child(
+                            div()
+                                .id("inspector-divider")
+                                .debug_selector(|| "inspector-divider".into())
+                                .role(gpui::Role::Splitter)
+                                .aria_label("Inspector width")
+                                .track_focus(&divider_focus)
+                                .absolute()
+                                .left_0()
+                                .top_0()
+                                .bottom_0()
+                                .w(px(theme.metrics.splitter_hot_zone.max(4.)))
+                                .cursor(gpui::CursorStyle::ResizeLeftRight)
+                                .on_mouse_down(MouseButton::Left, move |e, window, cx| {
+                                    down_x.set(e.position.x);
+                                    window.focus(&divider_focus, cx);
+                                    cx.stop_propagation();
+                                })
+                                .on_key_down(move |e, window, cx| {
+                                    if e.keystroke.modifiers.modified() {
+                                        return;
+                                    }
+                                    let width = match e.keystroke.key.as_str() {
+                                        "left" => preference.width + 10.,
+                                        "right" => preference.width - 10.,
+                                        "home" => geometry.inspector_min,
+                                        "end" => geometry.inspector_max,
+                                        _ => return,
+                                    }
+                                    .clamp(geometry.inspector_min, geometry.inspector_max);
+                                    cx.stop_propagation();
+                                    if let Some(f) = &key_resize {
+                                        f(
+                                            &InspectorPreference {
+                                                width,
+                                                ..preference
+                                            },
+                                            window,
+                                            cx,
+                                        );
+                                    }
+                                })
+                                .on_drag(drag, |_, _, _, cx| cx.new(|_| gpui::EmptyView))
+                                .on_drag_move::<InspectorDrag>(move |event, w, cx| {
+                                    let drag = event.drag(cx);
+                                    if drag.owner != owner
+                                        || event.event.pressed_button != Some(MouseButton::Left)
+                                    {
+                                        return;
+                                    }
+                                    let proposed = drag.width
+                                        - (event.event.position.x - drag.start_x.get()).as_f32();
+                                    let mut next = drag.preference;
+                                    match layout::drag(
+                                        layout::Divider::Inspector,
+                                        &geometry,
+                                        0.,
+                                        proposed,
+                                        0.,
+                                    ) {
+                                        Some(width) => next.width = width,
+                                        None => next.visible = false,
+                                    }
+                                    if let Some(f) = &resize {
+                                        f(&next, w, cx);
+                                    }
+                                    cx.stop_propagation();
+                                }),
+                        ),
+                );
+            }
+            root
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{point, size, Context, Modifiers, Render, TestAppContext, VisualTestContext};
+    struct Harness {
+        sidebar: SidebarPreference,
+        inspector: InspectorPreference,
+        focus: FocusHandle,
+        clicks: usize,
+    }
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .p(px(24.))
+                .track_focus(&self.focus)
+                .on_mouse_down(MouseButton::Left, cx.listener(|h, _, _, _| h.clicks += 1))
+                .child(
+                    Shell::new(
+                        "shell",
+                        self.sidebar,
+                        self.inspector,
+                        div().child("Sources"),
+                        div().child("S"),
+                        div().size_full().child("Guest workspace"),
+                    )
+                    .inspector("Details", div().child("Inspector properties"))
+                    .inspector_rail(div().child("I"))
+                    .on_sidebar_change(cx.listener(|h, pref, _, cx| {
+                        h.sidebar = *pref;
+                        cx.notify();
+                    }))
+                    .on_inspector_change(cx.listener(|h, pref, _, cx| {
+                        h.inspector = *pref;
+                        cx.notify();
+                    })),
+                )
+        }
+    }
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+    }
+    fn update(
+        h: &gpui::Entity<Harness>,
+        cx: &mut VisualTestContext,
+        inspector: InspectorPreference,
+    ) {
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.inspector = inspector;
+                cx.notify();
+            })
+        });
+        draw(cx);
+    }
+    const CLOSED: InspectorPreference = InspectorPreference {
+        visible: false,
+        pinned: false,
+        width: 420.,
+    };
+    #[test]
+    fn measured_overlay_preserves_workspace_and_pin_reserves_width_in_all_themes() {
+        for theme in crate::ThemeId::ALL {
+            let mut app = TestAppContext::single();
+            app.update(|cx| crate::theme::install(crate::ThemePreference::explicit(theme), cx));
+            let (h, cx) = app.add_window_view(|window, cx| {
+                let focus = cx.focus_handle();
+                window.focus(&focus, cx);
+                Harness {
+                    sidebar: SidebarPreference {
+                        expanded: true,
+                        width: 264.,
+                    },
+                    inspector: CLOSED,
+                    focus,
+                    clicks: 0,
+                }
+            });
+            cx.simulate_resize(size(px(1200.), px(600.)));
+            draw(cx);
+            let closed = cx.debug_bounds("shell-workspace").unwrap();
+            for scale in [1.25, 1.5, 2.] {
+                cx.simulate_scale_factor_change(scale);
+                draw(cx);
+                assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            }
+            // The planner uses the padded container width, not the 1200 px window.
+            assert_eq!(closed.size.width, px(1200. - 48. - 264. - 44.));
+            update(
+                &h,
+                cx,
+                InspectorPreference {
+                    visible: true,
+                    ..CLOSED
+                },
+            );
+            assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            assert!(cx.debug_bounds("shell-inspector").is_some());
+            update(
+                &h,
+                cx,
+                InspectorPreference {
+                    visible: true,
+                    pinned: true,
+                    ..CLOSED
+                },
+            );
+            assert_eq!(
+                cx.debug_bounds("shell-workspace").unwrap().size.width,
+                closed.size.width - px(420.)
+            );
+            update(
+                &h,
+                cx,
+                InspectorPreference {
+                    visible: true,
+                    ..CLOSED
+                },
+            );
+            assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            cx.simulate_keystrokes("escape");
+            draw(cx);
+            assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            cx.update(|window, cx| {
+                assert!(!h.read(cx).inspector.visible);
+                assert!(h.read(cx).focus.is_focused(window));
+            });
+        }
+    }
+    #[test]
+    fn narrow_pinned_inspector_demotes_without_changing_preference_and_outside_click_is_shielded() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|window, cx| {
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            Harness {
+                sidebar: SidebarPreference {
+                    expanded: true,
+                    width: 264.,
+                },
+                inspector: InspectorPreference {
+                    visible: true,
+                    pinned: true,
+                    ..CLOSED
+                },
+                focus,
+                clicks: 0,
+            }
+        });
+        cx.simulate_resize(size(px(1200.), px(600.)));
+        draw(cx);
+        let docked = cx.debug_bounds("shell-workspace").unwrap().size.width;
+        cx.simulate_resize(size(px(750.), px(600.)));
+        draw(cx);
+        cx.update(|_, cx| assert!(h.read(cx).inspector.pinned));
+        assert!(cx.debug_bounds("shell-inspector-rail").is_some());
+        cx.simulate_resize(size(px(1200.), px(600.)));
+        draw(cx);
+        assert_eq!(
+            cx.debug_bounds("shell-workspace").unwrap().size.width,
+            docked
+        );
+        update(
+            &h,
+            cx,
+            InspectorPreference {
+                visible: true,
+                ..CLOSED
+            },
+        );
+        let workspace = cx.debug_bounds("shell-workspace").unwrap();
+        cx.simulate_click(
+            point(workspace.left() + px(10.), workspace.center().y),
+            Modifiers::default(),
+        );
+        draw(cx);
+        cx.update(|_, cx| {
+            assert!(!h.read(cx).inspector.visible);
+            assert_eq!(h.read(cx).clicks, 0);
+        });
+    }
+    #[test]
+    fn inspector_resize_uses_leading_edge_and_retains_pin_flag() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|_, cx| Harness {
+            sidebar: SidebarPreference {
+                expanded: true,
+                width: 264.,
+            },
+            inspector: InspectorPreference {
+                visible: true,
+                pinned: true,
+                ..CLOSED
+            },
+            focus: cx.focus_handle(),
+            clicks: 0,
+        });
+        cx.simulate_resize(size(px(1400.), px(600.)));
+        draw(cx);
+        let start = cx.debug_bounds("inspector-divider").unwrap().center();
+        cx.simulate_mouse_down(start, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_move(
+            point(start.x - px(20.), start.y),
+            MouseButton::Left,
+            Modifiers::default(),
+        );
+        draw(cx);
+        cx.simulate_mouse_move(
+            point(start.x - px(60.), start.y),
+            MouseButton::Left,
+            Modifiers::default(),
+        );
+        draw(cx);
+        cx.simulate_mouse_up(
+            point(start.x - px(60.), start.y),
+            MouseButton::Left,
+            Modifiers::default(),
+        );
+        draw(cx);
+        cx.update(|_, cx| {
+            assert_eq!(h.read(cx).inspector.width, 480.);
+            assert!(h.read(cx).inspector.pinned);
+        });
+        cx.simulate_keystrokes("left");
+        draw(cx);
+        cx.update(|_, cx| assert_eq!(h.read(cx).inspector.width, 490.));
+        cx.simulate_keystrokes("home");
+        draw(cx);
+        cx.update(|_, cx| assert_eq!(h.read(cx).inspector.width, 300.));
+    }
+}
