@@ -7,10 +7,9 @@ use gpui::Window;
 /// tests (handbook 03: "capability flags … instead of compile-time lying").
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FrameCapabilities {
-    /// The OS rounds the window silhouette (Windows 11 DWM).
-    pub os_rounded_corners: bool,
-    /// The OS hairline border was turned off (Windows 11).
-    pub os_border_suppressed: bool,
+    /// DWM accepted the small corner preference. Actual rounding depends
+    /// on the compositor and the window state.
+    pub small_corners_requested: bool,
 }
 
 /// Apply native frame settings once the window exists.
@@ -42,55 +41,47 @@ mod imp {
     use windows::Win32::Graphics::Gdi::ScreenToClient;
     use windows::Win32::UI::HiDpi::GetDpiForWindow;
     use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
-    use windows::Win32::UI::WindowsAndMessaging::{GetCaretBlinkTime, GetClientRect, IsZoomed, HTBOTTOMRIGHT, HTCLIENT, WM_NCDESTROY, WM_NCHITTEST};
     use windows::Win32::Graphics::Dwm::{
-        DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL, DWM_WINDOW_CORNER_PREFERENCE,
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetCaretBlinkTime, GetClientRect, GetWindowLongPtrW, IsZoomed,
+        SetWindowLongPtrW, SetWindowPos, GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+        WM_NCDESTROY, WM_NCHITTEST, WS_CAPTION,
     };
 
-    /// Ask DWM for the small corner radius. Windows 11 rounds top-level
-    /// windows at 8 px by default and at 4 px for DWMWCP_ROUNDSMALL
-    /// (Microsoft Learn, "Apply rounded corners in desktop apps for Windows
-    /// 11"); 10.6 windows measure ~4 px (M: win.corner.top_left). DWM does
-    /// not round maximized or snapped windows, and the attribute fails on
-    /// Windows 10, which keeps square corners.
-    ///
-    /// Also removes the 1 px border Windows 11 draws around every window: it
-    /// covered the chrome's highlight row (`#37393c` measured over the
-    /// expected `#e2e2e2`, M: chrome.unified.active). DWMWA_COLOR_NONE
-    /// "suppresses the drawing of the window border" (Microsoft Learn,
-    /// DWMWINDOWATTRIBUTE).
     pub fn configure_frame(window: &gpui::Window) -> FrameCapabilities {
-        let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        let Some(hwnd) = hwnd(window) else {
             return FrameCapabilities::default();
         };
-        let RawWindowHandle::Win32(win32) = handle.as_raw() else {
-            return FrameCapabilities::default();
-        };
-        let hwnd = HWND(win32.hwnd.get() as *mut core::ffi::c_void);
-        let preference: DWM_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUNDSMALL;
-        // SAFETY: `hwnd` belongs to GPUI's live window; the attribute value is
-        // a 4-byte enum passed by pointer with its exact size.
+        // Microsoft Learn, "Apply rounded corners in desktop apps for Windows
+        // 11": DWM uses WS_CAPTION and WS_THICKFRAME to identify standard
+        // frames. GPUI's Normal window omits WS_CAPTION, but its transparent
+        // titlebar already handles WM_NCCALCSIZE and consumes the caption area.
+        // Preserve its resize/minimize flags and retain DWM's native outline.
+        // SAFETY: hwnd is GPUI's live window on its owning thread. The
+        // attribute pointer refers to a live value of the given size.
         let result = unsafe {
+            let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_CAPTION.0 as isize);
+            if let Err(error) = SetWindowPos(
+                hwnd, None, 0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            ) {
+                log::warn!("could not refresh the Windows frame: {error}");
+            }
+
+            let preference = DWMWCP_ROUNDSMALL;
             DwmSetWindowAttribute(
                 hwnd,
                 DWMWA_WINDOW_CORNER_PREFERENCE,
-                &preference as *const _ as *const core::ffi::c_void,
-                std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
-            )
-        };
-        let none: u32 = DWMWA_COLOR_NONE;
-        // SAFETY: as above; COLORREF-sized value.
-        let border = unsafe {
-            DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_BORDER_COLOR,
-                &none as *const _ as *const core::ffi::c_void,
-                std::mem::size_of::<u32>() as u32,
+                std::ptr::from_ref(&preference).cast(),
+                size_of_val(&preference) as u32,
             )
         };
         FrameCapabilities {
-            os_rounded_corners: result.is_ok(),
-            os_border_suppressed: border.is_ok(),
+            small_corners_requested: result.is_ok(),
         }
     }
 
