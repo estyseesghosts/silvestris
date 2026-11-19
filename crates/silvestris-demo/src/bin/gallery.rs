@@ -1,12 +1,21 @@
 //! Component catalog (#135). Keys 1-4 switch Aqua / Dark Aqua / Geist Light
 //! / Geist Dark while no text field is focused.
 
-use gpui::{actions, canvas, div, point, prelude::*, px, size, App, Bounds, Context, Entity, KeyBinding, Window};
+use gpui::{
+    actions, canvas, div, point, prelude::*, px, size, App, Bounds, Context, Entity, KeyBinding,
+    Window,
+};
 use silvestris::chrome::{open_window, window_options, WindowFrame};
-use silvestris::controls::{Button, ButtonStyle, ControlSize, Disclosure, SourceList, SourceListEvent, TextField, TextFieldEvent};
+use silvestris::controls::{
+    Button, ButtonStyle, ControlSize, Disclosure, SourceList, SourceListEvent, TextField,
+    TextFieldEvent,
+};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
-actions!(gallery, [AquaLight, AquaDark, GeistLight, GeistDark, FocusNext, FocusPrev]);
+actions!(
+    gallery,
+    [AquaLight, AquaDark, GeistLight, GeistDark, FocusNext, FocusPrev]
+);
 
 struct Gallery {
     source_list: Entity<SourceList>,
@@ -20,7 +29,10 @@ struct Gallery {
 
 impl Gallery {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let field = |label: &'static str, placeholder: &'static str, window: &mut Window, cx: &mut Context<Self>| {
+        let field = |label: &'static str,
+                     placeholder: &'static str,
+                     window: &mut Window,
+                     cx: &mut Context<Self>| {
             let f = cx.new(|cx| TextField::new(window, cx));
             f.update(cx, |f, cx| {
                 f.set_label(label, cx);
@@ -48,20 +60,77 @@ impl Gallery {
             f.set_text("Not editable", cx);
             f.set_disabled(true, window, cx);
         });
-        let mut collection = silvestris::core::source_list::SourceNode::new("collection", "Collection");
-        collection.children = (0..10000).map(|i| silvestris::core::source_list::SourceNode::new(
-            format!("item-{i}"), format!("Document {i}: a long title to exercise truncation")
-        )).collect();
-        let mut unavailable = silvestris::core::source_list::SourceNode::new("unavailable", "Unavailable");
+        let mut collection =
+            silvestris::core::source_list::SourceNode::new("collection", "Collection");
+        collection.icon = Some("folder".into());
+        collection.badge = Some("10000".into());
+        collection.children = (0..10000)
+            .map(|i| {
+                silvestris::core::source_list::SourceNode::new(
+                    format!("item-{i}"),
+                    format!("Document {i}: a long title to exercise truncation"),
+                )
+            })
+            .collect();
+        let mut unavailable =
+            silvestris::core::source_list::SourceNode::new("unavailable", "Unavailable");
         unavailable.disabled = true;
-        let source_list = cx.new(|cx| SourceList::new(vec![
-            collection, unavailable,
-            silvestris::core::source_list::SourceNode::new("archive", "Archive"),
-        ], cx).expect("unique gallery source IDs"));
+        let source_list = cx.new(|cx| {
+            SourceList::new(
+                vec![
+                    silvestris::core::source_list::SourceNode::section(
+                        "library",
+                        "Library",
+                        vec![collection, unavailable],
+                    ),
+                    silvestris::core::source_list::SourceNode::new("archive", "Archive"),
+                ],
+                cx,
+            )
+            .expect("unique gallery source IDs")
+        });
+        source_list.update(cx, |list, cx| {
+            list.set_icon_renderer(
+                |role, _, disabled, _, _| {
+                    let folder = role == "folder";
+                    // Original gallery-only vector fixture, not extracted Apple art.
+                    canvas(
+                        |_, _, _| (),
+                        move |b, _, window, _| {
+                            let c = if disabled {
+                                gpui::rgb(0x9a9a9a)
+                            } else if folder {
+                                gpui::rgb(0x58a9da)
+                            } else {
+                                gpui::rgb(0xf3f3f3)
+                            };
+                            let body = Bounds::new(
+                                point(b.origin.x + px(1.), b.origin.y + px(4.)),
+                                size(px(14.), px(10.)),
+                            );
+                            window.paint_quad(gpui::fill(body, c));
+                            if folder {
+                                window.paint_quad(gpui::fill(
+                                    Bounds::new(
+                                        point(b.origin.x + px(2.), b.origin.y + px(2.)),
+                                        size(px(6.), px(3.)),
+                                    ),
+                                    c,
+                                ));
+                            }
+                        },
+                    )
+                    .size_full()
+                    .into_any_element()
+                },
+                cx,
+            );
+        });
         cx.subscribe(&source_list, |g, _, event: &SourceListEvent, cx| {
             g.last_source = format!("{event:?}").into();
             cx.notify();
-        }).detach();
+        })
+        .detach();
         Gallery {
             source_list,
             last_source: "No source-list event".into(),
@@ -97,23 +166,53 @@ impl Render for Gallery {
             .gap(px(12.))
             .child(button("force-quit", "Force Quit").default_button(true))
             .child(button("cancel", "Cancel"))
-            .child(button("stop", "Stop").size(ControlSize::Small).min_width(86.))
-            .child(button("replace", "Replace").size(ControlSize::Small).min_width(86.))
+            .child(
+                button("stop", "Stop")
+                    .size(ControlSize::Small)
+                    .min_width(86.),
+            )
+            .child(
+                button("replace", "Replace")
+                    .size(ControlSize::Small)
+                    .min_width(86.),
+            )
             .child(button("mini", "Mini").size(ControlSize::Mini))
             .child(button("disabled", "Disabled").disabled(true))
             .child(button("textured", "Textured").style(ButtonStyle::Textured))
-            .child(div().text_size(px(theme.type_.size_small)).text_color(silvestris::convert::hsla(theme.colors.text_secondary))
-                .child(format!("last click: {}", self.last_click)));
-        let disclosure = div().flex().items_center().gap(px(6.))
-            .child(Disclosure::new("details", if self.details_expanded { "Hide details" } else { "Show details" })
+            .child(
+                div()
+                    .text_size(px(theme.type_.size_small))
+                    .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                    .child(format!("last click: {}", self.last_click)),
+            );
+        let disclosure = div()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .child(
+                Disclosure::new(
+                    "details",
+                    if self.details_expanded {
+                        "Hide details"
+                    } else {
+                        "Show details"
+                    },
+                )
                 .expanded(self.details_expanded)
                 .on_toggle(cx.listener(|g, expanded, _, cx| {
                     g.details_expanded = *expanded;
                     cx.notify();
-                })))
-            .child(if self.details_expanded { "Hide details" } else { "Show details" })
+                })),
+            )
+            .child(if self.details_expanded {
+                "Hide details"
+            } else {
+                "Show details"
+            })
             .child(Disclosure::new("disabled-details", "Unavailable details").disabled(true))
-            .when(self.details_expanded, |el| el.child("Additional information"));
+            .when(self.details_expanded, |el| {
+                el.child("Additional information")
+            });
         let small_text = px(theme.type_.size_small);
         let secondary = silvestris::convert::hsla(theme.colors.text_secondary);
         let fields = div()
@@ -121,8 +220,17 @@ impl Render for Gallery {
             .flex_row()
             .items_center()
             .gap(px(12.))
-            .children(self.fields.iter().map(|f| div().w(px(150.)).child(f.clone())))
-            .child(div().text_size(small_text).text_color(secondary).child(self.last_field.clone()));
+            .children(
+                self.fields
+                    .iter()
+                    .map(|f| div().w(px(150.)).child(f.clone())),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(self.last_field.clone()),
+            );
         div()
             .size_full()
             .key_context("Gallery")
@@ -138,35 +246,130 @@ impl Render for Gallery {
                     .toolbar(div(), theme.metrics.toolbar_height)
                     .bottom_bar(div())
                     .child(
-                        div().size_full().p(px(20.)).flex().flex_col().gap(px(20.)).child(buttons).child(fields).child(disclosure).child(div().text_size(small_text).child(self.last_source.clone())).child(div().flex().flex_1().min_h_0().gap(px(20.)).child(div().w(px(240.)).h_full().child(self.source_list.clone())).child(
-                            canvas(|_, _, _| (), |bounds, _, window, cx| {
-                                let t = cx.theme().clone();
-                                let m = &t.metrics;
-                                let o = bounds.origin;
-                                let at = |x: f32, y: f32, w: f32, h: f32| {
-                                    Bounds::new(point(o.x + px(x), o.y + px(y)), size(px(w), px(h)))
-                                };
-                                let c = &t.controls;
-                                paint::bevel(window, at(0., 0., 90., m.push_height), m.push_radius, &c.push.normal);
-                                paint::bevel(window, at(110., 0., 90., m.push_height), m.push_radius, &c.push_default);
-                                paint::bevel(window, at(220., 0., 90., m.push_height), m.push_radius, &c.push.disabled);
-                                paint::bevel(window, at(0., 40., 40., m.textured_height), m.textured_radius, &c.textured.normal);
-                                paint::bevel(window, at(50., 40., 40., m.textured_height), m.textured_radius, &c.textured.selected);
-                                paint::bevel(window, at(110., 40., 80., m.segment_height), m.push_radius, &c.segment.normal);
-                                paint::bevel(window, at(190., 40., 80., m.segment_height), m.push_radius, &c.segment.selected);
-                                paint::bevel(window, at(0., 80., m.checkbox_size, m.checkbox_size), m.checkbox_radius, &c.checkbox.normal);
-                                paint::bevel(window, at(30., 80., m.checkbox_size, m.checkbox_size), m.checkbox_radius, &c.checkbox.selected);
-                                let f = at(0., 120., 200., m.field_height);
-                                paint::field(window, f, 0.0, &c.field, true);
-                                let s = at(220., 120., 160., m.field_height);
-                                paint::field(window, s, m.field_height / 2.0, &c.search, true);
-                                paint::focus_ring(window, s, m.field_height / 2.0, t.colors.focus_ring, m.focus_ring);
-                                paint::selection(window, at(0., 170., 200., m.source_row_height), &t.lists.source_active);
-                                paint::selection(window, at(0., 200., 200., m.table_row_height), &t.lists.table_active);
-                                paint::selection(window, at(0., 230., 200., m.menu_item_height), &t.lists.menu);
-                            })
-                            .flex_1()),
-                        ),
+                        div()
+                            .size_full()
+                            .p(px(20.))
+                            .flex()
+                            .flex_col()
+                            .gap(px(20.))
+                            .child(buttons)
+                            .child(fields)
+                            .child(disclosure)
+                            .child(div().text_size(small_text).child(self.last_source.clone()))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_1()
+                                    .min_h_0()
+                                    .gap(px(20.))
+                                    .child(
+                                        div().w(px(240.)).h_full().child(self.source_list.clone()),
+                                    )
+                                    .child(
+                                        canvas(
+                                            |_, _, _| (),
+                                            |bounds, _, window, cx| {
+                                                let t = cx.theme().clone();
+                                                let m = &t.metrics;
+                                                let o = bounds.origin;
+                                                let at = |x: f32, y: f32, w: f32, h: f32| {
+                                                    Bounds::new(
+                                                        point(o.x + px(x), o.y + px(y)),
+                                                        size(px(w), px(h)),
+                                                    )
+                                                };
+                                                let c = &t.controls;
+                                                paint::bevel(
+                                                    window,
+                                                    at(0., 0., 90., m.push_height),
+                                                    m.push_radius,
+                                                    &c.push.normal,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(110., 0., 90., m.push_height),
+                                                    m.push_radius,
+                                                    &c.push_default,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(220., 0., 90., m.push_height),
+                                                    m.push_radius,
+                                                    &c.push.disabled,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(0., 40., 40., m.textured_height),
+                                                    m.textured_radius,
+                                                    &c.textured.normal,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(50., 40., 40., m.textured_height),
+                                                    m.textured_radius,
+                                                    &c.textured.selected,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(110., 40., 80., m.segment_height),
+                                                    m.push_radius,
+                                                    &c.segment.normal,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(190., 40., 80., m.segment_height),
+                                                    m.push_radius,
+                                                    &c.segment.selected,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(0., 80., m.checkbox_size, m.checkbox_size),
+                                                    m.checkbox_radius,
+                                                    &c.checkbox.normal,
+                                                );
+                                                paint::bevel(
+                                                    window,
+                                                    at(30., 80., m.checkbox_size, m.checkbox_size),
+                                                    m.checkbox_radius,
+                                                    &c.checkbox.selected,
+                                                );
+                                                let f = at(0., 120., 200., m.field_height);
+                                                paint::field(window, f, 0.0, &c.field, true);
+                                                let s = at(220., 120., 160., m.field_height);
+                                                paint::field(
+                                                    window,
+                                                    s,
+                                                    m.field_height / 2.0,
+                                                    &c.search,
+                                                    true,
+                                                );
+                                                paint::focus_ring(
+                                                    window,
+                                                    s,
+                                                    m.field_height / 2.0,
+                                                    t.colors.focus_ring,
+                                                    m.focus_ring,
+                                                );
+                                                paint::selection(
+                                                    window,
+                                                    at(0., 170., 200., m.source_row_height),
+                                                    &t.lists.source_active,
+                                                );
+                                                paint::selection(
+                                                    window,
+                                                    at(0., 200., 200., m.table_row_height),
+                                                    &t.lists.table_active,
+                                                );
+                                                paint::selection(
+                                                    window,
+                                                    at(0., 230., 200., m.menu_item_height),
+                                                    &t.lists.menu,
+                                                );
+                                            },
+                                        )
+                                        .flex_1(),
+                                    ),
+                            ),
                     ),
             )
     }
@@ -213,6 +416,3 @@ fn main() {
         cx.activate(true);
     });
 }
-
-
-

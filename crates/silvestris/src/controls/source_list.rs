@@ -8,6 +8,9 @@ use gpui::{
     MouseButton, Render, ScrollStrategy, UniformListScrollHandle, Window,
 };
 use silvestris_core::source_list::{Navigation, SourceNode, SourceTree};
+use std::rc::Rc;
+
+type IconRenderer = Rc<dyn Fn(&str, bool, bool, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SourceListEvent {
@@ -19,6 +22,7 @@ pub struct SourceList {
     tree: SourceTree,
     focus: FocusHandle,
     scroll: UniformListScrollHandle,
+    icons: Option<IconRenderer>,
 }
 
 impl EventEmitter<SourceListEvent> for SourceList {}
@@ -36,11 +40,24 @@ impl SourceList {
             tree,
             focus: cx.focus_handle().tab_stop(true),
             scroll: UniformListScrollHandle::new(),
+            icons: None,
         })
     }
 
     pub fn state(&self) -> &SourceTree {
         &self.tree
+    }
+
+    /// Resolves semantic icon roles to original multicolour art. Called only
+    /// for visible rows; the renderer owns asset caching. Booleans are selected
+    /// and disabled. Unresolved roles retain an empty alignment slot.
+    pub fn set_icon_renderer(
+        &mut self,
+        render: impl Fn(&str, bool, bool, &mut Window, &mut gpui::App) -> gpui::AnyElement + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.icons = Some(Rc::new(render));
+        cx.notify();
     }
 
     /// Model synchronization does not invoke consumer selection handlers.
@@ -116,10 +133,28 @@ impl Render for SourceList {
         // Share cached rows across repaints; row elements only for viewport.
         let rows = self.tree.rows_snapshot();
         let view = cx.entity();
-        let list = uniform_list("rows", rows.len(), move |range, _, _| {
+        let icons = self.icons.clone();
+        let list = uniform_list("rows", rows.len(), move |range, window, cx| {
             range
                 .map(|i| {
                     let row = &rows[i];
+                    if row.section {
+                        return div()
+                            .id(gpui::SharedString::from(row.id.clone()))
+                            .role(gpui::Role::Heading)
+                            .aria_label(row.label.clone())
+                            .flex()
+                            .items_center()
+                            .w_full()
+                            .h(px(theme.metrics.source_row_height))
+                            .pl(px(10.))
+                            .font_family(theme.type_.ui)
+                            .font_weight(gpui::FontWeight::BOLD)
+                            .text_size(px(theme.type_.size_heading))
+                            .text_color(hsla(theme.colors.sidebar_heading))
+                            .child(div().min_w_0().truncate().child(row.label.to_uppercase()))
+                            .into_any_element();
+                    }
                     let is_selected = selected.as_deref() == Some(row.id.as_str());
                     let selection = if active {
                         theme.lists.source_active
@@ -198,7 +233,29 @@ impl Render for SourceList {
                                         .size(px(theme.metrics.disclosure_size))
                                         .into_any_element()
                                 })
-                                .child(div().min_w_0().truncate().child(row.label.clone())),
+                                .when(icons.is_some(), |el| {
+                                    el.child(div().flex_none().size(px(16.)).when_some(
+                                        row.icon.as_ref(),
+                                        |el, role| {
+                                            el.child(icons.as_ref().unwrap()(
+                                                role,
+                                                is_selected,
+                                                row.disabled,
+                                                window,
+                                                cx,
+                                            ))
+                                        },
+                                    ))
+                                })
+                                .child(div().flex_1().min_w_0().truncate().child(row.label.clone()))
+                                .when_some(row.badge.as_ref(), |el, badge| {
+                                    el.child(
+                                        div()
+                                            .flex_none()
+                                            .text_size(px(theme.type_.size_small))
+                                            .child(badge.clone()),
+                                    )
+                                }),
                         )
                         .when(!row.disabled, |el| {
                             el.on_click(move |_, window, cx| {

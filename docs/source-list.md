@@ -8,7 +8,8 @@ sidebar tokens cite measurements.json (10.6 Finder). Disclosure direction and
 13 px bounds follow hig-09/03-aqua-interface/controls.md, HIG pp. 329-331.
 Triangle inset geometry is estimated; docs/exceptions.md records the variance.
 
-SourceNode has stable string ID, label, disabled state and children.
+SourceNode has stable string ID, label, disabled state, section flag, optional
+icon role and badge, and children.
 SourceTree::replace atomically rejects duplicate IDs, retains expansion and
 selection by identity and removes selection if its node disappears or becomes
 disabled. Expansion never selects. Hidden selection survives collapse; the
@@ -39,8 +40,8 @@ an archive item. Event text distinguishes selection from disclosure.
 - Four variants use sidebar, source_active/source_inactive and typography
   tokens. Active selection requires window activity and tree focus.
   No per-theme behavioral branch exists.
-- Text editing, IME, clipboard, command dispatch, context menus, badges,
-  coloured icons, section headings, drag/reorder, custom scrollbar and footer
+- Text editing, IME, clipboard, command dispatch, context menus,
+  final coloured icon artwork, drag/reorder, custom scrollbar and footer
   remain required for the full source-list milestone where applicable.
 
 Verification: source_list unit tests cover navigation, disclosure isolation,
@@ -54,3 +55,19 @@ named gallery-source-list executable was linked for later inspection.
 
 Pinned GPUI: 6b720973027999bae402df23d469026f4cced988,
 uniform_list.rs and div.rs. No new artwork or font files are distributed.
+
+Section and icon extension: SourceNode::section creates a nonselectable,
+always-open heading; its children start at the regular row indentation.
+Navigation skips headings and disabled items, including parent traversal.
+Labels are displayed uppercase with the heading typography/colour tokens.
+The 10 px heading inset, 16 px icon slot and existing 4/6 px row padding
+are estimates pending visual review. Equal row heights preserve virtualization.
+
+Optional icon and badge strings are presentation descriptors. The icon role
+is resolved through SourceList::set_icon_renderer for visible rows only;
+the consumer owns loading and caching. The callback receives selected and
+disabled states. With a renderer installed, rows without an icon keep an empty
+slot. Badges are trailing, noninteractive text; consumers should keep them
+short. The gallery's blue folder is an original geometric fixture, not final
+period-faithful icon artwork. Section/icon-slot unit coverage is in
+source_list::tests::sections_are_open_but_never_selected_or_collapsed.

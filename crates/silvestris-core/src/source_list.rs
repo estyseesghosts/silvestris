@@ -9,6 +9,11 @@ pub struct SourceNode {
     pub id: String,
     pub label: String,
     pub disabled: bool,
+    /// Nonselectable, always-open section heading (handbook 13).
+    pub section: bool,
+    /// Semantic icon role resolved by the consumer's icon renderer.
+    pub icon: Option<String>,
+    pub badge: Option<String>,
     pub children: Vec<SourceNode>,
 }
 
@@ -18,7 +23,18 @@ impl SourceNode {
             id: id.into(),
             label: label.into(),
             disabled: false,
+            section: false,
+            icon: None,
+            badge: None,
             children: Vec::new(),
+        }
+    }
+
+    pub fn section(id: impl Into<String>, label: impl Into<String>, children: Vec<Self>) -> Self {
+        Self {
+            section: true,
+            children,
+            ..Self::new(id, label)
         }
     }
 }
@@ -32,6 +48,15 @@ pub struct SourceRow {
     pub disabled: bool,
     pub branch: bool,
     pub expanded: bool,
+    pub section: bool,
+    pub icon: Option<String>,
+    pub badge: Option<String>,
+}
+
+impl SourceRow {
+    pub fn selectable(&self) -> bool {
+        !self.disabled && !self.section
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -63,7 +88,10 @@ impl SourceTree {
         ) -> Result<(), String> {
             for n in nodes {
                 if out
-                    .insert(n.id.clone(), (n.disabled, !n.children.is_empty()))
+                    .insert(
+                        n.id.clone(),
+                        (n.disabled || n.section, !n.children.is_empty()),
+                    )
                     .is_some()
                 {
                     return Err(format!("duplicate source-list ID: {}", n.id));
@@ -136,7 +164,7 @@ impl SourceTree {
             .rows
             .iter()
             .enumerate()
-            .filter_map(|(i, r)| (!r.disabled).then_some(i))
+            .filter_map(|(i, r)| r.selectable().then_some(i))
             .collect();
         let target = match direction {
             Navigation::Home => selectable.first().copied(),
@@ -162,7 +190,7 @@ impl SourceTree {
                         .enumerate()
                         .skip(i + 1)
                         .take_while(|(_, r)| r.depth > row.depth)
-                        .find(|(_, r)| !r.disabled)
+                        .find(|(_, r)| r.selectable())
                         .map(|(i, _)| i)
                 } else {
                     selectable.first().copied()
@@ -181,7 +209,7 @@ impl SourceTree {
                         let Some(i) = self.rows.iter().position(|r| r.id == id) else {
                             break;
                         };
-                        if !self.rows[i].disabled {
+                        if self.rows[i].selectable() {
                             target = Some(i);
                             break;
                         }
@@ -207,7 +235,7 @@ impl SourceTree {
             rows: &mut Vec<SourceRow>,
         ) {
             for n in nodes {
-                let open = !n.children.is_empty() && expanded.contains(&n.id);
+                let open = !n.children.is_empty() && (n.section || expanded.contains(&n.id));
                 rows.push(SourceRow {
                     id: n.id.clone(),
                     label: n.label.clone(),
@@ -216,9 +244,18 @@ impl SourceTree {
                     disabled: n.disabled,
                     branch: !n.children.is_empty(),
                     expanded: open,
+                    section: n.section,
+                    icon: n.icon.clone(),
+                    badge: n.badge.clone(),
                 });
                 if open {
-                    visit(&n.children, depth + 1, Some(&n.id), expanded, rows);
+                    visit(
+                        &n.children,
+                        depth + usize::from(!n.section),
+                        Some(&n.id),
+                        expanded,
+                        rows,
+                    );
                 }
             }
         }
@@ -328,6 +365,35 @@ mod tests {
         assert_eq!(snapshot.len(), 3);
         assert_eq!(t.rows().len(), 5);
         assert!(!Arc::ptr_eq(&snapshot, &t.rows_snapshot()));
+    }
+    #[test]
+    fn sections_are_open_but_never_selected_or_collapsed() {
+        let mut a = SourceNode::new("a", "Alpha");
+        a.icon = Some("document".into());
+        a.badge = Some("3".into());
+        let mut t = SourceTree::default();
+        t.replace(vec![SourceNode::section(
+            "group",
+            "Documents",
+            vec![a, SourceNode::new("b", "Beta")],
+        )])
+        .unwrap();
+        assert_eq!(t.rows().len(), 3);
+        assert!(!t.select("group"));
+        assert!(!t.expand("group", false));
+        assert_eq!(t.rows()[1].depth, 0);
+        assert_eq!(t.rows()[1].icon.as_deref(), Some("document"));
+        assert_eq!(t.rows()[1].badge.as_deref(), Some("3"));
+        t.navigate(Navigation::Home);
+        assert_eq!(t.selected(), Some("a"));
+        t.navigate(Navigation::Left);
+        assert_eq!(t.selected(), Some("a"));
+        t.navigate(Navigation::End);
+        assert_eq!(t.selected(), Some("b"));
+        let mut node = SourceNode::new("b", "Now a heading");
+        node.section = true;
+        t.replace(vec![node]).unwrap();
+        assert_eq!(t.selected(), None);
     }
     #[test]
     fn thousands_of_rows_keep_visible_order() {
