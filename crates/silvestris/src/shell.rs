@@ -316,6 +316,7 @@ impl RenderOnce for Shell {
                 let owner = self.id.clone();
                 let geometry = self.geometry;
                 let pointer_focus = focus.clone();
+                let keyboard_focus = focus.clone();
                 let inspector_key = self.inspector_key;
                 let drag = InspectorDrag {
                     owner: owner.clone(),
@@ -356,6 +357,27 @@ impl RenderOnce for Shell {
                             if inspector_key.as_ref().is_some_and(|f| f(event, w, cx)) {
                                 cx.stop_propagation();
                                 return;
+                            }
+                            if event.keystroke.key == "tab" {
+                                let mut first = None;
+                                loop {
+                                    if event.keystroke.modifiers.shift {
+                                        w.focus_prev(cx);
+                                    } else {
+                                        w.focus_next(cx);
+                                    }
+                                    if plan.presentation != Presentation::Overlay
+                                        || keyboard_focus.contains_focused(w, cx)
+                                    {
+                                        break;
+                                    }
+                                    let current = w.focused(cx);
+                                    if first.as_ref() == Some(&current) {
+                                        w.focus(&keyboard_focus, cx);
+                                        break;
+                                    }
+                                    first.get_or_insert(current);
+                                }
                             }
                             if event.keystroke.key == "escape"
                                 && plan.presentation == Presentation::Overlay
@@ -715,6 +737,20 @@ mod tests {
                 },
             );
             assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            let before_tab = cx.update(|w, cx| w.focused(cx));
+            cx.simulate_keystrokes("tab");
+            draw(cx);
+            let first_tab = cx.update(|w, cx| w.focused(cx));
+            assert_ne!(first_tab, before_tab, "Tab reaches inspector controls");
+            for _ in 0..3 {
+                cx.simulate_keystrokes("tab");
+                draw(cx);
+            }
+            assert_eq!(
+                cx.update(|w, cx| w.focused(cx)),
+                first_tab,
+                "overlay cycles Pin, Close and divider only"
+            );
             // A guest can take focus while a dock/overlay stays visible. Clicking
             // its empty content must restore inspector focus before typing.
             cx.update(|window, cx| {

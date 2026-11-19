@@ -26,6 +26,8 @@ not on the consumer's workspace tile count.
 Header Pin/Unpin and Close call on_inspector_change. Escape dismisses only an
 overlay. A transparent shield consumes outside clicks while the overlay is
 open; the rail remains above the shield so its actions stay usable.
+Tab/Shift+Tab traverse inspector controls; overlay traversal skips responders
+outside the inspector, while a docked inspector permits normal window traversal.
 Inspector children handle their own events first; remaining pointer/keyboard
 events are consumed before reaching a workspace responder. Applications
 still own guest-HID release, session/epoch validation and focus-scope policy.
