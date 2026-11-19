@@ -33,6 +33,7 @@ struct Gallery {
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
     last_field: gpui::SharedString,
+    combo: Entity<TextField>,
     radio: usize,
     progress: f32,
 }
@@ -73,6 +74,7 @@ impl Gallery {
         });
         let search = field("Search", "Search", window, cx);
         search.update(cx, |field, cx| field.set_search(true, cx));
+        let combo = field("Location", "Location", window, cx);
         let mut collection =
             silvestris::core::source_list::SourceNode::new("collection", "Collection");
         collection.icon = Some("folder".into());
@@ -223,6 +225,7 @@ impl Gallery {
             checks: [CheckState::Off, CheckState::On, CheckState::Mixed],
             last_click: "none".into(),
             fields: vec![name, password, small, disabled, search],
+            combo,
             radio: 0,
             progress: 0.42,
             last_field: "none".into(),
@@ -423,6 +426,10 @@ impl Render for Gallery {
                                         g.radio = *selected;
                                         cx.notify();
                                     })))
+                                    .child(div().w(px(180.)).child(silvestris::controls::ComboBox::new(
+                                        "locations", "Location", self.combo.clone(),
+                                        vec!["Home".into(), "Documents".into(), "Desktop".into()],
+                                    )))
                                     .child(div().w(px(180.)).flex().flex_col().gap(px(8.0))
                                         .child(Slider::new("export-progress", "Progress preview", self.progress)
                                             .on_change(cx.listener(|g, value, _, cx| { g.progress = *value; cx.notify(); })))

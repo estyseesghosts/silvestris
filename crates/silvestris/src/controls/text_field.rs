@@ -211,6 +211,14 @@ impl TextField {
         cx.notify();
     }
 
+    pub(super) fn replace_from_control(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_text(text, cx);
+        if self.focus.is_focused(window) {
+            self.restart_blink(window, cx);
+        }
+        cx.emit(TextFieldEvent::Changed);
+    }
+
     pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.placeholder = placeholder.into();
         cx.notify();
@@ -218,13 +226,18 @@ impl TextField {
 
     /// Accessible name (the field's label text).
     pub fn set_label(&mut self, label: impl Into<SharedString>, cx: &mut Context<Self>) {
-        self.label = label.into();
-        cx.notify();
+        let label = label.into();
+        if self.label != label {
+            self.label = label;
+            cx.notify();
+        }
     }
 
     pub fn set_size(&mut self, size: ControlSize, cx: &mut Context<Self>) {
-        self.size = size;
-        cx.notify();
+        if self.size != size {
+            self.size = size;
+            cx.notify();
+        }
     }
 
     /// Secure entry: bullets on screen, no copy or cut.
@@ -251,6 +264,9 @@ impl TextField {
     }
 
     pub fn set_disabled(&mut self, disabled: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.disabled == disabled {
+            return;
+        }
         self.disabled = disabled;
         if disabled && self.focus.is_focused(window) {
             window.blur(cx);

@@ -81,6 +81,7 @@ pub struct Button {
     icon: Option<Icon>,
     tooltip: Option<SharedString>,
     destructive: bool,
+    focus: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
 }
 
@@ -98,6 +99,7 @@ impl Button {
             icon: None,
             tooltip: None,
             destructive: false,
+            focus: None,
             on_click: None,
         }
     }
@@ -153,6 +155,12 @@ impl Button {
         self
     }
 
+    /// Supply a responder handle when a parent owns focus order.
+    pub fn focus_handle(mut self, focus: FocusHandle) -> Self {
+        self.focus = Some(focus);
+        self
+    }
+
     pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(f));
         self
@@ -182,7 +190,15 @@ impl RenderOnce for Button {
                 m.textured_height,
                 m.textured_radius,
             ),
-            ButtonStyle::Gradient => (&theme.controls.gradient, 21.0, 0.0),
+            ButtonStyle::Gradient => (
+                &theme.controls.gradient,
+                match self.size {
+                    ControlSize::Regular => 21.0,
+                    ControlSize::Small => 19.0,
+                    ControlSize::Mini => 17.0,
+                },
+                0.0,
+            ),
         };
         let base: Bevel = if self.disabled {
             states.disabled
@@ -194,13 +210,10 @@ impl RenderOnce for Button {
             states.normal
         };
         let pressed = states.pressed;
-        let focus: FocusHandle = window
-            // Handles default to tab_stop(false) (gpui window.rs FocusHandle).
-            .use_keyed_state(self.id.clone(), cx, |_, cx| {
-                cx.focus_handle().tab_stop(true)
-            })
-            .read(cx)
-            .clone();
+        let focus = self.focus.unwrap_or_else(|| {
+            window.use_keyed_state(self.id.clone(), cx, |_, cx| cx.focus_handle().tab_stop(true))
+                .read(cx).clone()
+        });
         let ring_focus = focus.clone();
         let pointer_focus = focus.clone();
         let ring_color = theme.colors.focus_ring;

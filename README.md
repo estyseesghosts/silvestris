@@ -71,3 +71,9 @@ The complete control suite, native menu integration, final art, visual/DPI
 baselines, persisted consumer integration, release licensing/packaging and
 Lotus migration are not complete. Framework demos default to Aqua Light;
 Lotus must retain Geist Dark until its separate migration/cutover acceptance.
+
+
+The control catalog also exposes an editable combo box and compact status
+values. `Notice` and `notice::error_banner` provide shared workspace empty and
+error states. `menu::native_menus` projects the command model into GPUI native
+macOS menus, while other platforms can mount the same entries in `PopupMenu`.

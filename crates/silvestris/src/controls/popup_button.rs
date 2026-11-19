@@ -46,6 +46,7 @@ pub struct PopUpButton {
     disabled: bool,
     size: ControlSize,
     min_width: f32,
+    arrow_only: bool,
     on_choose: Option<ChooseFn>,
 }
 
@@ -60,6 +61,7 @@ impl PopUpButton {
             disabled: false,
             size: ControlSize::Small,
             min_width: 0.0,
+            arrow_only: false,
             on_choose: None,
         }
     }
@@ -79,6 +81,11 @@ impl PopUpButton {
         self.min_width = width;
         self
     }
+    pub(super) fn arrow_only(mut self) -> Self {
+        self.arrow_only = true;
+        self
+    }
+
     pub fn on_choose(mut self, f: impl Fn(&usize, &mut Window, &mut App) + 'static) -> Self {
         self.on_choose = Some(Rc::new(f));
         self
@@ -146,9 +153,9 @@ impl RenderOnce for PopUpButton {
             .flex_none()
             .items_center()
             .h(px(height))
-            .min_w(px(self.min_width.max(CAP + 24.0)))
-            .pl(px(8.0))
-            .pr(px(CAP + 6.0))
+            .when(self.arrow_only, |el| el.w(px(CAP + 2.0)))
+            .when(!self.arrow_only, |el| el.min_w(px(self.min_width.max(CAP + 24.0)))
+                .pl(px(8.0)).pr(px(CAP + 6.0)))
             .text_size(px(text_size))
             .text_color(hsla(body.text))
             .child(
@@ -174,7 +181,7 @@ impl RenderOnce for PopUpButton {
                 .absolute()
                 .inset_0(),
             )
-            .child(div().relative().truncate().child(shown))
+            .when(!self.arrow_only, |el| el.child(div().relative().truncate().child(shown)))
             .child(
                 // Up/down arrow pair (U+25B4/U+25BE small triangles).
                 div()

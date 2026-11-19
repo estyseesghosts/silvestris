@@ -26,6 +26,13 @@ pub fn set_resize_grip(window: &Window, size: f32) {
     imp::set_resize_grip(window, size)
 }
 
+/// Use the native restore command for a maximized Windows window.
+pub fn zoom_window(window: &Window) {
+    if !imp::restore_zoomed(window) {
+        window.zoom_window();
+    }
+}
+
 /// Caret blink half-period, or `None` when the user turned blinking off.
 /// Windows: GetCaretBlinkTime, which returns INFINITE when blinking is off
 /// (Microsoft Learn, GetCaretBlinkTime). designed: 500 ms elsewhere.
@@ -46,9 +53,9 @@ mod imp {
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetCaretBlinkTime, GetClientRect, GetWindowLongPtrW, IsZoomed,
-        SetWindowLongPtrW, SetWindowPos, GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT,
+        SetWindowLongPtrW, SetWindowPos, ShowWindowAsync, GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT,
         SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-        WM_NCDESTROY, WM_NCHITTEST, WS_CAPTION,
+        SW_RESTORE, WM_NCDESTROY, WM_NCHITTEST, WS_CAPTION,
     };
 
     pub fn configure_frame(window: &gpui::Window) -> FrameCapabilities {
@@ -89,6 +96,17 @@ mod imp {
         let handle = HasWindowHandle::window_handle(window).ok()?;
         let RawWindowHandle::Win32(win32) = handle.as_raw() else { return None };
         Some(HWND(win32.hwnd.get() as *mut core::ffi::c_void))
+    }
+
+    pub fn restore_zoomed(window: &gpui::Window) -> bool {
+        let Some(hwnd) = hwnd(window) else { return false };
+        // SAFETY: HWND belongs to the live GPUI window.
+        unsafe {
+            if !IsZoomed(hwnd).as_bool() {
+                return false;
+            }
+            ShowWindowAsync(hwnd, SW_RESTORE).as_bool()
+        }
     }
 
     /// Subclass id for the grip hook (any value unique to this callback).
@@ -159,6 +177,10 @@ mod imp {
     /// (chrome.rs); macOS is not a target yet (handbook 08).
     pub fn configure_frame(_window: &gpui::Window) -> FrameCapabilities {
         FrameCapabilities::default()
+    }
+
+    pub fn restore_zoomed(_window: &gpui::Window) -> bool {
+        false
     }
 
     pub fn set_resize_grip(_window: &gpui::Window, _size: f32) {}
