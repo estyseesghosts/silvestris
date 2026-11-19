@@ -1,7 +1,7 @@
 # Source list v0.1 work in progress
 
 Implements the generic tree and virtualized row portion of #128/#130.
-The persistent rail, resize splitter and Lotus adapter remain separate work.
+The persistent rail and resize splitter are in sidebar.md; the Lotus adapter remains separate work.
 
 Reference: aqua-gpui handbook 09, section C, and handbook 13; selection and
 sidebar tokens cite measurements.json (10.6 Finder). Disclosure direction and

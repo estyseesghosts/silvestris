@@ -18,6 +18,7 @@ actions!(
 );
 
 struct Gallery {
+    sidebar: silvestris::core::layout::SidebarPreference,
     source_list: Entity<SourceList>,
     last_source: gpui::SharedString,
     details_expanded: bool,
@@ -132,6 +133,10 @@ impl Gallery {
         })
         .detach();
         Gallery {
+            sidebar: silvestris::core::layout::SidebarPreference {
+                expanded: true,
+                width: 240.,
+            },
             source_list,
             last_source: "No source-list event".into(),
             details_expanded: false,
@@ -263,7 +268,65 @@ impl Render for Gallery {
                                     .min_h_0()
                                     .gap(px(20.))
                                     .child(
-                                        div().w(px(240.)).h_full().child(self.source_list.clone()),
+                                        silvestris::sidebar::Sidebar::new(
+                                            "catalog-sidebar",
+                                            self.sidebar,
+                                            self.source_list.clone(),
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .items_center()
+                                                .gap(px(8.))
+                                                .pt(px(8.))
+                                                .child(
+                                                    Button::new("rail-docs", "Docs")
+                                                        .size(ControlSize::Mini)
+                                                        .on_click(cx.listener(|g, _, _, cx| {
+                                                            g.source_list.update(cx, |list, cx| {
+                                                                list.select("collection", cx)
+                                                            });
+                                                            g.last_source =
+                                                                "Collection selected from rail"
+                                                                    .into();
+                                                            cx.notify();
+                                                        })),
+                                                )
+                                                .child(
+                                                    Button::new("rail-archive", "Arc")
+                                                        .size(ControlSize::Mini)
+                                                        .on_click(cx.listener(|g, _, _, cx| {
+                                                            g.source_list.update(cx, |list, cx| {
+                                                                list.select("archive", cx)
+                                                            });
+                                                            g.last_source =
+                                                                "Archive selected from rail".into();
+                                                            cx.notify();
+                                                        })),
+                                                ),
+                                        )
+                                        .footer(
+                                            Button::new(
+                                                "toggle-sidebar",
+                                                if self.sidebar.expanded {
+                                                    "Hide"
+                                                } else {
+                                                    "Show"
+                                                },
+                                            )
+                                            .size(ControlSize::Mini)
+                                            .on_click(
+                                                cx.listener(|g, _, _, cx| {
+                                                    g.sidebar.expanded = !g.sidebar.expanded;
+                                                    cx.notify();
+                                                }),
+                                            ),
+                                        )
+                                        .on_change(
+                                            cx.listener(|g, preference, _, cx| {
+                                                g.sidebar = *preference;
+                                                cx.notify();
+                                            }),
+                                        ),
                                     )
                                     .child(
                                         canvas(

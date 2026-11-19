@@ -24,3 +24,5 @@ pub fn init(preference: ThemePreference, cx: &mut gpui::App) -> anyhow::Result<(
     controls::text_field::bind_keys(cx);
     Ok(())
 }
+
+pub mod sidebar;
