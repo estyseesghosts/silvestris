@@ -404,11 +404,21 @@ pub struct TabView {
     tabs: Vec<Segment>,
     selected: Option<SharedString>,
     on_select: Option<SelectFn>,
+    on_overflow: Option<OverflowFn>,
     content: Vec<AnyElement>,
 }
+type OverflowFn = Rc<dyn Fn(Pixels, &mut Window, &mut App)>;
 impl TabView {
     pub fn new(id: impl Into<ElementId>) -> Self {
-        Self { id: id.into(), tabs: Vec::new(), selected: None, on_select: None, content: Vec::new() }
+        Self { id: id.into(), tabs: Vec::new(), selected: None, on_select: None, on_overflow: None, content: Vec::new() }
+    }
+    /// Reports each frame how much taller (positive) or shorter (negative)
+    /// the content is than the box shows, so the window can be resized to
+    /// the pane as 10.6 System Preferences does. Content that still does not
+    /// fit scrolls with a [`Scrollbar`](crate::controls::Scrollbar).
+    pub fn on_overflow(mut self, f: impl Fn(Pixels, &mut Window, &mut App) + 'static) -> Self {
+        self.on_overflow = Some(Rc::new(f));
+        self
     }
     pub fn tabs(mut self, tabs: Vec<Segment>, selected: impl Into<SharedString>) -> Self {
         self.tabs = tabs;
@@ -426,7 +436,7 @@ impl ParentElement for TabView {
     }
 }
 impl RenderOnce for TabView {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let c = &theme.colors;
         let tab_height = theme.metrics.segment_height;
@@ -458,17 +468,64 @@ impl RenderOnce for TabView {
                 // Top edge is darker than the sides (M: groupbox.top vs .left).
                 div().absolute().top(px(-1.0)).left(px(2.0)).right(px(2.0)).h(px(1.0)).bg(hsla(c.group_border_top)),
             )
-            .child(
+            .child({
+                let scroll = window
+                    .use_keyed_state(ElementId::Name(format!("{}-scroll", self.id).into()), cx, |_, _| {
+                        gpui::ScrollHandle::new()
+                    })
+                    .read(cx)
+                    .clone();
+                let pad_top = if has_tabs { half + 12.0 } else { 12.0 };
+                let content_height = Rc::new(std::cell::Cell::new(px(0.)));
+                let measured = content_height.clone();
+                let on_overflow = self.on_overflow.clone();
                 div()
-                    .id("tab-view-content")
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .pt(px(if has_tabs { half + 12.0 } else { 12.0 }))
-                    .px(px(16.0))
-                    .pb(px(12.0))
-                    .children(self.content),
-            );
+                    .relative()
+                    .flex()
+                    .child(
+                        div()
+                            .id("tab-view-content")
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .track_scroll(&scroll)
+                            .pt(px(pad_top))
+                            .px(px(16.0))
+                            .pb(px(12.0))
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .w_full()
+                                    .relative()
+                                    .children(self.content)
+                                    .child(
+                                        canvas(move |b, _, _| measured.set(b.size.height), |_, _, _, _| {})
+                                            .absolute()
+                                            .inset_0(),
+                                    ),
+                            ),
+                    )
+                    .child(crate::controls::Scrollbar::new(
+                        ElementId::Name(format!("{}-scrollbar", self.id).into()),
+                        &scroll,
+                    ))
+                    .child(
+                        // Prepaints after the content, so its height is current.
+                        canvas(
+                            move |viewport, window, cx| {
+                                if let Some(f) = &on_overflow {
+                                    let needed = content_height.get() + px(pad_top + 12.0);
+                                    f(needed - viewport.size.height, window, cx);
+                                }
+                            },
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .inset_0(),
+                    )
+            });
         root = root.child(body);
         if has_tabs {
             let mut tabs = SegmentedControl::new(

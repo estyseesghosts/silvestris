@@ -15,7 +15,9 @@ Preferences capture in hig-09/images.
 - `PreferencesOverview`: category bands of 32 px icon cells. Consumers supply
   their own artwork; no Apple icons are included.
 - `TabView`: group box with a centred tab control straddling the top edge.
-  Content scrolls inside the box.
+  `on_overflow` reports how much taller or shorter the content is than the box,
+  so the window can resize to the pane as 10.6 does (HIG p. 244). Content that
+  still does not fit scrolls, with a `Scrollbar` inside the box's right edge.
 - `Form`/`FormRow`: right-aligned `Label:` column, controls in one column,
   label-less rows (checkboxes) aligned to the control column, optional note.
 - `fit_content()` reports the laid-out height of the overview so the window can resize to it exactly; label wrapping makes a precomputed height unreliable.

@@ -72,6 +72,38 @@ pub fn bevel(window: &mut Window, bounds: Bounds<Pixels>, radius: f32, b: &Bevel
     }
 }
 
+/// Vertical scroller thumb: a capsule whose bevel runs across the bar, the
+/// `upper` band on the leading side of `split` and `lower` after it
+/// (M: scroller.thumb.row: edge 0751c0, leading 88b4e5..98c3ef, trailing
+/// 5da5e9..a4e0ff).
+pub fn thumb(window: &mut Window, bounds: Bounds<Pixels>, b: &Bevel) {
+    use gpui::{linear_color_stop, linear_gradient};
+    let h = hairline(window);
+    let r = bounds.size.width / 2.0;
+    fill_rounded(window, bounds, r, crate::convert::across(b.border, bounds.size.width.as_f32()));
+    let inner = inset(bounds, h);
+    let iw = inner.size.width.as_f32();
+    if iw <= 0.0 || inner.size.height <= px(0.) {
+        return;
+    }
+    let ir = (r - h).max(px(0.));
+    let split_x = snap(window, inner.origin.x + px(iw * b.split));
+    let split = ((split_x - inner.origin.x).as_f32() / iw).clamp(0.0, 1.0);
+    let half = 0.5 / (iw * window.scale_factor());
+    let stops = |g: silvestris_core::Gradient, a: f32, z: f32| {
+        linear_gradient(90.0, linear_color_stop(hsla(g.from), a), linear_color_stop(hsla(g.to), z))
+    };
+    fill_rounded(window, inner, ir, stops(b.lower, split + half, 1.0 - half));
+    if split > 0.0 {
+        let mask = ContentMask {
+            bounds: Bounds::new(inner.origin, size(split_x - inner.origin.x, inner.size.height)),
+        };
+        window.with_content_mask(Some(mask), |window| {
+            fill_rounded(window, inner, ir, stops(b.upper, half, (split - half).max(half)));
+        });
+    }
+}
+
 /// Unified title/toolbar or bottom bar: highlight row, gradient body and a
 /// separator row (M: chrome.unified.active, bottombar.column). `top_radius`
 /// rounds the window's top corners when the bar starts the window.

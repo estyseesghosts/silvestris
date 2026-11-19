@@ -19,3 +19,5 @@ pub mod popup_button;
 pub use popup_button::PopUpButton;
 pub mod stepper;
 pub use stepper::Stepper;
+pub mod scrollbar;
+pub use scrollbar::Scrollbar;
