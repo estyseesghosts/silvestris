@@ -37,6 +37,16 @@ repeated here; they are listed in place next to the token.
   keeps the arrow cursor over the grip; the native cursor is kept because it
   comes with the native size loop, snapping and DPI handling.
 
+- Windows: the custom frame adds `WS_CAPTION` back to GPUI's Normal
+  HWND. GPUI still owns the titlebar content and its non-client hit tests.
+  DWM controls the native outline, small corner radius and exterior shadow.
+  An Aqua Light screen capture at 100% DPI shows rounded Main and Settings
+  corners and a visible outline where the windows overlap. No exterior
+  shadow was visible on this desktop, including in a standard WinForms
+  reference capture. The corner attribute's return value alone does not
+  establish the shape. See handbook 06 and Microsoft's
+  [Windows 11 rounding guidance](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/ui/apply-rounded-corners).
+
 ## Estimated values
 
 `estimated:` tokens come from post-10.6 captures the user supplied because no
@@ -83,3 +93,18 @@ repeated here; they are listed in place next to the token.
   Right expand; expansion callbacks stop propagation so enclosing rows do not
   select. Disabled controls share the GPUI accessibility limitation above.
 - Visual/DPI and real keyboard validation remain pending.
+
+
+## Additional controls
+
+- Gradient buttons use the 21 px square Print & Fax add/remove controls
+  in the 10.6 reference as the Aqua Light normal-state model (HIG pp.
+  273–276). Pressed, selected and disabled states reuse the textured
+  materials. Dark Aqua and Geist reuse their respective textured materials
+  with the same square geometry.
+- Search reuses text entry and IME handling with the search material,
+  a capsule bezel and clear action (HIG p. 325).
+- Radio, slider and progress geometry is estimated from their HIG
+  descriptions. Busy progress stops animating while inactive or when GPUI
+  reports reduced motion. The gallery exercises these controls under all
+  four themes. Native/DPI baselines for the new variants are pending.

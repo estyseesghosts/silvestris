@@ -139,6 +139,7 @@ pub struct TextField {
     marked: Option<Range<usize>>,
     size: ControlSize,
     masked: bool,
+    search: bool,
     disabled: bool,
     scroll_x: Pixels,
     last_layout: Option<ShapedLine>,
@@ -182,6 +183,7 @@ impl TextField {
             marked: None,
             size: ControlSize::Regular,
             masked: false,
+            search: false,
             disabled: false,
             scroll_x: px(0.),
             last_layout: None,
@@ -229,6 +231,23 @@ impl TextField {
     pub fn set_masked(&mut self, masked: bool, cx: &mut Context<Self>) {
         self.masked = masked;
         cx.notify();
+    }
+
+    /// A rounded search field with an inline clear action and the same
+    /// editing, IME and clipboard handling as a regular text field (HIG p. 325).
+    pub fn set_search(&mut self, search: bool, cx: &mut Context<Self>) {
+        self.search = search;
+        cx.notify();
+    }
+
+    fn field_tokens(&self, theme: &silvestris_core::tokens::Theme) -> silvestris_core::tokens::Field {
+        if self.search && !self.masked { theme.controls.search } else { theme.controls.field }
+    }
+
+    fn clear_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_text("", cx);
+        self.restart_blink(window, cx);
+        cx.emit(TextFieldEvent::Changed);
     }
 
     pub fn set_disabled(&mut self, disabled: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -703,7 +722,7 @@ impl Render for TextField {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let m = &theme.metrics;
-        let field = theme.controls.field;
+        let field = self.field_tokens(&theme);
         let height = match self.size {
             ControlSize::Regular => m.field_height,
             ControlSize::Small | ControlSize::Mini => m.field_small_height,
@@ -712,7 +731,14 @@ impl Render for TextField {
         let enabled = !self.disabled;
         let ring_color = theme.colors.focus_ring;
         let ring = m.focus_ring;
-        let role = if self.masked { gpui::Role::PasswordInput } else { gpui::Role::TextInput };
+        let search = self.search && !self.masked;
+        let clearable = search && enabled && !self.content.is_empty();
+        let radius = if search { height / 2.0 } else { 0.0 };
+        let role = match (self.masked, search) {
+            (true, _) => gpui::Role::PasswordInput,
+            (_, true) => gpui::Role::SearchInput,
+            _ => gpui::Role::TextInput,
+        };
 
         div()
             .id(("silvestris-text-field", cx.entity_id()))
@@ -757,16 +783,56 @@ impl Render for TextField {
             })
             .child(
                 canvas(|_, _, _| (), move |bounds, _, window, _| {
-                    paint::field(window, bounds, 0.0, &field, enabled);
+                    paint::field(window, bounds, radius, &field, enabled);
                 })
                 .absolute()
                 .inset_0(),
             )
             .child(TextElement { field: cx.entity() })
+            .when(search, |el| {
+                el.child(canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        let center = bounds.center();
+                        let lens = Bounds::new(center - point(px(3.5), px(3.5)), size(px(6.), px(6.)));
+                        window.paint_quad(gpui::quad(
+                            lens, px(3.), gpui::transparent_black(), px(1.),
+                            hsla(field.placeholder), gpui::BorderStyle::Solid,
+                        ));
+                        let mut handle = gpui::PathBuilder::stroke(px(1.0));
+                        handle.move_to(center + point(px(1.5), px(1.5)));
+                        handle.line_to(center + point(px(4.), px(4.)));
+                        if let Ok(path) = handle.build() {
+                            window.paint_path(path, hsla(field.placeholder));
+                        }
+                    },
+                ).absolute().left(px(4.)).top_0().bottom_0().w(px(14.)))
+            })
+            .when(clearable, |el| {
+                el.on_key_down(cx.listener(|field, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                        cx.stop_propagation();
+                        field.clear_search(window, cx);
+                    }
+                })).child(
+                    div().id("clear-search")
+                        .role(gpui::Role::Button).aria_label("Clear Search")
+                        .absolute().right(px(3.)).top_0().bottom_0().w(px(16.))
+                        .flex().items_center().justify_center()
+                        .text_color(hsla(field.placeholder)).cursor_pointer()
+                        .occlude()
+                        .on_mouse_down(MouseButton::Left, cx.listener(|field, _, window, cx| {
+                            window.focus(&field.focus, cx);
+                            cx.stop_propagation();
+                        }))
+                        .on_click(cx.listener(|field, _, window, cx| field.clear_search(window, cx)))
+                        .child("×"),
+                )
+            })
             .when(focused, |el| {
                 el.child(
                     canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        paint::focus_ring(window, bounds, 0.0, ring_color, ring);
+                        paint::focus_ring(window, bounds, radius, ring_color, ring);
                     })
                     .absolute()
                     .inset_0(),
@@ -828,8 +894,8 @@ impl Element for TextElement {
     ) -> Prepaint {
         let theme = cx.theme().clone();
         let m = &theme.metrics;
-        let f = &theme.controls.field;
         let field = self.field.read(cx);
+        let f = field.field_tokens(&theme);
         let style = window.text_style();
         let focused = field.focus.is_focused(window);
 
@@ -871,12 +937,19 @@ impl Element for TextElement {
         let line = window.text_system().shape_line(text.into(), font_size, &runs, None);
 
         // Text box: inside the border by the measured inset.
-        let inset = px(m.field_text_inset);
+        let search = field.search && !field.masked;
+        let (left, right) = if search {
+            (px(21.), px(21.))
+        } else {
+            (px(m.field_text_inset), px(m.field_text_inset))
+        };
+        let clip_inset = if search { left - px(1.) } else { px(1.) };
+        let clip_left = bounds.left() + clip_inset;
         let clip = Bounds::from_corners(
-            point(bounds.left() + px(1.), bounds.top() + px(1.)),
-            point(bounds.right() - px(1.), bounds.bottom() - px(1.)),
+            point(clip_left, bounds.top() + px(1.)),
+            point((bounds.right() - clip_inset).max(clip_left), bounds.bottom() - px(1.)),
         );
-        let visible = (bounds.size.width - inset * 2.).max(px(0.));
+        let visible = (bounds.size.width - left - right).max(px(0.));
 
         // Keep the caret inside the visible box.
         let caret_x = if field.content.is_empty() { px(0.) } else { line.x_for_index(field.display_offset(field.cursor())) };
@@ -895,7 +968,7 @@ impl Element for TextElement {
 
         let line_height = window.line_height();
         let origin = point(
-            bounds.left() + inset - scroll_x,
+            bounds.left() + left - scroll_x,
             bounds.top() + ((bounds.size.height - line_height) / 2.).round(),
         );
         let caret_top = bounds.top() + px(m.caret_inset_top);

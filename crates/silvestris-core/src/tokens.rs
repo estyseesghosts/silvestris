@@ -196,6 +196,7 @@ pub struct Controls {
     pub push_default: Bevel,
     /// Rectangular toolbar/bottom-bar control (NSTexturedRoundedBezelStyle).
     pub textured: BevelStates,
+    pub gradient: BevelStates,
     /// Capsule tab/segment (tab views, preference pane switches).
     pub segment: BevelStates,
     pub checkbox: BevelStates,

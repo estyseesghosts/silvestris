@@ -9,7 +9,7 @@ use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     Button, ButtonStyle, Checkbox, CheckState, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
-    SourceListEvent, TextField, TextFieldEvent,
+    SourceListEvent, TextField, TextFieldEvent, RadioGroup, RadioOption, Slider, ProgressIndicator,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -33,6 +33,8 @@ struct Gallery {
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
     last_field: gpui::SharedString,
+    radio: usize,
+    progress: f32,
 }
 
 impl Gallery {
@@ -69,6 +71,8 @@ impl Gallery {
             f.set_text("Not editable", cx);
             f.set_disabled(true, window, cx);
         });
+        let search = field("Search", "Search", window, cx);
+        search.update(cx, |field, cx| field.set_search(true, cx));
         let mut collection =
             silvestris::core::source_list::SourceNode::new("collection", "Collection");
         collection.icon = Some("folder".into());
@@ -218,7 +222,9 @@ impl Gallery {
             focus: cx.focus_handle(),
             checks: [CheckState::Off, CheckState::On, CheckState::Mixed],
             last_click: "none".into(),
-            fields: vec![name, password, small, disabled],
+            fields: vec![name, password, small, disabled, search],
+            radio: 0,
+            progress: 0.42,
             last_field: "none".into(),
         }
     }
@@ -257,6 +263,12 @@ impl Render for Gallery {
             .gap(px(12.))
             .child(button("force-quit", "Force Quit").default_button(true))
             .child(button("cancel", "Cancel"))
+            .child(
+                button("gradient", "Add")
+                    .style(ButtonStyle::Gradient)
+                    .tooltip("Add")
+                    .icon(|color| div().text_color(color).child("+")),
+            )
             .child(
                 button("stop", "Stop")
                     .size(ControlSize::Small)
@@ -401,6 +413,21 @@ impl Render for Gallery {
                                         cx.notify();
                                     },
                                 )),
+                            )
+                            .child(
+                                div().flex().items_center().gap(px(24.0))
+                                    .child(RadioGroup::new(
+                                        "radio-group", "Export scope",
+                                        vec![RadioOption::new("Current Item"), RadioOption::new("All Items"), RadioOption::new("Selection").disabled(true)],
+                                    ).selected(Some(self.radio)).on_select(cx.listener(|g, selected, _, cx| {
+                                        g.radio = *selected;
+                                        cx.notify();
+                                    })))
+                                    .child(div().w(px(180.)).flex().flex_col().gap(px(8.0))
+                                        .child(Slider::new("export-progress", "Progress preview", self.progress)
+                                            .on_change(cx.listener(|g, value, _, cx| { g.progress = *value; cx.notify(); })))
+                                        .child(ProgressIndicator::new("percent", "Export Progress", Some(self.progress)))
+                                        .child(ProgressIndicator::new("busy", "Preparing Export", None))),
                             )
                             .child(div().text_size(small_text).child(self.last_source.clone()))
                             .child(

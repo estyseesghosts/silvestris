@@ -430,6 +430,21 @@ pub fn aqua_light() -> Theme {
                 disabled: textured_disabled,
                 selected: textured_selected,
             },
+            gradient: BevelStates {
+                // Print & Fax (10.6), add/remove buttons: 21 px square,
+                // near-white upper face and light grey lower face.
+                normal: Bevel {
+                    border: g(0xb3b3b3, 0xa3a3a3),
+                    upper: g(0xf9f9f9, 0xfbfbfb),
+                    lower: g(0xe9e9e9, 0xededed),
+                    split: 0.5,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: BLACK,
+                },
+                pressed: textured_selected,
+                disabled: textured_disabled,
+                selected: textured_selected,
+            },
             segment: BevelStates {
                 normal: segment_normal,
                 pressed: segment_pressed,
@@ -688,6 +703,17 @@ pub fn aqua_dark() -> Theme {
             },
             push_default,
             textured: BevelStates {
+                normal: textured_normal,
+                pressed: textured_selected,
+                disabled: Bevel::plain(
+                    g(0x1c1c1c, 0x1c1c1c),
+                    g(0x464646, 0x363636),
+                    WHITE.alpha(10),
+                    c(0x777777),
+                ),
+                selected: textured_selected,
+            },
+            gradient: BevelStates {
                 normal: textured_normal,
                 pressed: textured_selected,
                 disabled: Bevel::plain(

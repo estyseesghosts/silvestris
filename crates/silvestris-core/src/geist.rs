@@ -224,6 +224,12 @@ pub fn geist_dark() -> Theme {
                 disabled,
                 selected: pressed,
             },
+            gradient: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
             segment: BevelStates {
                 normal,
                 pressed,
@@ -344,6 +350,12 @@ pub fn geist_light() -> Theme {
             },
             push_default: flat(c(0x171717), c(0x171717), c(0xffffff)),
             textured: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
+            gradient: BevelStates {
                 normal,
                 pressed,
                 disabled,

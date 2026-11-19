@@ -17,7 +17,7 @@
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, px, App, ClickEvent, ElementId, FocusHandle, SharedString, Window,
+    canvas, div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FocusHandle, SharedString, Window,
 };
 use silvestris_core::tokens::{Bevel, Theme};
 
@@ -60,7 +60,11 @@ pub enum ButtonStyle {
     Push,
     /// Textured rounded button for window-frame areas (toolbars, bottom bars).
     Textured,
+    /// Square gradient control for actions adjoining a list (HIG pp. 273–276).
+    Gradient,
 }
+
+type Icon = Box<dyn Fn(gpui::Rgba) -> AnyElement>;
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
@@ -74,6 +78,9 @@ pub struct Button {
     disabled: bool,
     selected: bool,
     min_width: Option<f32>,
+    icon: Option<Icon>,
+    tooltip: Option<SharedString>,
+    destructive: bool,
     on_click: Option<ClickHandler>,
 }
 
@@ -88,6 +95,9 @@ impl Button {
             disabled: false,
             selected: false,
             min_width: None,
+            icon: None,
+            tooltip: None,
+            destructive: false,
             on_click: None,
         }
     }
@@ -126,6 +136,23 @@ impl Button {
         self
     }
 
+    /// Replace the visible label with an icon. The label names the control
+    /// for accessibility. The icon receives the current state's ink colour.
+    pub fn icon<E: IntoElement>(mut self, icon: impl Fn(gpui::Rgba) -> E + 'static) -> Self {
+        self.icon = Some(Box::new(move |ink| icon(ink).into_any_element()));
+        self
+    }
+
+    pub fn tooltip(mut self, text: impl Into<SharedString>) -> Self {
+        self.tooltip = Some(text.into());
+        self
+    }
+
+    pub fn destructive(mut self, destructive: bool) -> Self {
+        self.destructive = destructive;
+        self
+    }
+
     pub fn on_click(mut self, f: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(f));
         self
@@ -155,6 +182,7 @@ impl RenderOnce for Button {
                 m.textured_height,
                 m.textured_radius,
             ),
+            ButtonStyle::Gradient => (&theme.controls.gradient, 21.0, 0.0),
         };
         let base: Bevel = if self.disabled {
             states.disabled
@@ -178,7 +206,16 @@ impl RenderOnce for Button {
         let ring_color = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
-        let padding = m.push_padding[self.size.index()];
+        let icon_only = self.icon.is_some();
+        let padding = if icon_only { 0.0 } else { m.push_padding[self.size.index()] };
+        let resting_ink = if self.destructive && !self.disabled {
+            theme.colors.error
+        } else {
+            base.text
+        };
+        let icon = self.icon.as_ref().map(|draw| draw(crate::convert::rgba(resting_ink)));
+        let pressed_icon = self.icon.as_ref().filter(|_| !self.disabled)
+            .map(|draw| draw(crate::convert::rgba(pressed.text)));
         let label_dy = if self.style == ButtonStyle::Push {
             m.push_label_dy[self.size.index()]
         } else {
@@ -201,18 +238,18 @@ impl RenderOnce for Button {
             .items_center()
             .justify_center()
             .h(px(height))
+            .when(icon_only, |el| el.w(px(height)))
             .px(px(padding))
             .when_some(self.min_width, |el, w| el.min_w(px(w)))
+            .when_some(self.tooltip, super::tooltip::attach)
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
-            .when(enabled, |el| {
-                el.track_focus(&focus).on_mouse_down(
-                    gpui::MouseButton::Left,
-                    move |_, window, cx| {
-                        window.focus(&pointer_focus, cx);
-                        cx.stop_propagation();
-                    },
-                )
+            .when(enabled, |el| el.track_focus(&focus))
+            .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+                if enabled {
+                    window.focus(&pointer_focus, cx);
+                }
+                cx.stop_propagation();
             })
             .when_some(self.on_click.filter(|_| enabled), |el, f| {
                 el.on_click(move |event, window, cx| f(event, window, cx))
@@ -246,17 +283,35 @@ impl RenderOnce for Button {
                         ),
                 )
             })
-            .child(
-                div()
-                    .id("label")
-                    .relative()
-                    .top(px(label_dy))
-                    .text_color(hsla(base.text))
-                    .when(enabled, |el| {
-                        el.group_active(GROUP, |s| s.text_color(hsla(pressed.text)))
-                    })
-                    .child(self.label),
-            )
+            .when_some(icon, |el, icon| {
+                el.child(
+                    div().id("icon").relative()
+                        .when(enabled, |el| el.group_active(GROUP, |s| s.opacity(0.0)))
+                        .child(icon),
+                )
+                .when_some(pressed_icon, |el, icon| {
+                    el.child(
+                        div().id("pressed-icon").absolute().inset_0()
+                            .flex().items_center().justify_center()
+                            .opacity(0.0)
+                            .group_active(GROUP, |s| s.opacity(1.0))
+                            .child(icon),
+                    )
+                })
+            })
+            .when(!icon_only, |el| {
+                el.child(
+                    div()
+                        .id("label")
+                        .relative()
+                        .top(px(label_dy))
+                        .text_color(hsla(resting_ink))
+                        .when(enabled, |el| {
+                            el.group_active(GROUP, |s| s.text_color(hsla(pressed.text)))
+                        })
+                        .child(self.label),
+                )
+            })
             .child(
                 canvas(
                     |_, _, _| (),
