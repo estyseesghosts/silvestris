@@ -8,7 +8,7 @@ use gpui::{
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    Button, ButtonStyle, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
+    Button, ButtonStyle, Checkbox, CheckState, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
     SourceListEvent, TextField, TextFieldEvent,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
@@ -28,6 +28,7 @@ struct Gallery {
     source_list: Entity<SourceList>,
     last_source: gpui::SharedString,
     details_expanded: bool,
+    checks: [CheckState; 3],
     focus: gpui::FocusHandle,
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
@@ -214,6 +215,7 @@ impl Gallery {
             last_source: "No source-list event".into(),
             details_expanded: false,
             focus: cx.focus_handle(),
+            checks: [CheckState::Off, CheckState::On, CheckState::Mixed],
             last_click: "none".into(),
             fields: vec![name, password, small, disabled],
             last_field: "none".into(),
@@ -371,6 +373,16 @@ impl Render for Gallery {
                             .child(buttons)
                             .child(fields)
                             .child(disclosure)
+                            .child(div().flex().items_center().gap(px(12.))
+                                .children([ControlSize::Regular, ControlSize::Small, ControlSize::Mini].into_iter().enumerate().map(|(i, size)| {
+                                    Checkbox::new(("catalog-check", i), ["Regular", "Small", "Mini / mixed"][i])
+                                        .size(size).state(self.checks[i])
+                                        .on_change(cx.listener(move |g, state: &CheckState, _, cx| {
+                                            g.checks[i] = *state;
+                                            cx.notify();
+                                        }))
+                                }))
+                                .child(Checkbox::new("disabled-check", "Disabled").checked(true).disabled(true)))
                             .child(
                                 SegmentedControl::new(
                                     "view-selector",

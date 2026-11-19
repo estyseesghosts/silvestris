@@ -91,6 +91,10 @@ fn metrics() -> Metrics {
         caret_inset_bottom: 2.0,
         // M: checkbox.off: 14 rows.
         checkbox_size: 14.0,
+        // Estimated small/mini geometry and label gap; CMP-03 gives no box sizes.
+        checkbox_small_size: 12.0,
+        checkbox_mini_size: 10.0,
+        checkbox_label_gap: 6.0,
         checkbox_radius: 2.0,
         // M: sidebar.row_pitch and sidebar.selection.active (20 rows incl. top line).
         source_row_height: 20.0,

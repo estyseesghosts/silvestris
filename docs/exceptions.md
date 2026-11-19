@@ -64,6 +64,15 @@ repeated here; they are listed in place next to the token.
   lose their click handlers, but assistive technology is not told they are
   disabled. Revisit when the pin moves.
 
+## Checkboxes
+
+- Regular Aqua boxes reuse measured materials (`checkbox.off/on/off.disabled`).
+  Small/mini dimensions, label gap and vector check/dash outlines are estimates;
+  Dark Aqua/Geist are designed. See [checkbox contract](checkbox.md).
+- Label clicks and Mixed→On are recreation choices from CMP-03's open decisions;
+  Enter is an extension to historical Space activation. Native visual, DPI and
+  accessibility delivery checks remain pending.
+
 ## Disclosure triangle
 
 - Issue #128: 13 px bounds, initially right-pointing, down when expanded:

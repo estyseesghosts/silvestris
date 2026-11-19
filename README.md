@@ -41,6 +41,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Commands and key contexts](docs/commands.md)
 - [Popup menus](docs/menus.md)
 - [Segmented control](docs/segmented-control.md)
+- [Checkbox](docs/checkbox.md)
 - [Measured deviations and platform gaps](docs/exceptions.md)
 
 The explorer source at crates/silvestris-demo/src/bin/explorer.rs shows public
