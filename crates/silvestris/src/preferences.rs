@@ -492,6 +492,9 @@ impl RenderOnce for TabView {
                             .id("tab-view-content")
                             .flex_1()
                             .min_h_0()
+                            // Without this the row sizes to the unwrapped text and
+                            // pushes the scroller out of the box.
+                            .min_w_0()
                             .overflow_y_scroll()
                             .track_scroll(&scroll)
                             .pt(px(pad_top))
