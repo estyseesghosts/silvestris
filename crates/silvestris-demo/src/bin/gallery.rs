@@ -7,8 +7,8 @@ use gpui::{
 };
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::controls::{
-    Button, ButtonStyle, ControlSize, Disclosure, SourceList, SourceListEvent, TextField,
-    TextFieldEvent,
+    Button, ButtonStyle, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
+    SourceListEvent, TextField, TextFieldEvent,
 };
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
@@ -18,6 +18,7 @@ actions!(
 );
 
 struct Gallery {
+    selected_view: gpui::SharedString,
     sidebar: silvestris::core::layout::SidebarPreference,
     source_list: Entity<SourceList>,
     last_source: gpui::SharedString,
@@ -133,6 +134,7 @@ impl Gallery {
         })
         .detach();
         Gallery {
+            selected_view: "grid".into(),
             sidebar: silvestris::core::layout::SidebarPreference {
                 expanded: true,
                 width: 240.,
@@ -260,6 +262,24 @@ impl Render for Gallery {
                             .child(buttons)
                             .child(fields)
                             .child(disclosure)
+                            .child(
+                                SegmentedControl::new(
+                                    "view-selector",
+                                    "View",
+                                    vec![
+                                        Segment::new("grid", "Grid"),
+                                        Segment::new("list", "List"),
+                                        Segment::new("columns", "Columns").disabled(true),
+                                    ],
+                                )
+                                .selected(self.selected_view.clone())
+                                .on_select(cx.listener(
+                                    |g, selected: &gpui::SharedString, _, cx| {
+                                        g.selected_view = selected.clone();
+                                        cx.notify();
+                                    },
+                                )),
+                            )
                             .child(div().text_size(small_text).child(self.last_source.clone()))
                             .child(
                                 div()

@@ -9,3 +9,6 @@ pub use button::{Button, ButtonStyle, ControlSize};
 pub use disclosure::Disclosure;
 pub use source_list::{SourceList, SourceListEvent};
 pub use text_field::{TextField, TextFieldEvent};
+
+pub mod segmented;
+pub use segmented::{Segment, SegmentedControl};
