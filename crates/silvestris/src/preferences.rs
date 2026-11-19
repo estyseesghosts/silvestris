@@ -24,8 +24,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, AnyElement, App, ElementId, FocusHandle, FontWeight, SharedString,
-    Window,
+    canvas, div, prelude::*, px, AnyElement, App, ElementId, FocusHandle, FontWeight, Pixels,
+    SharedString, Window,
 };
 
 use crate::controls::{Button, ButtonStyle, ControlSize, Segment, SegmentedControl};
@@ -166,18 +166,26 @@ pub fn find<'a>(categories: &'a [PreferenceCategory], id: &str) -> Option<&'a Pr
     categories.iter().flat_map(|c| &c.panes).find(|p| p.id.as_ref() == id)
 }
 
-/// Content height of the overview for `categories` in a window of `width`.
-pub fn overview_height(categories: &[PreferenceCategory], width: f32) -> f32 {
-    let per_row = (((width - GRID_INSET * 2.0) / CELL_WIDTH).floor() as usize).max(1);
-    categories
-        .iter()
-        .map(|c| {
-            let rows = c.panes.len().div_ceil(per_row).max(1) as f32;
-            // Extra rows add one cell height (icon + two label lines).
-            BAND_HEIGHT + (rows - 1.0) * (BAND_HEIGHT - ICON_TOP + 4.0) + 1.0
-        })
-        .sum::<f32>()
-        - 1.0
+/// Lays `content` out at its natural height and reports the viewport height
+/// it needs (its bottom edge, which includes the frame's title bar and
+/// toolbar above it) after layout. Fixed-size windows resize to this so the
+/// overview fits exactly whatever its labels wrap to (HIG p. 244: the window
+/// resizes to fit each pane). The report fires every frame; compare it with
+/// `window.viewport_size()` before resizing.
+pub fn fit_content(
+    content: impl IntoElement,
+    on_height: impl Fn(Pixels, &mut Window, &mut App) + 'static,
+) -> impl IntoElement {
+    div()
+        .flex_none()
+        .w_full()
+        .relative()
+        .child(content)
+        .child(
+            canvas(move |bounds, window, cx| on_height(bounds.bottom(), window, cx), |_, _, _, _| {})
+                .absolute()
+                .inset_0(),
+        )
 }
 
 // --- Toolbar -----------------------------------------------------------------
@@ -624,15 +632,5 @@ mod tests {
         assert_eq!(nav.current(), id("a").as_ref());
         nav.retain(|_| false);
         assert_eq!(nav.current(), None);
-    }
-
-    #[test]
-    fn overview_height_matches_the_measured_four_band_window() {
-        // 10.6: four single-row bands from y 79 to 483 inclusive = 405 px;
-        // equal bands of the mean height land within 2 px.
-        let bands: Vec<_> = (0..4)
-            .map(|i| PreferenceCategory::new(format!("c{i}"), vec![PreferencePane::new(format!("p{i}"), "x")]))
-            .collect();
-        assert!((overview_height(&bands, WINDOW_WIDTH) - 405.0).abs() <= 2.0);
     }
 }

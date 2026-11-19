@@ -18,7 +18,7 @@ Preferences capture in hig-09/images.
   Content scrolls inside the box.
 - `Form`/`FormRow`: right-aligned `Label:` column, controls in one column,
   label-less rows (checkboxes) aligned to the control column, optional note.
-- `overview_height()` sizes the window to the overview exactly.
+- `fit_content()` reports the laid-out height of the overview so the window can resize to it exactly; label wrapping makes a precomputed height unreliable.
 
 Measured (reference/measurements.json): `prefs.overview.geometry`
 (81 px cells, 32 px icons 32 px below the band top, labels from 68 px),
