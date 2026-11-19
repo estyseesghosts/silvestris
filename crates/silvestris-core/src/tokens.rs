@@ -84,6 +84,10 @@ pub struct Colors {
     pub row_alternate: Rgba8,
     pub group_fill: Rgba8,
     pub group_border: Rgba8,
+    /// Top edge of a group/tab-view box, darker than its sides in Aqua.
+    pub group_border_top: Rgba8,
+    /// Rule between preferences-overview category bands.
+    pub band_rule: Rgba8,
     pub menu: Rgba8,
     pub menu_text: Rgba8,
     pub menu_text_disabled: Rgba8,

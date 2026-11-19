@@ -51,6 +51,7 @@ impl Gallery {
                 g.last_field = match event {
                     TextFieldEvent::Changed => format!("{label} changed: {text}"),
                     TextFieldEvent::Submitted => format!("{label} submitted: {text}"),
+                    TextFieldEvent::EndedEditing => format!("{label} ended editing: {text}"),
                 }
                 .into();
                 cx.notify();

@@ -13,7 +13,8 @@
 //! - Password masking: one bullet per grapheme; copy and cut are refused.
 //! - A blinking caret at the OS rate (`native::caret_blink`), hidden while the
 //!   window is inactive.
-//! - `TextFieldEvent::Changed` on every edit and `Submitted` on Return.
+//! - `TextFieldEvent::Changed` on every edit, `Submitted` on Return and
+//!   `EndedEditing` when focus leaves.
 //!
 //! The focus ring is drawn whenever the field has focus, as 10.6 does for
 //! text fields (M: field.geometry, focused Go to Folder field).
@@ -120,6 +121,9 @@ pub fn bind_keys(cx: &mut App) {
 pub enum TextFieldEvent {
     Changed,
     Submitted,
+    /// Focus left the field; consumers commit pending values here as well
+    /// as on Submitted (a value is accepted on Return or leaving the field).
+    EndedEditing,
 }
 
 /// Bullet used for masked text (U+2022).
@@ -164,6 +168,7 @@ impl TextField {
             cx.on_blur(&focus, window, |this, _, cx| {
                 this.blink_epoch += 1;
                 this.selecting = false;
+                cx.emit(TextFieldEvent::EndedEditing);
                 cx.notify();
             }),
         ];

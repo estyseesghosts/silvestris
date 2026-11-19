@@ -21,6 +21,7 @@ from corpus import hexc, load, opaque_bbox
 FINDER = "10-6-Snow-Leopard-Finder-Home.png"
 ALERT = "10-6-Snow-Leopard-Finder-Copy-Replace.png"
 DESKTOP = "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png"
+PREFS = "10-6-Snow-Leopard-System-Preferences-0.png"
 ACTIVITY = "10-6-Snow-Leopard-Activity-Monitor.png"
 MENU = "10-6-Snow-Leopard-Finder-Menu.png"
 FORCE_QUIT = "10-6-Snow-Leopard-Force-Quit.png"
@@ -173,6 +174,20 @@ row(DESKTOP, 499, 560, 584, "popup.disabled.right", "pop-up right cap with the d
 column(DESKTOP, 320, 100, 126, "segmented.selected", "selected 'Desktop' tab segment")
 column(DESKTOP, 420, 100, 126, "segmented.normal", "unselected 'Screen Saver' segment (crosses text)")
 row(DESKTOP, 113, 280, 300, "segmented.left_cap", "left cap of the selected segment")
+
+column(DESKTOP, 70, 110, 120, "groupbox.top", "tab-view box top edge: #ababab line, then a soft inner row")
+row(DESKTOP, 160, 58, 64, "groupbox.left", "box left edge: #c8c8c8 line then #e2e2e2 inner row")
+note("prefs.pane.geometry", "pane box 20 px from the window sides and bottom; its top line 34 px below "
+     "the toolbar separator; the 22 px tab control is centred on the window and straddles the top line",
+     DESKTOP, {"box_x": [60, 687], "box_y": [113, 582], "window_x": [40, 707], "window_bottom": 602,
+               "toolbar_separator_y": 78, "tabs_x": [283, 464], "tabs_y": [103, 124]})
+column(PREFS, 5, 76, 290, "prefs.overview.bands", "overview category bands: #ededed / #e6e6e6 alternate, "
+       "#d8d8d8 separator row between bands", origin=(40, 0))
+note("prefs.overview.geometry", "8 icon cells of 81 px (icon 32 px, top 32 px below the band top); "
+     "bold heading ink 9-19 px below the band top at x+14; label ink from 68 px below the band top, "
+     "two lines when wrapped; bands about 101 px plus a 1 px separator",
+     PREFS, {"window_x": [40, 707], "band_tops": [79, 183, 283, 385], "icon_x": [[70, 101], [151, 182], [232, 263], [312, 343]],
+             "icon_y": [111, 142], "heading_ink_y": [88, 98], "label_ink_y": [147, 157]})
 
 # --- Scroll bar -----------------------------------------------------------------
 row(DESKTOP, 300, 658, 680, "scroller.thumb.row", "vertical thumb, horizontal cross-section")

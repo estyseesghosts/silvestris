@@ -31,6 +31,8 @@ pub mod command;
 
 pub mod menu;
 
+pub mod preferences;
+
 pub mod shell;
 
 /// Mock-platform setup for downstream GPUI interaction tests. Font binary and

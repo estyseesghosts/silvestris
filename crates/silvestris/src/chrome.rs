@@ -47,6 +47,19 @@ pub fn window_options(title: impl Into<SharedString>, bounds: Bounds<Pixels>, mi
     }
 }
 
+/// Options for a fixed-size utility window such as a preferences window:
+/// HIG p. 244 gives preferences windows no resize control and no zoom. The
+/// 10.6 System Preferences capture (hig-09 images) keeps minimize active and
+/// shows zoom disabled; GPUI's Windows hit test then refuses HTMAXBUTTON and
+/// the resize edges (gpui_windows events.rs, `is_resizable`).
+pub fn fixed_window_options(title: impl Into<SharedString>, bounds: Bounds<Pixels>, cx: &App) -> WindowOptions {
+    WindowOptions {
+        is_resizable: false,
+        window_min_size: None,
+        ..window_options(title, bounds, bounds.size, cx)
+    }
+}
+
 /// Open a window, apply the native frame and follow OS appearance changes.
 pub fn open_window<V: 'static + Render>(
     options: WindowOptions,
@@ -78,6 +91,7 @@ pub struct WindowFrame {
     bottom_bar: Option<AnyElement>,
     content: Option<AnyElement>,
     show_title: bool,
+    fixed: bool,
 }
 
 impl WindowFrame {
@@ -89,6 +103,7 @@ impl WindowFrame {
             bottom_bar: None,
             content: None,
             show_title: true,
+            fixed: false,
         }
     }
 
@@ -112,13 +127,20 @@ impl WindowFrame {
         self
     }
 
+    /// Fixed-size window (pair with `fixed_window_options`): no size control
+    /// and a disabled zoom button.
+    pub fn fixed_size(mut self) -> Self {
+        self.fixed = true;
+        self
+    }
+
     pub fn child(mut self, content: impl IntoElement) -> Self {
         self.content = Some(content.into_any_element());
         self
     }
 }
 
-fn traffic_lights(theme: &Theme, active: bool) -> impl IntoElement {
+fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
     let m = &theme.metrics;
     let d = px(m.traffic_diameter);
     // Hit boxes span the pitch so the tiny targets are easier to hit without
@@ -149,7 +171,9 @@ fn traffic_lights(theme: &Theme, active: bool) -> impl IntoElement {
         .flex()
         .flex_row()
         .children(lights.into_iter().map(move |(light, glyph, area, label)| {
-            let base = if active { light } else { Light::Idle };
+            // A disabled button keeps the idle sphere and shows no glyph.
+            let enabled = zoom || light != Light::Zoom;
+            let base = if active && enabled { light } else { Light::Idle };
             div()
                 .id(label)
                 .role(gpui::Role::Button)
@@ -157,8 +181,9 @@ fn traffic_lights(theme: &Theme, active: bool) -> impl IntoElement {
                 .w(hit_w)
                 .h(hit_h)
                 .relative()
-                .window_control_area(area)
-                .when(!cfg!(windows), |el| {
+                .when(!enabled, |el| el.aria_label(format!("{label} (unavailable)")))
+                .when(enabled, |el| el.window_control_area(area))
+                .when(!cfg!(windows) && enabled, |el| {
                     el.on_click(move |_, window, _| match area {
                         WindowControlArea::Close => window.remove_window(),
                         WindowControlArea::Min => window.minimize_window(),
@@ -189,7 +214,7 @@ fn traffic_lights(theme: &Theme, active: bool) -> impl IntoElement {
                 )
                 // Hovering the group shows colour and glyphs, also in an
                 // inactive window (10.6 behaviour).
-                .child(
+                .when(enabled, |el| el.child(
                     div()
                         .absolute()
                         .size_full()
@@ -206,7 +231,7 @@ fn traffic_lights(theme: &Theme, active: bool) -> impl IntoElement {
                                 .ok();
                         })
                         .size_full()),
-                )
+                ))
         }))
 }
 
@@ -237,6 +262,7 @@ impl RenderOnce for WindowFrame {
         let client = matches!(decorations, Decorations::Client { .. }) && !cfg!(windows) && !cfg!(target_os = "macos");
         let radius = if maximized { 0.0 } else { m.window_radius };
         let draws_lights = !cfg!(target_os = "macos");
+        let fixed = self.fixed;
 
         let title_text = |color, dy: f32| {
             div()
@@ -260,8 +286,8 @@ impl RenderOnce for WindowFrame {
             .h(px(band_height))
             .window_control_area(WindowControlArea::Drag)
             .when(client, |el| {
-                el.on_mouse_down(MouseButton::Left, |e, window, _| {
-                    if e.click_count == 2 {
+                el.on_mouse_down(MouseButton::Left, move |e, window, _| {
+                    if e.click_count == 2 && !fixed {
                         window.zoom_window();
                     } else {
                         window.start_window_move();
@@ -282,7 +308,7 @@ impl RenderOnce for WindowFrame {
                 el.when(c.title_engrave.a > 0, |el| el.child(title_text(c.title_engrave, 1.0)))
                     .child(title_text(if active { c.title } else { c.title_inactive }, 0.0))
             })
-            .when(draws_lights, |el| el.child(traffic_lights(&theme, active)))
+            .when(draws_lights, |el| el.child(traffic_lights(&theme, active, !fixed)))
             .when_some(self.toolbar, |el, toolbar| {
                 el.child(
                     div()
@@ -297,7 +323,7 @@ impl RenderOnce for WindowFrame {
 
         // Size control (HIG PDF p. 221). Windows resizes through the native
         // hit test; Linux client decorations start a resize on press.
-        let resizable = !maximized;
+        let resizable = !maximized && !fixed;
         native_grip(window, cx, if resizable { theme.grip.hit } else { 0.0 });
         let grip_style = if self.bottom_bar.is_some() { theme.grip.bar } else { theme.grip.body };
         let grip = div()

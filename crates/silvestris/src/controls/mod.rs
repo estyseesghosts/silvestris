@@ -14,3 +14,8 @@ pub use text_field::{TextField, TextFieldEvent};
 
 pub mod segmented;
 pub use segmented::{Segment, SegmentedControl};
+
+pub mod popup_button;
+pub use popup_button::PopUpButton;
+pub mod stepper;
+pub use stepper::Stepper;

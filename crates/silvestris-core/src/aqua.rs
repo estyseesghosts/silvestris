@@ -374,7 +374,9 @@ pub fn aqua_light() -> Theme {
             sidebar_heading: c(0x738193), // M: sidebar.header.text glyph core
             row_alternate: c(0xedf3fe),   // M: table.header_and_rows
             group_fill: c(0xe6e6e6),      // M: groupbox.fill
-            group_border: c(0xc3c3c3),    // designed
+            group_border: c(0xc8c8c8),    // M: groupbox.left
+            group_border_top: c(0xababab), // M: groupbox.top
+            band_rule: c(0xd8d8d8),       // M: prefs.overview.bands
             menu: c(0xf2f2f2),            // M: menu.body
             menu_text: BLACK,
             menu_text_disabled: c(0xa3a3a3),
@@ -639,6 +641,8 @@ pub fn aqua_dark() -> Theme {
             row_alternate: c(0x252b34),
             group_fill: c(0x333333),
             group_border: c(0x474747),
+            group_border_top: c(0x262626), // designed: dark mirror of the Aqua top edge
+            band_rule: c(0x2a2a2a),       // designed
             menu: c(0x2c2c2e),
             menu_text: c(0xeeeeee),
             menu_text_disabled: c(0x777777),
