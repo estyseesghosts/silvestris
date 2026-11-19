@@ -3,7 +3,8 @@
 //! A command is identified by a stable namespaced string. Descriptors are
 //! snapshots: the consumer publishes new ones when enabled/checked state
 //! changes (handbook 03 "Descriptors are snapshots"). The toolkit never runs
-//! application logic; it reports the invoked `CommandId` to the consumer.
+//! application logic here. The GPUI adapter dispatches registered consumer
+//! callbacks through these stable IDs.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -38,7 +39,9 @@ pub enum CommandKind {
     /// Checkmark when on.
     Toggle,
     /// One of a mutually exclusive group (HIG p. 165-190: radio items show a checkmark).
-    Radio { group: Arc<str> },
+    Radio {
+        group: Arc<str>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -157,10 +160,34 @@ pub fn display_shortcut(keys: &str, platform: Platform) -> String {
             let key = key.first().copied().unwrap_or("");
             let key = match key {
                 "comma" => ",".to_string(),
-                "escape" => if platform == Platform::Mac { "⎋".into() } else { "Esc".into() },
-                "enter" => if platform == Platform::Mac { "↩".into() } else { "Enter".into() },
-                "backspace" => if platform == Platform::Mac { "⌫".into() } else { "Backspace".into() },
-                "delete" => if platform == Platform::Mac { "⌦".into() } else { "Del".into() },
+                "escape" => {
+                    if platform == Platform::Mac {
+                        "⎋".into()
+                    } else {
+                        "Esc".into()
+                    }
+                }
+                "enter" => {
+                    if platform == Platform::Mac {
+                        "↩".into()
+                    } else {
+                        "Enter".into()
+                    }
+                }
+                "backspace" => {
+                    if platform == Platform::Mac {
+                        "⌫".into()
+                    } else {
+                        "Backspace".into()
+                    }
+                }
+                "delete" => {
+                    if platform == Platform::Mac {
+                        "⌦".into()
+                    } else {
+                        "Del".into()
+                    }
+                }
                 "space" => "Space".into(),
                 k if k.len() == 1 => k.to_uppercase(),
                 k => {
@@ -176,16 +203,32 @@ pub fn display_shortcut(keys: &str, platform: Platform) -> String {
             let has = |m: &str| mods.iter().any(|x| x.eq_ignore_ascii_case(m));
             let secondary = has("secondary");
             if platform == Platform::Mac {
-                if has("ctrl") { out.push('⌃'); }
-                if has("alt") { out.push('⌥'); }
-                if has("shift") { out.push('⇧'); }
-                if has("cmd") || secondary { out.push('⌘'); }
+                if has("ctrl") {
+                    out.push('⌃');
+                }
+                if has("alt") {
+                    out.push('⌥');
+                }
+                if has("shift") {
+                    out.push('⇧');
+                }
+                if has("cmd") || secondary {
+                    out.push('⌘');
+                }
                 out.push_str(&key);
             } else {
-                if has("ctrl") || secondary { out.push_str("Ctrl+"); }
-                if has("alt") { out.push_str("Alt+"); }
-                if has("shift") { out.push_str("Shift+"); }
-                if has("cmd") || has("super") || has("win") { out.push_str("Win+"); }
+                if has("ctrl") || secondary {
+                    out.push_str("Ctrl+");
+                }
+                if has("alt") {
+                    out.push_str("Alt+");
+                }
+                if has("shift") {
+                    out.push_str("Shift+");
+                }
+                if has("cmd") || has("super") || has("win") {
+                    out.push_str("Win+");
+                }
                 out.push_str(&key);
             }
             out
@@ -199,7 +242,10 @@ pub fn display_shortcut(keys: &str, platform: Platform) -> String {
 pub enum MenuEntry {
     Command(CommandId),
     Separator,
-    Submenu { label: String, entries: Vec<MenuEntry> },
+    Submenu {
+        label: String,
+        entries: Vec<MenuEntry>,
+    },
     /// Non-interactive group heading.
     Heading(String),
 }
@@ -250,17 +296,31 @@ impl CommandSet {
             Some(_) => None,
             None => return,
         };
+        let mut changed = false;
         if let Some(group) = group {
             for c in self.commands.values_mut() {
                 if matches!(&c.kind, CommandKind::Radio { group: g } if *g == group) {
-                    c.checked = false;
+                    let value = c.id == id;
+                    changed |= c.checked != value;
+                    c.checked = value;
                 }
             }
         }
         if let Some(c) = self.commands.get_mut(&id) {
+            changed |= c.checked != checked;
             c.checked = checked;
         }
-        self.version += 1;
+        if changed {
+            self.version += 1;
+        }
+    }
+
+    pub fn remove(&mut self, id: &CommandId) -> Option<CommandDescriptor> {
+        let removed = self.commands.remove(id);
+        if removed.is_some() {
+            self.version += 1;
+        }
+        removed
     }
     pub fn iter(&self) -> impl Iterator<Item = &CommandDescriptor> {
         self.commands.values()
@@ -274,7 +334,10 @@ impl CommandSet {
                 by_key.entry(k.clone()).or_default().push(c.id.clone());
             }
         }
-        by_key.into_iter().filter(|(_, ids)| ids.len() > 1).collect()
+        by_key
+            .into_iter()
+            .filter(|(_, ids)| ids.len() > 1)
+            .collect()
     }
 
     /// Menu entries that name commands this set does not define.
@@ -301,12 +364,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn no_op_checked_updates_do_not_invalidate_and_removal_does() {
+        let mut set = CommandSet::new([
+            CommandDescriptor::radio("a", "A", "view", true),
+            CommandDescriptor::radio("b", "B", "view", false),
+            CommandDescriptor::toggle("toggle", "Toggle", false),
+        ]);
+        set.set_checked("a", true);
+        set.set_checked("toggle", false);
+        assert_eq!(set.version, 0);
+        set.set_checked("b", true);
+        assert_eq!(set.version, 1);
+        set.set_checked("b", true);
+        assert_eq!(set.version, 1);
+        assert!(set.remove(&"a".into()).is_some());
+        assert_eq!(set.version, 2);
+        assert!(set.remove(&"missing".into()).is_none());
+        assert_eq!(set.version, 2);
+    }
+
+    #[test]
     fn shortcuts_render_per_platform() {
         assert_eq!(display_shortcut("secondary-b", Platform::Mac), "⌘B");
         assert_eq!(display_shortcut("secondary-b", Platform::Windows), "Ctrl+B");
         assert_eq!(display_shortcut("secondary-shift-n", Platform::Mac), "⇧⌘N");
-        assert_eq!(display_shortcut("secondary-comma", Platform::Linux), "Ctrl+,");
-        assert_eq!(display_shortcut("alt-secondary-escape", Platform::Mac), "⌥⌘⎋");
+        assert_eq!(
+            display_shortcut("secondary-comma", Platform::Linux),
+            "Ctrl+,"
+        );
+        assert_eq!(
+            display_shortcut("alt-secondary-escape", Platform::Mac),
+            "⌥⌘⎋"
+        );
     }
 
     #[test]
@@ -314,7 +403,9 @@ mod tests {
         let mut set = CommandSet::new([
             CommandDescriptor::radio("view.icons", "as Icons", "view", true),
             CommandDescriptor::radio("view.list", "as List", "view", false),
-            CommandDescriptor::action("file.open", "Open").needs_input().shortcut("secondary-o"),
+            CommandDescriptor::action("file.open", "Open")
+                .needs_input()
+                .shortcut("secondary-o"),
             CommandDescriptor::action("file.other", "Other").shortcut("secondary-o"),
         ]);
         set.set_checked("view.list", true);
@@ -324,7 +415,10 @@ mod tests {
         assert_eq!(set.shortcut_conflicts().len(), 1);
         let menus = [MenuModel {
             label: "File".into(),
-            entries: vec![MenuEntry::Command("file.open".into()), MenuEntry::Command("file.gone".into())],
+            entries: vec![
+                MenuEntry::Command("file.open".into()),
+                MenuEntry::Command("file.gone".into()),
+            ],
         }];
         assert_eq!(set.missing(&menus), vec![CommandId::new("file.gone")]);
     }

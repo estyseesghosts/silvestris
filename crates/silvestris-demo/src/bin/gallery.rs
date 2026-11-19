@@ -6,10 +6,12 @@ use gpui::{
     Window,
 };
 use silvestris::chrome::{open_window, window_options, WindowFrame};
+use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     Button, ButtonStyle, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
     SourceListEvent, TextField, TextFieldEvent,
 };
+use silvestris::core::command::{CommandDescriptor, CommandId};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
 actions!(
@@ -18,6 +20,7 @@ actions!(
 );
 
 struct Gallery {
+    commands: Entity<CommandRegistry>,
     selected_view: gpui::SharedString,
     sidebar: silvestris::core::layout::SidebarPreference,
     source_list: Entity<SourceList>,
@@ -133,7 +136,30 @@ impl Gallery {
             cx.notify();
         })
         .detach();
+        let commands = cx.new(|_| CommandRegistry::default());
+        let toggle_sidebar = cx.listener(|g, _: &CommandId, _, cx| {
+            g.sidebar.expanded = !g.sidebar.expanded;
+            g.sync_sidebar_command(cx);
+            cx.notify();
+        });
+        commands.update(cx, |registry, cx| {
+            registry
+                .register(
+                    CommandDescriptor::toggle("view.sidebar", "Sidebar", true)
+                        .shortcut("secondary-b"),
+                    toggle_sidebar,
+                    cx,
+                )
+                .unwrap()
+        });
+        let bindings = commands
+            .read(cx)
+            .bindings("Gallery && !SilvestrisTextField", cx)
+            .expect("gallery command bindings");
+        cx.bind_keys(bindings);
+        cx.observe(&commands, |_, _, cx| cx.notify()).detach();
         Gallery {
+            commands,
             selected_view: "grid".into(),
             sidebar: silvestris::core::layout::SidebarPreference {
                 expanded: true,
@@ -148,11 +174,21 @@ impl Gallery {
             last_field: "none".into(),
         }
     }
+
+    fn sync_sidebar_command(&mut self, cx: &mut Context<Self>) {
+        let descriptor =
+            CommandDescriptor::toggle("view.sidebar", "Sidebar", self.sidebar.expanded)
+                .shortcut("secondary-b");
+        self.commands
+            .update(cx, |registry, cx| registry.publish(descriptor, cx).unwrap());
+    }
 }
 
 impl Render for Gallery {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let commands = self.commands.clone();
+        let footer_commands = self.commands.clone();
         let label = theme.id.label();
         let view = cx.entity();
         let button = |id: &'static str, label: &'static str| {
@@ -241,6 +277,10 @@ impl Render for Gallery {
         div()
             .size_full()
             .key_context("Gallery")
+            .on_action(move |action: &InvokeCommand, window, cx| {
+                cx.stop_propagation();
+                CommandRegistry::invoke(&commands, &CommandId::new(&action.id), window, cx);
+            })
             .track_focus(&self.focus)
             .on_action(cx.listener(|_, _: &AquaLight, _, cx| set(ThemeId::AQUA_LIGHT, cx)))
             .on_action(cx.listener(|_, _: &AquaDark, _, cx| set(ThemeId::AQUA_DARK, cx)))
@@ -250,7 +290,14 @@ impl Render for Gallery {
             .on_action(|_: &FocusPrev, window, cx| window.focus_prev(cx))
             .child(
                 WindowFrame::new(format!("Silvestris Gallery — {label}"))
-                    .toolbar(div(), theme.metrics.toolbar_height)
+                    .toolbar(
+                        CommandButton::new(
+                            "sidebar-toolbar",
+                            "view.sidebar",
+                            self.commands.clone(),
+                        ),
+                        theme.metrics.toolbar_height,
+                    )
                     .bottom_bar(div())
                     .child(
                         div()
@@ -335,15 +382,20 @@ impl Render for Gallery {
                                             )
                                             .size(ControlSize::Mini)
                                             .on_click(
-                                                cx.listener(|g, _, _, cx| {
-                                                    g.sidebar.expanded = !g.sidebar.expanded;
-                                                    cx.notify();
-                                                }),
+                                                move |_, window, cx| {
+                                                    CommandRegistry::invoke(
+                                                        &footer_commands,
+                                                        &"view.sidebar".into(),
+                                                        window,
+                                                        cx,
+                                                    );
+                                                },
                                             ),
                                         )
                                         .on_change(
                                             cx.listener(|g, preference, _, cx| {
                                                 g.sidebar = *preference;
+                                                g.sync_sidebar_command(cx);
                                                 cx.notify();
                                             }),
                                         ),
