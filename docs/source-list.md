@@ -46,8 +46,20 @@ an archive item. Event text distinguishes selection from disclosure.
 
 Verification: source_list unit tests cover navigation, disclosure isolation,
 disabled/empty/edge cases, stable identity, atomic duplicate rejection,
-10,000 rows, and immutable snapshot sharing. Workspace builds and Clippy
-check GPUI integration. Real mouse/keyboard, inactive/focus repaint,
+10,000 rows, and immutable snapshot sharing. GPUI interaction tests now
+exercise rendered disclosure clicks and Space/Enter activation in all four
+themes, tree keyboard navigation and focus through live theme switches,
+and Home/End scrolling over 10,000 rows. The icon callback count verifies
+viewport rendering rather than constructing an element for every item.
+Run them with `cargo test -p silvestris --lib --locked`.
+
+The tests use GPUI TestAppContext/VisualTestContext and its mock text system.
+They install the theme directly; bundled font registration is deliberately
+outside this harness. They verify event dispatch, hitboxes, focus and layout,
+not native input delivery or pixel accuracy. Key activation tests send both
+key-down and key-up, matching div.rs's focus-generation check.
+
+Workspace builds and Clippy check GPUI integration. Real mouse/keyboard, inactive/focus repaint,
 screen reader and four-theme visual/DPI checks remain pending: desktop
 automation's native pipe was unavailable on 2026-11-19. No golden images
 have been accepted. The existing gallery executable was locked; a separately

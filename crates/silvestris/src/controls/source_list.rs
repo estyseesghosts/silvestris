@@ -174,6 +174,7 @@ impl Render for SourceList {
                     let toggle_id = id.clone();
                     div()
                         .id(gpui::SharedString::from(id.clone()))
+                        .debug_selector(|| format!("source-row-{}", row.id))
                         .role(gpui::Role::TreeItem)
                         .aria_label(row.label.clone())
                         .aria_selected(is_selected)
@@ -312,5 +313,145 @@ impl Render for SourceList {
                 el.child(div().p(px(12.)).child("No items"))
             })
             .when(!self.tree.rows().is_empty(), |el| el.child(list))
+    }
+}
+
+#[cfg(test)]
+mod interaction_tests {
+    use super::*;
+    use crate::{ThemeId, ThemePreference};
+    use gpui::{point, Modifiers, TestAppContext, VisualTestContext};
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+    }
+
+    // GPUI simulate_keystrokes dispatches key-down only; button activation
+    // in div.rs requires the matching key-up with unchanged focus generation.
+    fn press(cx: &mut VisualTestContext, key: &str) {
+        let stroke =
+            cx.update(|_, cx| gpui::Keystroke::parse_with_os(key, cx.platform_info().os).unwrap());
+        cx.simulate_event(gpui::KeyDownEvent {
+            keystroke: stroke.clone(),
+            is_held: false,
+            prefer_character_input: false,
+        });
+        cx.simulate_event(gpui::KeyUpEvent { keystroke: stroke });
+    }
+
+    fn selected(list: &gpui::Entity<SourceList>, cx: &mut VisualTestContext) -> Option<String> {
+        cx.update(|_, cx| list.read(cx).tree.selected().map(str::to_owned))
+    }
+
+    #[test]
+    fn rendered_disclosure_does_not_select_row_in_any_theme() {
+        for theme in ThemeId::ALL {
+            let mut app = TestAppContext::single();
+            app.update(|cx| crate::theme::install(ThemePreference::explicit(theme), cx));
+            let (list, cx) = app.add_window_view(|_, cx| {
+                let mut root = SourceNode::new("root", "Collection");
+                root.children = vec![SourceNode::new("child", "Document")];
+                SourceList::new(vec![root, SourceNode::new("other", "Other")], cx).unwrap()
+            });
+            draw(cx);
+            let other = cx.debug_bounds("source-row-other").expect("rendered row");
+            cx.simulate_click(
+                point(other.origin.x + px(80.), other.center().y),
+                Modifiers::default(),
+            );
+            draw(cx);
+            assert_eq!(selected(&list, cx).as_deref(), Some("other"));
+            let root = cx.debug_bounds("source-row-root").unwrap();
+            // Row inset + centre of the 13 px disclosure, independent of font.
+            cx.simulate_click(
+                point(root.origin.x + px(10.), root.center().y),
+                Modifiers::default(),
+            );
+            draw(cx);
+            assert_eq!(selected(&list, cx).as_deref(), Some("other"), "{theme:?}");
+            cx.update(|_, cx| assert!(list.read(cx).tree.rows()[0].expanded));
+            assert!(cx.debug_bounds("source-row-child").is_some());
+            press(cx, "space");
+            draw(cx);
+            assert_eq!(selected(&list, cx).as_deref(), Some("other"));
+            cx.update(|_, cx| assert!(!list.read(cx).tree.rows()[0].expanded));
+            press(cx, "enter");
+            draw(cx);
+            cx.update(|_, cx| assert!(list.read(cx).tree.rows()[0].expanded));
+        }
+    }
+
+    #[test]
+    fn keyboard_navigation_survives_live_theme_switch() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+        let (list, cx) = app.add_window_view(|window, cx| {
+            let mut root = SourceNode::new("root", "Collection");
+            root.children = vec![SourceNode::new("child", "Document")];
+            let list = SourceList::new(vec![root], cx).unwrap();
+            window.focus(&list.focus, cx);
+            list
+        });
+        draw(cx);
+        cx.simulate_keystrokes("home right right");
+        draw(cx);
+        assert_eq!(selected(&list, cx).as_deref(), Some("child"));
+        for theme in ThemeId::ALL {
+            cx.update(|_, cx| crate::set_theme_preference(ThemePreference::explicit(theme), cx));
+            draw(cx);
+            assert_eq!(selected(&list, cx).as_deref(), Some("child"));
+            cx.update(|window, cx| assert!(list.read(cx).focus.is_focused(window)));
+        }
+        cx.simulate_keystrokes("left left");
+        draw(cx);
+        assert_eq!(selected(&list, cx).as_deref(), Some("root"));
+        cx.update(|_, cx| assert!(!list.read(cx).tree.rows()[0].expanded));
+    }
+
+    #[test]
+    fn large_list_renders_viewport_and_scrolls_to_keyboard_selection() {
+        use std::cell::Cell;
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(ThemePreference::default(), cx));
+        let rendered = Rc::new(Cell::new(0));
+        let (list, cx) = app.add_window_view(|window, cx| {
+            let nodes = (0..10000)
+                .map(|i| {
+                    let mut n = SourceNode::new(format!("item-{i}"), format!("Document {i}"));
+                    n.icon = Some("document".into());
+                    n
+                })
+                .collect();
+            let mut list = SourceList::new(nodes, cx).unwrap();
+            let count = rendered.clone();
+            list.set_icon_renderer(
+                move |_, _, _, _, _| {
+                    count.set(count.get() + 1);
+                    div().into_any_element()
+                },
+                cx,
+            );
+            window.focus(&list.focus, cx);
+            list
+        });
+        draw(cx);
+        assert!(
+            rendered.get() > 0 && rendered.get() < 1000,
+            "only viewport icons should render: {}",
+            rendered.get()
+        );
+        rendered.set(0);
+        cx.simulate_keystrokes("end");
+        draw(cx);
+        assert_eq!(selected(&list, cx).as_deref(), Some("item-9999"));
+        assert!(cx.debug_bounds("source-row-item-9999").is_some());
+        assert!(rendered.get() < 1000, "scroll should not render every row");
+        cx.simulate_keystrokes("home");
+        draw(cx);
+        assert_eq!(selected(&list, cx).as_deref(), Some("item-0"));
+        assert!(cx.debug_bounds("source-row-item-0").is_some());
     }
 }

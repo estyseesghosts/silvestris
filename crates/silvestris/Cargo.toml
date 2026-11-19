@@ -20,6 +20,9 @@ smallvec = { workspace = true }
 log = { workspace = true }
 unicode-segmentation = "1.13"
 
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+
 [target.'cfg(windows)'.dependencies]
 # DWM corner preference for the custom-chrome window (handbook 06).
 raw-window-handle = { workspace = true }
