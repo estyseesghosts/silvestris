@@ -7,19 +7,24 @@
 //!   controls have the same width").
 //! - Label font: system, small system, mini system for regular, small, mini
 //!   (HIG p. 269).
-//! - Pressed draws the `pressed` bevel (blue in Aqua) while the pointer is down;
-//!   Enter/Space activate a focused button (GPUI div.rs keyboard click).
+//! - Pointer and keyboard presses draw the pressed bevel immediately (HIG p. 265).
+//!   GPUI still decides whether the release activates the button. Successful
+//!   activation eases back to the resting bevel when motion is enabled.
 //! - The focus ring shows only after keyboard input (handbook 12 focus manager).
 //! - Disabled buttons are not focusable and have no click handler. GPUI at the
 //!   pin has no `aria_disabled`, so assistive tech is not told the state; this
 //!   is a recorded gap (docs/exceptions.md).
 
+use std::cell::Cell;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FocusHandle, SharedString, Window,
+    AnyElement, App, ClickEvent, ElementId, FocusHandle, MouseButton, MouseExitEvent,
+    MouseMoveEvent, MouseUpEvent, SharedString, Window, canvas, div, prelude::*, px,
 };
 use silvestris_core::tokens::{Bevel, Theme};
+use silvestris_core::{Gradient, Rgba8};
 
 use crate::convert::hsla;
 use crate::paint;
@@ -167,9 +172,54 @@ impl Button {
     }
 }
 
-/// Group name for the pressed layer; GPUI resolves a group name to the
-/// innermost enclosing element that declared it, so one name serves all.
-const GROUP: &str = "silvestris-button";
+// Local timing estimate. The held bezel is immediate and the command runs
+// on release, as specified by the HIG.
+const RELEASE_DURATION: Duration = Duration::from_millis(120);
+
+#[derive(Clone, Copy, Default, PartialEq)]
+enum Press {
+    #[default]
+    Resting,
+    Pointer {
+        inside: bool,
+    },
+    Keyboard,
+    Released(Instant),
+}
+
+impl Press {
+    fn amount(self, window: &Window, cx: &App) -> f32 {
+        match self {
+            Self::Pointer { inside: true } | Self::Keyboard => 1.0,
+            Self::Released(start) if !cx.reduce_motion() => {
+                let elapsed = cx
+                    .background_executor()
+                    .now()
+                    .saturating_duration_since(start);
+                let t = (elapsed.as_secs_f32() / RELEASE_DURATION.as_secs_f32()).min(1.0);
+                if t < 1.0 {
+                    window.request_animation_frame();
+                }
+                1.0 - t * t * (3.0 - 2.0 * t)
+            }
+            _ => 0.0,
+        }
+    }
+}
+
+fn blend_bevel(resting: Bevel, pressed: Bevel, amount: f32) -> Bevel {
+    let blend = |a: Gradient, b: Gradient| {
+        Gradient::new(a.from.mix(b.from, amount), a.to.mix(b.to, amount))
+    };
+    Bevel {
+        border: blend(resting.border, pressed.border),
+        upper: blend(resting.upper, pressed.upper),
+        lower: blend(resting.lower, pressed.lower),
+        split: resting.split + (pressed.split - resting.split) * amount,
+        emboss: resting.emboss.mix(pressed.emboss, amount),
+        text: resting.text.mix(pressed.text, amount),
+    }
+}
 
 impl RenderOnce for Button {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
@@ -209,37 +259,72 @@ impl RenderOnce for Button {
         } else {
             states.normal
         };
-        let pressed = states.pressed;
-        let focus = self.focus.unwrap_or_else(|| {
-            window.use_keyed_state(self.id.clone(), cx, |_, cx| cx.focus_handle().tab_stop(true))
-                .read(cx).clone()
+        let state = window.use_keyed_state(self.id.clone(), cx, |_, cx| {
+            (
+                cx.focus_handle().tab_stop(true),
+                Rc::new(Cell::new(Press::Resting)),
+            )
         });
+        let (default_focus, feedback) = state.read(cx);
+        let focus = self.focus.unwrap_or_else(|| default_focus.clone());
+        let enabled = !self.disabled;
+        let handler = self.on_click.filter(|_| enabled);
+        if handler.is_none()
+            || !window.is_window_active()
+            || (feedback.get() == Press::Keyboard && !focus.is_focused(window))
+        {
+            feedback.set(Press::Resting);
+        }
+        let amount = feedback.get().amount(window, cx);
+        if amount == 0.0 && matches!(feedback.get(), Press::Released(_)) {
+            feedback.set(Press::Resting);
+        }
+        let feedback = handler.as_ref().map(|_| feedback.clone());
+        let bezel = if amount == 0.0 {
+            base
+        } else {
+            let mut pressed = states.pressed;
+            if base == pressed {
+                // The theme can share its pressed material with a latched toggle.
+                // Deepen the inset so the toggle still responds to a fresh press.
+                let black = Rgba8::hex(0);
+                let deepen = |band: Gradient| {
+                    Gradient::new(band.from.mix(black, 0.22), band.to.mix(black, 0.22))
+                };
+                pressed.upper = deepen(pressed.upper);
+                pressed.lower = deepen(pressed.lower);
+            }
+            blend_bevel(base, pressed, amount)
+        };
+        let ink = if self.destructive && enabled {
+            theme.colors.error.mix(states.pressed.text, amount)
+        } else {
+            bezel.text
+        };
         let ring_focus = focus.clone();
         let pointer_focus = focus.clone();
         let ring_color = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
         let icon_only = self.icon.is_some();
-        let padding = if icon_only { 0.0 } else { m.push_padding[self.size.index()] };
-        let resting_ink = if self.destructive && !self.disabled {
-            theme.colors.error
+        let padding = if icon_only {
+            0.0
         } else {
-            base.text
+            m.push_padding[self.size.index()]
         };
-        let icon = self.icon.as_ref().map(|draw| draw(crate::convert::rgba(resting_ink)));
-        let pressed_icon = self.icon.as_ref().filter(|_| !self.disabled)
-            .map(|draw| draw(crate::convert::rgba(pressed.text)));
+        let icon = self.icon.map(|draw| draw(crate::convert::rgba(ink)));
         let label_dy = if self.style == ButtonStyle::Push {
             m.push_label_dy[self.size.index()]
         } else {
             0.0
         };
-        let enabled = !self.disabled;
+        let pointer_down = feedback.clone();
+        let key_down = feedback.clone();
+        let activation = feedback.clone();
 
         div()
             .debug_selector(|| self.id.to_string())
             .id(self.id)
-            .group(GROUP)
             .role(gpui::Role::Button)
             .aria_label(self.label.clone())
             // Block an enclosing native titlebar's Drag hitbox (same contract
@@ -258,70 +343,109 @@ impl RenderOnce for Button {
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
             .when(enabled, |el| el.track_focus(&focus))
-            .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 if enabled {
                     window.focus(&pointer_focus, cx);
                 }
+                if let Some(feedback) = &pointer_down {
+                    feedback.set(Press::Pointer { inside: true });
+                    window.refresh();
+                }
                 cx.stop_propagation();
             })
-            .when_some(self.on_click.filter(|_| enabled), |el, f| {
-                el.on_click(move |event, window, cx| f(event, window, cx))
+            .when_some(key_down, |el, feedback| {
+                let key_focus = focus.clone();
+                let key_up = feedback.clone();
+                el.on_key_down(move |event, window, _| {
+                    if !key_focus.is_focused(window) {
+                        return;
+                    }
+                    let stroke = &event.keystroke;
+                    if !window.default_prevented()
+                        && !stroke.modifiers.modified()
+                        && matches!(stroke.key.as_str(), "enter" | "space")
+                    {
+                        feedback.set(Press::Keyboard);
+                        window.refresh();
+                    } else if feedback.get() == Press::Keyboard {
+                        feedback.set(Press::Resting);
+                        window.refresh();
+                    }
+                })
+                .on_key_up(move |_, window, _| {
+                    if key_up.get() == Press::Keyboard {
+                        key_up.set(Press::Resting);
+                        window.refresh();
+                    }
+                })
+            })
+            .when_some(handler.zip(activation), |el, (handler, feedback)| {
+                el.on_click(move |event, window, cx| {
+                    if !cx.reduce_motion() {
+                        feedback.set(Press::Released(cx.background_executor().now()));
+                    }
+                    window.refresh();
+                    handler(event, window, cx);
+                })
             })
             .child(
                 canvas(
                     |_, _, _| (),
                     move |bounds, _, window, _| {
-                        paint::bevel(window, bounds, radius, &base);
+                        paint::bevel(window, bounds, radius, &bezel);
+                        if let Some(feedback) = &feedback {
+                            // Capture release even when another control consumes the mouse-up.
+                            // GPUI's later ClickEvent starts the animation for a valid release.
+                            let release = feedback.clone();
+                            window.on_mouse_event(move |event: &MouseUpEvent, phase, window, _| {
+                                if phase.capture()
+                                    && event.button == MouseButton::Left
+                                    && matches!(release.get(), Press::Pointer { .. })
+                                {
+                                    release.set(Press::Resting);
+                                    window.refresh();
+                                }
+                            });
+                            if matches!(feedback.get(), Press::Pointer { .. }) {
+                                let pointer = feedback.clone();
+                                window.on_mouse_event(
+                                    move |event: &MouseMoveEvent, phase, window, _| {
+                                        let next = Press::Pointer {
+                                            inside: bounds.contains(&event.position),
+                                        };
+                                        if phase.capture()
+                                            && matches!(pointer.get(), Press::Pointer { .. })
+                                            && pointer.replace(next) != next
+                                        {
+                                            window.refresh();
+                                        }
+                                    },
+                                );
+                                let pointer = feedback.clone();
+                                window.on_mouse_event(
+                                    move |_: &MouseExitEvent, phase, window, _| {
+                                        if phase.capture()
+                                            && pointer.get() == (Press::Pointer { inside: true })
+                                        {
+                                            pointer.set(Press::Pointer { inside: false });
+                                            window.refresh();
+                                        }
+                                    },
+                                );
+                            }
+                        }
                     },
                 )
                 .absolute()
                 .inset_0(),
             )
-            .when(enabled, |el| {
-                el.child(
-                    div()
-                        .id("pressed")
-                        .absolute()
-                        .inset_0()
-                        .opacity(0.)
-                        .group_active(GROUP, |s| s.opacity(1.))
-                        .child(
-                            canvas(
-                                |_, _, _| (),
-                                move |bounds, _, window, _| {
-                                    paint::bevel(window, bounds, radius, &pressed);
-                                },
-                            )
-                            .size_full(),
-                        ),
-                )
-            })
-            .when_some(icon, |el, icon| {
-                el.child(
-                    div().id("icon").relative()
-                        .when(enabled, |el| el.group_active(GROUP, |s| s.opacity(0.0)))
-                        .child(icon),
-                )
-                .when_some(pressed_icon, |el, icon| {
-                    el.child(
-                        div().id("pressed-icon").absolute().inset_0()
-                            .flex().items_center().justify_center()
-                            .opacity(0.0)
-                            .group_active(GROUP, |s| s.opacity(1.0))
-                            .child(icon),
-                    )
-                })
-            })
+            .when_some(icon, |el, icon| el.child(div().relative().child(icon)))
             .when(!icon_only, |el| {
                 el.child(
                     div()
-                        .id("label")
                         .relative()
                         .top(px(label_dy))
-                        .text_color(hsla(resting_ink))
-                        .when(enabled, |el| {
-                            el.group_active(GROUP, |s| s.text_color(hsla(pressed.text)))
-                        })
+                        .text_color(hsla(ink))
                         .child(self.label),
                 )
             })
@@ -354,6 +478,7 @@ mod tests {
         focus: FocusHandle,
         activations: usize,
         background_downs: usize,
+        selected: bool,
     }
     impl Render for Harness {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -370,6 +495,7 @@ mod tests {
                 .child(
                     Button::new("tool", "Toolbar control")
                         .style(ButtonStyle::Textured)
+                        .selected(self.selected)
                         .on_click(cx.listener(|h, _, _, cx| {
                             h.activations += 1;
                             cx.notify();
@@ -392,6 +518,7 @@ mod tests {
                 focus: cx.focus_handle(),
                 activations: 0,
                 background_downs: 0,
+                selected: false,
             });
             draw(cx);
             let button = cx.debug_bounds("tool").unwrap();
@@ -410,5 +537,97 @@ mod tests {
             draw(cx);
             cx.update(|_, cx| assert_eq!(h.read(cx).activations, 2));
         }
+    }
+
+    #[test]
+    fn press_feedback_tracks_activation_cancellation_and_reduced_motion() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(
+                crate::ThemePreference::explicit(crate::ThemeId::AQUA_LIGHT),
+                cx,
+            )
+        });
+        let (h, cx) = app.add_window_view(|_, cx| Harness {
+            focus: cx.focus_handle(),
+            activations: 0,
+            background_downs: 0,
+            selected: false,
+        });
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let button = cx.debug_bounds("tool").unwrap();
+        let fill = |cx: &mut VisualTestContext| {
+            cx.update(|window, _| {
+                let bounds = paint::inset(button, crate::convert::hairline(window))
+                    .scale(window.scale_factor());
+                window
+                    .painted_quads()
+                    .iter()
+                    .find(|quad| quad.bounds == bounds)
+                    .unwrap()
+                    .background
+            })
+        };
+        let resting = fill(cx);
+        let position = button.center();
+        let outside = gpui::point(position.x, button.bottom() + px(8.));
+        let modifiers = Modifiers::default();
+
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        let held = fill(cx);
+        assert_ne!(held, resting);
+        cx.simulate_mouse_move(outside, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_eq!(fill(cx), resting);
+        cx.simulate_mouse_up(outside, MouseButton::Left, modifiers);
+        draw(cx);
+        cx.update(|_, cx| assert_eq!(h.read(cx).activations, 0));
+
+        cx.simulate_click(position, modifiers);
+        draw(cx);
+        assert_eq!(fill(cx), held);
+        cx.update(|_, cx| assert_eq!(h.read(cx).activations, 1));
+        cx.update(|window, cx| {
+            cx.background_executor().advance_clock(RELEASE_DURATION / 2);
+            window.simulate_next_frame(cx);
+        });
+        draw(cx);
+        let halfway = fill(cx);
+        assert_ne!(halfway, held);
+        assert_ne!(halfway, resting);
+        cx.update(|window, cx| {
+            cx.background_executor().advance_clock(RELEASE_DURATION / 2);
+            window.simulate_next_frame(cx);
+        });
+        draw(cx);
+        assert_eq!(fill(cx), resting);
+
+        cx.update(|_, cx| cx.set_reduce_motion(true));
+        cx.simulate_keystrokes("space");
+        draw(cx);
+        assert_eq!(fill(cx), held);
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("space").unwrap(),
+        });
+        draw(cx);
+        assert_eq!(fill(cx), resting);
+        cx.update(|_, cx| assert_eq!(h.read(cx).activations, 2));
+
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.selected = true;
+                cx.notify();
+            });
+        });
+        draw(cx);
+        let selected = fill(cx);
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_ne!(fill(cx), selected);
+        cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_eq!(fill(cx), selected);
     }
 }

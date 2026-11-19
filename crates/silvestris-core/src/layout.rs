@@ -9,7 +9,7 @@
 //!    `pinned` stays true and it docks again when room returns.
 //! 2. The expanded source list shrinks toward its minimum.
 //! 3. The inspector rail is hidden.
-//! 4. The source list is drawn as its rail. It never becomes an overlay.
+//! 4. The source list collapses to its configured rail width. It never becomes an overlay.
 //!
 //! Opening or closing an unpinned (overlay) inspector never changes the
 //! workspace rectangle. Demotions are per-viewport and never written back to
@@ -19,6 +19,7 @@
 /// Constraints supplied by the consumer and the active theme.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShellGeometry {
+    /// Width of the collapsed sidebar. Zero hides it entirely.
     pub sidebar_rail: f32,
     pub sidebar_min: f32,
     pub sidebar_max: f32,
@@ -93,7 +94,7 @@ impl Span {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShellPlan {
     pub sidebar: Span,
-    /// The source list shows its full rows (false: its rail).
+    /// The source list shows its full rows (false: its rail or no sidebar).
     pub sidebar_expanded: bool,
     /// Expanded by preference but drawn as a rail or narrowed for lack of room.
     pub sidebar_demoted: bool,

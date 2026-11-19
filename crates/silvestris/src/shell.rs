@@ -213,32 +213,34 @@ impl RenderOnce for Shell {
                 .font_family(theme.type_.ui)
                 .text_size(px(theme.type_.size_regular))
                 .text_color(hsla(theme.colors.text))
-                .child(
-                    div()
-                        .absolute()
-                        .left_0()
-                        .top_0()
-                        .bottom_0()
-                        .w(px(plan.sidebar.width))
-                        .child(
-                            Sidebar::new(
-                                "sidebar",
-                                self.sidebar,
-                                self.sidebar_content,
-                                self.sidebar_rail,
-                            )
-                            .geometry(self.geometry)
-                            .effective(plan.sidebar.width, plan.sidebar_expanded)
-                            .on_change({
-                                let callback = self.on_sidebar;
-                                move |p, w, cx| {
-                                    if let Some(f) = &callback {
-                                        f(p, w, cx);
+                .when(plan.sidebar.width > 0.0, |root| {
+                    root.child(
+                        div()
+                            .absolute()
+                            .left_0()
+                            .top_0()
+                            .bottom_0()
+                            .w(px(plan.sidebar.width))
+                            .child(
+                                Sidebar::new(
+                                    "sidebar",
+                                    self.sidebar,
+                                    self.sidebar_content,
+                                    self.sidebar_rail,
+                                )
+                                .geometry(self.geometry)
+                                .effective(plan.sidebar.width, plan.sidebar_expanded)
+                                .on_change({
+                                    let callback = self.on_sidebar;
+                                    move |p, w, cx| {
+                                        if let Some(f) = &callback {
+                                            f(p, w, cx);
+                                        }
                                     }
-                                }
-                            }),
-                        ),
-                )
+                                }),
+                            ),
+                    )
+                })
                 .child(
                     div()
                         .id("workspace")
