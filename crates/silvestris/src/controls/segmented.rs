@@ -1,5 +1,6 @@
 //! Single-choice text segmented control (#128; HIG pp. 286-288).
-//! Equal widths use the widest shaped label. Consumer owns selected ID.
+//! Equal widths use the widest shaped label; `fit_labels` instead sizes
+//! each segment to its label plus a margin (tab views, HIG p. 341). Consumer owns selected ID.
 //! A shared outer bezel is clipped per segment; internal edges stay square.
 use crate::{
     convert::{hairline, hsla},
@@ -41,6 +42,7 @@ pub struct SegmentedControl {
     selected: Option<SharedString>,
     disabled: bool,
     min_segment_width: f32,
+    label_margin: Option<f32>,
     on_select: Option<SelectionHandler>,
 }
 impl SegmentedControl {
@@ -56,6 +58,7 @@ impl SegmentedControl {
             selected: None,
             disabled: false,
             min_segment_width: 0.,
+            label_margin: None,
             on_select: None,
         }
     }
@@ -69,6 +72,12 @@ impl SegmentedControl {
     }
     pub fn min_segment_width(mut self, width: f32) -> Self {
         self.min_segment_width = width.max(0.);
+        self
+    }
+    /// Size each segment to its own label plus `margin` on each side, as
+    /// tab-view tabs do (HIG p. 341: 12 / 10 / 8 px).
+    pub fn fit_labels(mut self, margin: f32) -> Self {
+        self.label_margin = Some(margin.max(0.));
         self
     }
     pub fn on_select(mut self, f: impl Fn(&SharedString, &mut Window, &mut App) + 'static) -> Self {
@@ -109,7 +118,7 @@ impl RenderOnce for SegmentedControl {
             })
             .read(cx)
             .clone();
-        let width = self
+        let labels: Vec<f32> = self
             .segments
             .iter()
             .map(|s| {
@@ -126,10 +135,19 @@ impl RenderOnce for SegmentedControl {
                     .shape_line(s.label.clone(), px(t.type_.size_regular), &[run], None)
                     .width
                     .as_f32()
-                    + 2. * t.metrics.push_padding[0]
             })
-            .fold(self.min_segment_width, f32::max);
-        let count = self.segments.len();
+            .collect();
+        let widths: Vec<f32> = match self.label_margin {
+            Some(margin) => labels.iter().map(|w| (w + 2. * margin).ceil().max(self.min_segment_width)).collect(),
+            None => {
+                let w = labels
+                    .iter()
+                    .map(|w| w + 2. * t.metrics.push_padding[0])
+                    .fold(self.min_segment_width, f32::max);
+                vec![w; labels.len()]
+            }
+        };
+        let total: f32 = widths.iter().sum();
         let enabled = !self.disabled && self.segments.iter().any(|s| !s.disabled);
         let selected = self.selected.clone();
         let keyboard_segments = self.segments.clone();
@@ -176,10 +194,12 @@ impl RenderOnce for SegmentedControl {
             let pressed = states.pressed;
             let handler = self.on_select.clone();
             let click_focus = focus.clone();
+            let width = widths[i];
+            let before: f32 = widths[..i].iter().sum();
             let paint_segment = move |bounds: Bounds<gpui::Pixels>, window: &mut Window, bevel| {
                 let all = Bounds::new(
-                    point(bounds.origin.x - px(i as f32 * width), bounds.origin.y),
-                    size(px(count as f32 * width), bounds.size.height),
+                    point(bounds.origin.x - px(before), bounds.origin.y),
+                    size(px(total), bounds.size.height),
                 );
                 window.with_content_mask(Some(ContentMask { bounds }), |window| {
                     paint::bevel(window, all, radius, &bevel);

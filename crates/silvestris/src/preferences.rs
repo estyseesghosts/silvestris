@@ -529,7 +529,9 @@ impl RenderOnce for TabView {
                 ElementId::Name(format!("{}-tabs", self.id).into()),
                 "Tabs",
                 self.tabs,
-            );
+            )
+            // Tabs size to their labels with 12 px margins (HIG p. 341).
+            .fit_labels(12.0);
             if let Some(selected) = self.selected {
                 tabs = tabs.selected(selected);
             }
