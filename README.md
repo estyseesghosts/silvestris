@@ -24,6 +24,13 @@ pin/unpin and resize the inspector, resize/collapse the sidebar and narrow
 the window. Ctrl+B/Cmd+B toggles Sidebar; Ctrl+I/Cmd+I toggles Inspector;
 1-4 select Aqua Light/Dark and Geist Light/Dark. Preferences are in memory.
 
+On Windows, tools/capture/capture-window.ps1 supports -ExactTitle and
+-TargetProcessId to select one window. -WindowOnly uses PrintWindow with
+PW_RENDERFULLCONTENT to capture GPUI's surface without overlapping windows;
+the default screen copy also records DWM shadows and any desktop occlusion.
+Use these captures to inspect real application composition, alongside native
+input checks. Images under target/ are local development artifacts.
+
 ## Consumer entry points
 
 Depend on crates/silvestris and use the exact same GPUI revision. Call
