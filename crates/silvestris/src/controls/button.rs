@@ -180,6 +180,9 @@ impl RenderOnce for Button {
             .group(GROUP)
             .role(gpui::Role::Button)
             .aria_label(self.label.clone())
+            // Block an enclosing native titlebar's Drag hitbox (same contract
+            // as chrome::traffic_lights); controls must remain clickable.
+            .occlude()
             .relative()
             .flex()
             .flex_none()
@@ -190,7 +193,7 @@ impl RenderOnce for Button {
             .when_some(self.min_width, |el, w| el.min_w(px(w)))
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
-            .when(enabled, |el| el.track_focus(&focus))
+            .when(enabled, |el| el.track_focus(&focus).on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation()))
             .when_some(self.on_click.filter(|_| enabled), |el, f| {
                 el.on_click(move |event, window, cx| f(event, window, cx))
             })
