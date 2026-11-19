@@ -11,7 +11,8 @@ use silvestris::controls::{
     Button, ButtonStyle, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
     SourceListEvent, TextField, TextFieldEvent,
 };
-use silvestris::core::command::{CommandDescriptor, CommandId};
+use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
+use silvestris::menu::PopupMenu;
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
 actions!(
@@ -20,6 +21,7 @@ actions!(
 );
 
 struct Gallery {
+    menu: Entity<PopupMenu>,
     commands: Entity<CommandRegistry>,
     selected_view: gpui::SharedString,
     sidebar: silvestris::core::layout::SidebarPreference,
@@ -158,7 +160,50 @@ impl Gallery {
             .expect("gallery command bindings");
         cx.bind_keys(bindings);
         cx.observe(&commands, |_, _, cx| cx.notify()).detach();
+        commands.update(cx, |registry, cx| {
+            for (id, label, theme) in [
+                ("theme.aqua-light", "Aqua Light", ThemeId::AQUA_LIGHT),
+                ("theme.aqua-dark", "Aqua Dark", ThemeId::AQUA_DARK),
+                ("theme.geist-light", "Geist Light", ThemeId::GEIST_LIGHT),
+                ("theme.geist-dark", "Geist Dark", ThemeId::GEIST_DARK),
+            ] {
+                registry
+                    .register(
+                        CommandDescriptor::action(id, label),
+                        move |_, _, cx| set(theme, cx),
+                        cx,
+                    )
+                    .unwrap();
+            }
+        });
+        let menu = cx.new(|cx| {
+            PopupMenu::new(
+                MenuModel {
+                    label: "View".into(),
+                    entries: vec![
+                        MenuEntry::Command("view.sidebar".into()),
+                        MenuEntry::Separator,
+                        MenuEntry::Submenu {
+                            label: "Appearance".into(),
+                            entries: [
+                                "theme.aqua-light",
+                                "theme.aqua-dark",
+                                "theme.geist-light",
+                                "theme.geist-dark",
+                            ]
+                            .into_iter()
+                            .map(|id| MenuEntry::Command(id.into()))
+                            .collect(),
+                        },
+                    ],
+                },
+                commands.clone(),
+                window,
+                cx,
+            )
+        });
         Gallery {
+            menu,
             commands,
             selected_view: "grid".into(),
             sidebar: silvestris::core::layout::SidebarPreference {
@@ -291,11 +336,28 @@ impl Render for Gallery {
             .child(
                 WindowFrame::new(format!("Silvestris Gallery — {label}"))
                     .toolbar(
-                        CommandButton::new(
-                            "sidebar-toolbar",
-                            "view.sidebar",
-                            self.commands.clone(),
-                        ),
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(8.))
+                            .child(CommandButton::new(
+                                "sidebar-toolbar",
+                                "view.sidebar",
+                                self.commands.clone(),
+                            ))
+                            .child(
+                                Button::new("view-menu", "View")
+                                    .style(ButtonStyle::Textured)
+                                    .on_click(cx.listener(
+                                        |g, event: &gpui::ClickEvent, window, cx| {
+                                            let position =
+                                                event.position() + point(px(0.), px(12.));
+                                            g.menu.update(cx, |menu, cx| {
+                                                menu.open(position, window, cx)
+                                            });
+                                        },
+                                    )),
+                            ),
                         theme.metrics.toolbar_height,
                     )
                     .bottom_bar(div())
@@ -507,6 +569,7 @@ impl Render for Gallery {
                             ),
                     ),
             )
+            .child(gpui::deferred(self.menu.clone()).priority(1))
     }
 }
 

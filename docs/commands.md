@@ -2,7 +2,7 @@
 
 The GPUI command adapter implements #129's shared registry/dispatch portion.
 MenuModel/MenuEntry and CommandDescriptor remain GPUI-free in core::command.
-No menu renderer or native menu integration is claimed by this change.
+Popup menu rendering is documented in menus.md; native menu integration remains open.
 
 Create an Entity<CommandRegistry> and register one callback per stable
 CommandId. Duplicate registration returns an error. Publish app-owned
@@ -56,6 +56,6 @@ GPUI's mock platform, not native keyboard delivery.
 Source: aqua-gpui handbook 12, "Menu hierarchy and command ownership" and
 "Guest HID safety rules"; HIG menu behavior pp. 165-173; pinned GPUI
 action.rs (parameterized actions), keymap/binding.rs (dynamic key loading),
-and div.rs (action responders). Pending #129 work includes menu surfaces,
+and div.rs (action responders). Pending #129 work beyond the popup in menus.md includes menubar surfaces,
 submenus, checkmarks, hover/type selection, dismissal/focus restoration,
 native macOS integration and the Windows/Linux menu-bar equivalent.
