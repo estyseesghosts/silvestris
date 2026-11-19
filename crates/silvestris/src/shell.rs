@@ -18,6 +18,7 @@ use std::{cell::Cell, rc::Rc};
 
 type InspectorHandler = Rc<dyn Fn(&InspectorPreference, &mut Window, &mut App)>;
 type SidebarHandler = Rc<dyn Fn(&SidebarPreference, &mut Window, &mut App)>;
+type InspectorKeyHandler = Rc<dyn Fn(&gpui::KeyDownEvent, &mut Window, &mut App) -> bool>;
 type ContentBuilder =
     Box<dyn FnOnce(&ShellPlan, gpui::Size<Pixels>, &mut Window, &mut App) -> ShellContent>;
 
@@ -63,6 +64,7 @@ pub struct Shell {
     on_inspector: Option<InspectorHandler>,
     content_builder: Option<ContentBuilder>,
     rail_enabled: bool,
+    inspector_key: Option<InspectorKeyHandler>,
 }
 impl Shell {
     pub fn new(
@@ -88,6 +90,7 @@ impl Shell {
             on_inspector: None,
             content_builder: None,
             rail_enabled: false,
+            inspector_key: None,
         }
     }
 
@@ -137,6 +140,16 @@ impl Shell {
         f: impl Fn(&InspectorPreference, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_inspector = Some(Rc::new(f));
+        self
+    }
+
+    /// Handle app shortcuts or dismiss an app popup before shell Escape.
+    /// Return true when handled. Remaining keys stay inside the inspector.
+    pub fn on_inspector_key_down(
+        mut self,
+        f: impl Fn(&gpui::KeyDownEvent, &mut Window, &mut App) -> bool + 'static,
+    ) -> Self {
+        self.inspector_key = Some(Rc::new(f));
         self
     }
 }
@@ -303,6 +316,7 @@ impl RenderOnce for Shell {
                 let owner = self.id.clone();
                 let geometry = self.geometry;
                 let pointer_focus = focus.clone();
+                let inspector_key = self.inspector_key;
                 let drag = InspectorDrag {
                     owner: owner.clone(),
                     start_x,
@@ -339,6 +353,10 @@ impl RenderOnce for Shell {
                         .on_mouse_move(|_, _, cx| cx.stop_propagation())
                         .on_scroll(|_, _, cx| cx.stop_propagation())
                         .on_key_down(move |event, w, cx| {
+                            if inspector_key.as_ref().is_some_and(|f| f(event, w, cx)) {
+                                cx.stop_propagation();
+                                return;
+                            }
                             if event.keystroke.key == "escape"
                                 && plan.presentation == Presentation::Overlay
                             {
@@ -501,6 +519,7 @@ mod tests {
         inspector: InspectorPreference,
         focus: FocusHandle,
         clicks: usize,
+        popup_open: bool,
     }
     impl Render for Harness {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -520,6 +539,20 @@ mod tests {
                     )
                     .inspector("Details", div().child("Inspector properties"))
                     .inspector_rail(div().child("I"))
+                    .on_inspector_key_down({
+                        let owner = cx.entity();
+                        move |event, _, cx| {
+                            owner.update(cx, |h, cx| {
+                                if event.keystroke.key == "escape" && h.popup_open {
+                                    h.popup_open = false;
+                                    cx.notify();
+                                    true
+                                } else {
+                                    false
+                                }
+                            })
+                        }
+                    })
                     .on_sidebar_change(cx.listener(|h, pref, _, cx| {
                         h.sidebar = *pref;
                         cx.notify();
@@ -637,6 +670,7 @@ mod tests {
                     inspector: CLOSED,
                     focus,
                     clicks: 0,
+                    popup_open: true,
                 }
             });
             cx.simulate_resize(size(px(1200.), px(600.)));
@@ -693,6 +727,12 @@ mod tests {
             cx.update(|window, cx| assert!(!h.read(cx).focus.is_focused(window)));
             cx.simulate_keystrokes("escape");
             draw(cx);
+            cx.update(|_, cx| {
+                assert!(!h.read(cx).popup_open);
+                assert!(h.read(cx).inspector.visible, "app popup closes first");
+            });
+            cx.simulate_keystrokes("escape");
+            draw(cx);
             assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
             cx.update(|window, cx| {
                 assert!(!h.read(cx).inspector.visible);
@@ -719,6 +759,7 @@ mod tests {
                 },
                 focus,
                 clicks: 0,
+                popup_open: false,
             }
         });
         cx.simulate_resize(size(px(1200.), px(600.)));
@@ -769,6 +810,7 @@ mod tests {
             },
             focus: cx.focus_handle(),
             clicks: 0,
+            popup_open: false,
         });
         cx.simulate_resize(size(px(1400.), px(600.)));
         draw(cx);

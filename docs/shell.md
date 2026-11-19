@@ -29,6 +29,8 @@ open; the rail remains above the shield so its actions stay usable.
 Inspector children handle their own events first; remaining pointer/keyboard
 events are consumed before reaching a workspace responder. Applications
 still own guest-HID release, session/epoch validation and focus-scope policy.
+on_inspector_key_down runs before shell Escape handling; return true to handle
+an app shortcut or dismiss an app popup without dismissing the inspector.
 
 The leading divider uses GPUI native drag routing, with keyed drag origin
 surviving focus repaints. Left/Right keyboard input increases/decreases width
