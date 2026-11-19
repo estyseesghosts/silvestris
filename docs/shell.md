@@ -10,6 +10,13 @@ before laying out children. Shell feeds that width to the pure planner,
 retaining the previous plan in keyed state for breakpoint hysteresis.
 It does not guess from window size or schedule a later measurement repaint.
 
+Shell::measured accepts a one-shot content builder returning ShellContent.
+The builder receives the effective ShellPlan and allocated logical size after
+planning, before child layout. Fit previews using plan.workspace and inspector
+content using plan.dock.or(plan.overlay); do not compute a second viewport plan.
+Its rail_enabled argument participates in planning before content is built.
+Shell::new remains available for content that does not need measured geometry.
+
 Sidebar is rendered with the effective width/presentation and original saved
 preference. Inspector overlay and dock share one absolute-positioned subtree:
 overlay uses plan.overlay and never changes plan.workspace; dock uses plan.dock
@@ -36,6 +43,8 @@ responder if focus was still inside the inspector; otherwise the newer focus
 is preserved. Applications must invalidate stale return targets if the
 underlying view/session disappears. Pin/unpin preserves the same entity
 content and focus state; transient popup menus should be mounted above Shell.
+Clicking inspector content while focus is outside it reclaims inspector focus;
+an already-focused child editor retains its responder.
 
 Tests: measured parent width with padding, overlay/workspace identity,
 pinned width reservation, Escape/focus return, narrow pinned demotion and

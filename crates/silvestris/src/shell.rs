@@ -18,6 +18,20 @@ use std::{cell::Cell, rc::Rc};
 
 type InspectorHandler = Rc<dyn Fn(&InspectorPreference, &mut Window, &mut App)>;
 type SidebarHandler = Rc<dyn Fn(&SidebarPreference, &mut Window, &mut App)>;
+type ContentBuilder =
+    Box<dyn FnOnce(&ShellPlan, gpui::Size<Pixels>, &mut Window, &mut App) -> ShellContent>;
+
+/// App-owned content built from the shell's measured plan. Use this when
+/// workspace children (for example fitted previews) need their allocated size.
+pub struct ShellContent {
+    pub sidebar: AnyElement,
+    pub sidebar_rail: AnyElement,
+    pub workspace: AnyElement,
+    pub inspector: Option<AnyElement>,
+    pub inspector_title: gpui::SharedString,
+    pub inspector_rail: Option<AnyElement>,
+}
+
 struct Runtime {
     previous: Option<ShellPlan>,
     inspector_focus: FocusHandle,
@@ -47,6 +61,8 @@ pub struct Shell {
     inspector_rail: Option<AnyElement>,
     on_sidebar: Option<SidebarHandler>,
     on_inspector: Option<InspectorHandler>,
+    content_builder: Option<ContentBuilder>,
+    rail_enabled: bool,
 }
 impl Shell {
     pub fn new(
@@ -70,7 +86,26 @@ impl Shell {
             inspector_rail: None,
             on_sidebar: None,
             on_inspector: None,
+            content_builder: None,
+            rail_enabled: false,
         }
+    }
+
+    /// Build app content after measurement, before child layout. The callback
+    /// runs once per render; it must not persist effective layout as preference.
+    /// `rail_enabled` is explicit because rail content is built after planning.
+    pub fn measured(
+        id: impl Into<ElementId>,
+        sidebar: SidebarPreference,
+        inspector: InspectorPreference,
+        rail_enabled: bool,
+        build: impl FnOnce(&ShellPlan, gpui::Size<Pixels>, &mut Window, &mut App) -> ShellContent
+            + 'static,
+    ) -> Self {
+        let mut shell = Self::new(id, sidebar, inspector, div(), div(), div());
+        shell.content_builder = Some(Box::new(build));
+        shell.rail_enabled = rail_enabled;
+        shell
     }
     pub fn geometry(mut self, geometry: ShellGeometry) -> Self {
         self.geometry = geometry;
@@ -87,6 +122,7 @@ impl Shell {
     }
     pub fn inspector_rail(mut self, content: impl IntoElement) -> Self {
         self.inspector_rail = Some(content.into_any_element());
+        self.rail_enabled = true;
         self
     }
     pub fn on_sidebar_change(
@@ -105,7 +141,7 @@ impl Shell {
     }
 }
 impl RenderOnce for Shell {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let runtime = window.use_keyed_state(self.id.clone(), cx, |_, cx| Runtime {
             previous: None,
             inspector_focus: cx.focus_handle(),
@@ -120,7 +156,7 @@ impl RenderOnce for Shell {
                     geometry: self.geometry,
                     sidebar: self.sidebar,
                     inspector: self.inspector,
-                    rail_enabled: self.inspector_rail.is_some(),
+                    rail_enabled: self.rail_enabled,
                     previous: state.previous.as_ref(),
                 });
                 let was_open = state
@@ -146,6 +182,15 @@ impl RenderOnce for Shell {
                     state.drag_x.clone(),
                 )
             });
+            if let Some(build) = self.content_builder.take() {
+                let content = build(&plan, size, window, cx);
+                self.sidebar_content = content.sidebar;
+                self.sidebar_rail = content.sidebar_rail;
+                self.workspace = content.workspace;
+                self.inspector_content = content.inspector;
+                self.inspector_title = content.inspector_title;
+                self.inspector_rail = content.inspector_rail;
+            }
             let theme = cx.theme().clone();
             let mut root = div()
                 .id(self.id.clone())
@@ -257,6 +302,7 @@ impl RenderOnce for Shell {
                 let down_x = start_x.clone();
                 let owner = self.id.clone();
                 let geometry = self.geometry;
+                let pointer_focus = focus.clone();
                 let drag = InspectorDrag {
                     owner: owner.clone(),
                     start_x,
@@ -282,7 +328,12 @@ impl RenderOnce for Shell {
                         .bg(hsla(theme.colors.window))
                         .border_l_1()
                         .border_color(hsla(theme.colors.divider))
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                            if !pointer_focus.contains_focused(window, cx) {
+                                window.focus(&pointer_focus, cx);
+                            }
+                            cx.stop_propagation();
+                        })
                         .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
                         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_mouse_move(|_, _, cx| cx.stop_propagation())
@@ -505,6 +556,72 @@ mod tests {
         width: 420.,
     };
     #[test]
+    fn measured_content_uses_the_same_plan_as_shell_placement() {
+        struct Measured {
+            inspector: InspectorPreference,
+        }
+        impl Render for Measured {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                div().size_full().p(px(24.)).child(Shell::measured(
+                    "measured",
+                    SidebarPreference {
+                        expanded: true,
+                        width: 264.,
+                    },
+                    self.inspector,
+                    true,
+                    |plan, size, _, _| ShellContent {
+                        sidebar: div().into_any_element(),
+                        sidebar_rail: div().into_any_element(),
+                        workspace: div()
+                            .id("fitted-preview")
+                            .debug_selector(|| "fitted-preview".into())
+                            .w(px(plan.workspace.width))
+                            .h(size.height)
+                            .into_any_element(),
+                        inspector: plan.dock.or(plan.overlay).map(|span| {
+                            div()
+                                .id("fitted-inspector")
+                                .debug_selector(|| "fitted-inspector".into())
+                                .w(px(span.width))
+                                .h_full()
+                                .into_any_element()
+                        }),
+                        inspector_title: "Measured".into(),
+                        inspector_rail: Some(div().into_any_element()),
+                    },
+                ))
+            }
+        }
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|_, _| Measured { inspector: CLOSED });
+        for viewport in [1200., 750., 600., 1200.] {
+            cx.simulate_resize(size(px(viewport), px(650.)));
+            for (visible, pinned) in [(false, false), (true, false), (true, true)] {
+                cx.update(|_, cx| {
+                    h.update(cx, |h, cx| {
+                        h.inspector = InspectorPreference {
+                            visible,
+                            pinned,
+                            ..CLOSED
+                        };
+                        cx.notify();
+                    })
+                });
+                draw(cx);
+                let workspace = cx.debug_bounds("shell-workspace").unwrap();
+                assert_eq!(cx.debug_bounds("fitted-preview").unwrap(), workspace);
+                if visible {
+                    assert_eq!(
+                        cx.debug_bounds("fitted-inspector").unwrap().size.width,
+                        cx.debug_bounds("shell-inspector").unwrap().size.width
+                    );
+                }
+            }
+        }
+    }
+    #[test]
     fn measured_overlay_preserves_workspace_and_pin_reserves_width_in_all_themes() {
         for theme in crate::ThemeId::ALL {
             let mut app = TestAppContext::single();
@@ -564,6 +681,16 @@ mod tests {
                 },
             );
             assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
+            // A guest can take focus while a dock/overlay stays visible. Clicking
+            // its empty content must restore inspector focus before typing.
+            cx.update(|window, cx| {
+                let focus = h.read(cx).focus.clone();
+                window.focus(&focus, cx);
+            });
+            let inspector_center = cx.debug_bounds("shell-inspector").unwrap().center();
+            cx.simulate_click(inspector_center, Modifiers::default());
+            draw(cx);
+            cx.update(|window, cx| assert!(!h.read(cx).focus.is_focused(window)));
             cx.simulate_keystrokes("escape");
             draw(cx);
             assert_eq!(cx.debug_bounds("shell-workspace").unwrap(), closed);
