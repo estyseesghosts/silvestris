@@ -150,7 +150,11 @@ impl RenderOnce for Button {
                 },
                 m.push_radius,
             ),
-            ButtonStyle::Textured => (&theme.controls.textured, m.textured_height, m.textured_radius),
+            ButtonStyle::Textured => (
+                &theme.controls.textured,
+                m.textured_height,
+                m.textured_radius,
+            ),
         };
         let base: Bevel = if self.disabled {
             states.disabled
@@ -164,18 +168,26 @@ impl RenderOnce for Button {
         let pressed = states.pressed;
         let focus: FocusHandle = window
             // Handles default to tab_stop(false) (gpui window.rs FocusHandle).
-            .use_keyed_state(self.id.clone(), cx, |_, cx| cx.focus_handle().tab_stop(true))
+            .use_keyed_state(self.id.clone(), cx, |_, cx| {
+                cx.focus_handle().tab_stop(true)
+            })
             .read(cx)
             .clone();
         let ring_focus = focus.clone();
+        let pointer_focus = focus.clone();
         let ring_color = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
         let padding = m.push_padding[self.size.index()];
-        let label_dy = if self.style == ButtonStyle::Push { m.push_label_dy[self.size.index()] } else { 0.0 };
+        let label_dy = if self.style == ButtonStyle::Push {
+            m.push_label_dy[self.size.index()]
+        } else {
+            0.0
+        };
         let enabled = !self.disabled;
 
         div()
+            .debug_selector(|| self.id.to_string())
             .id(self.id)
             .group(GROUP)
             .role(gpui::Role::Button)
@@ -193,14 +205,25 @@ impl RenderOnce for Button {
             .when_some(self.min_width, |el, w| el.min_w(px(w)))
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
-            .when(enabled, |el| el.track_focus(&focus).on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation()))
+            .when(enabled, |el| {
+                el.track_focus(&focus).on_mouse_down(
+                    gpui::MouseButton::Left,
+                    move |_, window, cx| {
+                        window.focus(&pointer_focus, cx);
+                        cx.stop_propagation();
+                    },
+                )
+            })
             .when_some(self.on_click.filter(|_| enabled), |el, f| {
                 el.on_click(move |event, window, cx| f(event, window, cx))
             })
             .child(
-                canvas(|_, _, _| (), move |bounds, _, window, _| {
-                    paint::bevel(window, bounds, radius, &base);
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        paint::bevel(window, bounds, radius, &base);
+                    },
+                )
                 .absolute()
                 .inset_0(),
             )
@@ -213,9 +236,12 @@ impl RenderOnce for Button {
                         .opacity(0.)
                         .group_active(GROUP, |s| s.opacity(1.))
                         .child(
-                            canvas(|_, _, _| (), move |bounds, _, window, _| {
-                                paint::bevel(window, bounds, radius, &pressed);
-                            })
+                            canvas(
+                                |_, _, _| (),
+                                move |bounds, _, window, _| {
+                                    paint::bevel(window, bounds, radius, &pressed);
+                                },
+                            )
                             .size_full(),
                         ),
                 )
@@ -226,17 +252,95 @@ impl RenderOnce for Button {
                     .relative()
                     .top(px(label_dy))
                     .text_color(hsla(base.text))
-                    .when(enabled, |el| el.group_active(GROUP, |s| s.text_color(hsla(pressed.text))))
+                    .when(enabled, |el| {
+                        el.group_active(GROUP, |s| s.text_color(hsla(pressed.text)))
+                    })
                     .child(self.label),
             )
             .child(
-                canvas(|_, _, _| (), move |bounds, _, window, _| {
-                    if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
-                        paint::focus_ring(window, bounds, radius.min(bounds.size.height.as_f32() / 2.0), ring_color, ring_profile);
-                    }
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
+                            paint::focus_ring(
+                                window,
+                                bounds,
+                                radius.min(bounds.size.height.as_f32() / 2.0),
+                                ring_color,
+                                ring_profile,
+                            );
+                        }
+                    },
+                )
                 .absolute()
                 .inset_0(),
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{Context, Modifiers, Render, TestAppContext, VisualTestContext};
+    struct Harness {
+        focus: FocusHandle,
+        activations: usize,
+        background_downs: usize,
+    }
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .track_focus(&self.focus)
+                .on_mouse_down(
+                    gpui::MouseButton::Left,
+                    cx.listener(|h, _, window, cx| {
+                        h.background_downs += 1;
+                        window.focus(&h.focus, cx);
+                    }),
+                )
+                .child(
+                    Button::new("tool", "Toolbar control")
+                        .style(ButtonStyle::Textured)
+                        .on_click(cx.listener(|h, _, _, cx| {
+                            h.activations += 1;
+                            cx.notify();
+                        })),
+                )
+        }
+    }
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+    }
+    #[test]
+    fn toolbar_button_keeps_focus_from_a_background_input_responder() {
+        for theme in crate::ThemeId::ALL {
+            let mut app = TestAppContext::single();
+            app.update(|cx| crate::theme::install(crate::ThemePreference::explicit(theme), cx));
+            let (h, cx) = app.add_window_view(|_, cx| Harness {
+                focus: cx.focus_handle(),
+                activations: 0,
+                background_downs: 0,
+            });
+            draw(cx);
+            let button = cx.debug_bounds("tool").unwrap();
+            cx.simulate_click(button.center(), Modifiers::default());
+            draw(cx);
+            cx.update(|window, cx| {
+                assert_eq!(h.read(cx).background_downs, 0);
+                assert_eq!(h.read(cx).activations, 1);
+                assert!(!h.read(cx).focus.is_focused(window));
+                assert!(window.focused(cx).is_some());
+            });
+            cx.simulate_keystrokes("space");
+            cx.simulate_event(gpui::KeyUpEvent {
+                keystroke: gpui::Keystroke::parse("space").unwrap(),
+            });
+            draw(cx);
+            cx.update(|_, cx| assert_eq!(h.read(cx).activations, 2));
+        }
     }
 }
