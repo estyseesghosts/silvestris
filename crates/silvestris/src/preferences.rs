@@ -407,16 +407,17 @@ pub struct TabView {
     on_overflow: Option<OverflowFn>,
     content: Vec<AnyElement>,
 }
-type OverflowFn = Rc<dyn Fn(Pixels, &mut Window, &mut App)>;
+type OverflowFn = Rc<dyn Fn(gpui::Size<Pixels>, &mut Window, &mut App)>;
 impl TabView {
     pub fn new(id: impl Into<ElementId>) -> Self {
         Self { id: id.into(), tabs: Vec::new(), selected: None, on_select: None, on_overflow: None, content: Vec::new() }
     }
-    /// Reports each frame how much taller (positive) or shorter (negative)
-    /// the content is than the box shows, so the window can be resized to
-    /// the pane as 10.6 System Preferences does. Content that still does not
-    /// fit scrolls with a [`Scrollbar`](crate::controls::Scrollbar).
-    pub fn on_overflow(mut self, f: impl Fn(Pixels, &mut Window, &mut App) + 'static) -> Self {
+    /// Reports each frame how much wider and taller (positive) or narrower
+    /// and shorter (negative) the view needs to be: height for the content,
+    /// width for the tab strip plus a 16 px inset each side. The window can
+    /// then resize to the pane as 10.6 System Preferences does. Content that
+    /// still does not fit scrolls with a [`Scrollbar`](crate::controls::Scrollbar).
+    pub fn on_overflow(mut self, f: impl Fn(gpui::Size<Pixels>, &mut Window, &mut App) + 'static) -> Self {
         self.on_overflow = Some(Rc::new(f));
         self
     }
@@ -442,6 +443,10 @@ impl RenderOnce for TabView {
         let tab_height = theme.metrics.segment_height;
         let has_tabs = !self.tabs.is_empty();
         let half = (tab_height / 2.0).floor();
+        let pad_top = if has_tabs { half + 12.0 } else { 12.0 };
+        let content_height = Rc::new(std::cell::Cell::new(px(0.)));
+        let tabs_width = Rc::new(std::cell::Cell::new(px(0.)));
+        let viewport = Rc::new(std::cell::Cell::new(px(0.)));
         let mut root = div()
             .id(self.id.clone())
             .relative()
@@ -475,10 +480,8 @@ impl RenderOnce for TabView {
                     })
                     .read(cx)
                     .clone();
-                let pad_top = if has_tabs { half + 12.0 } else { 12.0 };
-                let content_height = Rc::new(std::cell::Cell::new(px(0.)));
                 let measured = content_height.clone();
-                let on_overflow = self.on_overflow.clone();
+                let measured_viewport = viewport.clone();
                 div()
                     .flex_1()
                     .min_h_0()
@@ -512,18 +515,9 @@ impl RenderOnce for TabView {
                         &scroll,
                     ))
                     .child(
-                        // Prepaints after the content, so its height is current.
-                        canvas(
-                            move |viewport, window, cx| {
-                                if let Some(f) = &on_overflow {
-                                    let needed = content_height.get() + px(pad_top + 12.0);
-                                    f(needed - viewport.size.height, window, cx);
-                                }
-                            },
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .inset_0(),
+                        canvas(move |b, _, _| measured_viewport.set(b.size.height), |_, _, _, _| {})
+                            .absolute()
+                            .inset_0(),
                     )
             });
         root = root.child(body);
@@ -539,6 +533,7 @@ impl RenderOnce for TabView {
             if let Some(f) = self.on_select {
                 tabs = tabs.on_select(move |id, w, cx| f(id, w, cx));
             }
+            let measured = tabs_width.clone();
             root = root.child(
                 div()
                     .absolute()
@@ -547,7 +542,28 @@ impl RenderOnce for TabView {
                     .right_0()
                     .flex()
                     .justify_center()
-                    .child(tabs),
+                    .child(
+                        div().flex_none().relative().child(tabs).child(
+                            canvas(move |b, _, _| measured.set(b.size.width), |_, _, _, _| {})
+                                .absolute()
+                                .inset_0(),
+                        ),
+                    ),
+            );
+        }
+        if let Some(f) = self.on_overflow {
+            // Last child: prepaints after the content and tabs are measured.
+            root = root.child(
+                canvas(
+                    move |view, window, cx| {
+                        let width = if has_tabs { tabs_width.get() + px(32.0) - view.size.width } else { px(0.) };
+                        let height = content_height.get() + px(pad_top + 12.0) - viewport.get();
+                        f(gpui::size(width, height), window, cx);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .inset_0(),
             );
         }
         root
