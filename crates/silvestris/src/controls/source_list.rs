@@ -7,10 +7,13 @@ use gpui::{
     canvas, div, prelude::*, px, uniform_list, Context, EventEmitter, FocusHandle, Focusable,
     MouseButton, Render, ScrollStrategy, UniformListScrollHandle, Window,
 };
-use silvestris_core::source_list::{Navigation, SourceNode, SourceTree};
+use silvestris_core::source_list::{Navigation, SourceNode, SourceRow, SourceTree};
 use std::rc::Rc;
 
 type IconRenderer = Rc<dyn Fn(&str, bool, bool, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
+type AccessoryRenderer = Rc<dyn Fn(&SourceRow, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
+type RowDecorator =
+    Rc<dyn Fn(&SourceRow, gpui::AnyElement, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SourceListEvent {
@@ -23,6 +26,8 @@ pub struct SourceList {
     focus: FocusHandle,
     scroll: UniformListScrollHandle,
     icons: Option<IconRenderer>,
+    accessory: Option<AccessoryRenderer>,
+    decorate: Option<RowDecorator>,
 }
 
 impl EventEmitter<SourceListEvent> for SourceList {}
@@ -41,11 +46,37 @@ impl SourceList {
             focus: cx.focus_handle().tab_stop(true),
             scroll: UniformListScrollHandle::new(),
             icons: None,
+            accessory: None,
+            decorate: None,
         })
     }
 
     pub fn state(&self) -> &SourceTree {
         &self.tree
+    }
+
+    /// Trailing app actions. Their pointer handlers must consume activation
+    /// when selecting the row would be an unintended side effect.
+    pub fn set_row_accessory(
+        &mut self,
+        render: impl Fn(&SourceRow, &mut Window, &mut gpui::App) -> gpui::AnyElement + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.accessory = Some(Rc::new(render));
+        cx.notify();
+    }
+
+    /// Decorate the row with application drag/context handlers. Preserve its
+    /// height so viewport virtualization remains valid. Disclosure consumes
+    /// mouse-down/click separately from these enclosing row handlers.
+    pub fn set_row_decorator(
+        &mut self,
+        render: impl Fn(&SourceRow, gpui::AnyElement, &mut Window, &mut gpui::App) -> gpui::AnyElement
+            + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.decorate = Some(Rc::new(render));
+        cx.notify();
     }
 
     /// Resolves semantic icon roles to original multicolour art. Called only
@@ -66,8 +97,11 @@ impl SourceList {
         nodes: Vec<SourceNode>,
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
+        let before = self.tree.rows_snapshot();
         self.tree.replace(nodes)?;
-        cx.notify();
+        if !std::sync::Arc::ptr_eq(&before, &self.tree.rows_snapshot()) {
+            cx.notify();
+        }
         Ok(())
     }
 
@@ -134,6 +168,8 @@ impl Render for SourceList {
         let rows = self.tree.rows_snapshot();
         let view = cx.entity();
         let icons = self.icons.clone();
+        let accessory = self.accessory.clone();
+        let decorate = self.decorate.clone();
         let list = uniform_list("rows", rows.len(), move |range, window, cx| {
             range
                 .map(|i| {
@@ -172,7 +208,7 @@ impl Render for SourceList {
                     let click_view = view.clone();
                     let toggle_view = view.clone();
                     let toggle_id = id.clone();
-                    div()
+                    let element = div()
                         .id(gpui::SharedString::from(id.clone()))
                         .debug_selector(|| format!("source-row-{}", row.id))
                         .role(gpui::Role::TreeItem)
@@ -256,9 +292,12 @@ impl Render for SourceList {
                                             .text_size(px(theme.type_.size_small))
                                             .child(badge.clone()),
                                     )
+                                })
+                                .when_some(accessory.as_ref(), |el, render| {
+                                    el.child(div().flex_none().child(render(row, window, cx)))
                                 }),
                         )
-                        .when(!row.disabled, |el| {
+                        .when(row.selectable(), |el| {
                             el.on_click(move |_, window, cx| {
                                 cx.stop_propagation();
                                 click_view.update(cx, |list, cx| {
@@ -270,7 +309,11 @@ impl Render for SourceList {
                                 });
                             })
                         })
-                        .into_any_element()
+                        .into_any_element();
+                    match &decorate {
+                        Some(render) => render(row, element, window, cx),
+                        None => element,
+                    }
                 })
                 .collect::<Vec<_>>()
         })
@@ -453,5 +496,90 @@ mod interaction_tests {
         draw(cx);
         assert_eq!(selected(&list, cx).as_deref(), Some("item-0"));
         assert!(cx.debug_bounds("source-row-item-0").is_some());
+    }
+    #[test]
+    fn row_accessories_and_context_decorators_preserve_disclosure_and_selection() {
+        use std::cell::{Cell, RefCell};
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(ThemePreference::default(), cx));
+        let hits = Rc::new(Cell::new(0));
+        let context_row = Rc::new(RefCell::new(String::new()));
+        let drag_down = Rc::new(Cell::new(0));
+        let (list, cx) = app.add_window_view(|_, cx| {
+            let mut root = SourceNode::new("root", "Offline Card");
+            root.selectable = false;
+            root.children.push(SourceNode::new("child", "Copy"));
+            let mut list =
+                SourceList::new(vec![root, SourceNode::new("other", "Other")], cx).unwrap();
+            list.select("other", cx);
+            let count = hits.clone();
+            list.set_row_accessory(
+                move |row, _, _| {
+                    let count = count.clone();
+                    div()
+                        .id("action")
+                        .debug_selector(|| format!("action-{}", row.id))
+                        .size(px(12.))
+                        .on_click(move |_, _, cx| {
+                            cx.stop_propagation();
+                            count.set(count.get() + 1);
+                        })
+                        .into_any_element()
+                },
+                cx,
+            );
+            let context_row = context_row.clone();
+            let drag_down = drag_down.clone();
+            list.set_row_decorator(
+                move |row, element, _, _| {
+                    let id = row.id.clone();
+                    let target = context_row.clone();
+                    let count = drag_down.clone();
+                    div()
+                        .id(gpui::SharedString::from(format!("wrapped-{}", row.id)))
+                        .child(element)
+                        .on_mouse_down(MouseButton::Right, move |_, _, cx| {
+                            *target.borrow_mut() = id.clone();
+                            cx.stop_propagation();
+                        })
+                        .on_mouse_down(MouseButton::Left, move |_, _, _| count.set(count.get() + 1))
+                        .into_any_element()
+                },
+                cx,
+            );
+            list
+        });
+        draw(cx);
+        let action = cx.debug_bounds("action-root").unwrap();
+        cx.simulate_click(action.center(), Modifiers::default());
+        draw(cx);
+        assert_eq!(hits.get(), 1);
+        assert_eq!(selected(&list, cx).as_deref(), Some("other"));
+        let row = cx.debug_bounds("source-row-root").unwrap();
+        cx.simulate_mouse_down(
+            point(row.left() + px(60.), row.center().y),
+            MouseButton::Right,
+            Modifiers::default(),
+        );
+        cx.simulate_mouse_up(
+            point(row.left() + px(60.), row.center().y),
+            MouseButton::Right,
+            Modifiers::default(),
+        );
+        assert_eq!(context_row.borrow().as_str(), "root");
+        drag_down.set(0);
+        draw(cx);
+        cx.simulate_click(
+            point(row.left() + px(10.), row.center().y),
+            Modifiers::default(),
+        );
+        draw(cx);
+        assert_eq!(
+            drag_down.get(),
+            0,
+            "disclosure must not start an enclosing drag"
+        );
+        assert!(cx.debug_bounds("source-row-child").is_some());
+        assert_eq!(selected(&list, cx).as_deref(), Some("other"));
     }
 }

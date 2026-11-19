@@ -9,6 +9,8 @@ pub struct SourceNode {
     pub id: String,
     pub label: String,
     pub disabled: bool,
+    /// Containers may disclose children without being selection targets.
+    pub selectable: bool,
     /// Nonselectable, always-open section heading (handbook 13).
     pub section: bool,
     /// Semantic icon role resolved by the consumer's icon renderer.
@@ -23,6 +25,7 @@ impl SourceNode {
             id: id.into(),
             label: label.into(),
             disabled: false,
+            selectable: true,
             section: false,
             icon: None,
             badge: None,
@@ -46,6 +49,7 @@ pub struct SourceRow {
     pub depth: usize,
     pub parent: Option<String>,
     pub disabled: bool,
+    pub selectable: bool,
     pub branch: bool,
     pub expanded: bool,
     pub section: bool,
@@ -55,7 +59,7 @@ pub struct SourceRow {
 
 impl SourceRow {
     pub fn selectable(&self) -> bool {
-        !self.disabled && !self.section
+        self.selectable && !self.disabled && !self.section
     }
 }
 
@@ -76,21 +80,35 @@ pub struct SourceTree {
     selected: Option<String>,
     rows: Arc<Vec<SourceRow>>,
     // All nodes, including collapsed ones, for selection/reconciliation.
-    available: BTreeMap<String, (bool, bool)>,
+    available: BTreeMap<String, Availability>,
+}
+
+#[derive(Clone, Debug)]
+struct Availability {
+    selectable: bool,
+    expandable: bool,
+    branch: bool,
 }
 
 impl SourceTree {
     /// Duplicate IDs reject the entire replacement without changing state.
     pub fn replace(&mut self, nodes: Vec<SourceNode>) -> Result<(), String> {
+        if self.nodes == nodes {
+            return Ok(());
+        }
         fn index(
             nodes: &[SourceNode],
-            out: &mut BTreeMap<String, (bool, bool)>,
+            out: &mut BTreeMap<String, Availability>,
         ) -> Result<(), String> {
             for n in nodes {
                 if out
                     .insert(
                         n.id.clone(),
-                        (n.disabled || n.section, !n.children.is_empty()),
+                        Availability {
+                            selectable: n.selectable && !n.disabled && !n.section,
+                            expandable: !n.disabled && !n.section && !n.children.is_empty(),
+                            branch: !n.children.is_empty(),
+                        },
                     )
                     .is_some()
                 {
@@ -103,11 +121,11 @@ impl SourceTree {
         let mut available = BTreeMap::new();
         index(&nodes, &mut available)?;
         self.expanded
-            .retain(|id| available.get(id).is_some_and(|(_, branch)| *branch));
+            .retain(|id| available.get(id).is_some_and(|s| s.branch));
         self.selected = self
             .selected
             .take()
-            .filter(|id| available.get(id).is_some_and(|(disabled, _)| !disabled));
+            .filter(|id| available.get(id).is_some_and(|s| s.selectable));
         self.nodes = nodes;
         self.available = available;
         self.rebuild();
@@ -126,9 +144,7 @@ impl SourceTree {
     }
 
     pub fn select(&mut self, id: &str) -> bool {
-        if self.available.get(id).is_none_or(|(disabled, _)| *disabled)
-            || self.selected() == Some(id)
-        {
+        if self.available.get(id).is_none_or(|s| !s.selectable) || self.selected() == Some(id) {
             return false;
         }
         self.selected = Some(id.to_owned());
@@ -137,11 +153,7 @@ impl SourceTree {
 
     /// Returns whether expansion changed. Never selects a node.
     pub fn expand(&mut self, id: &str, expanded: bool) -> bool {
-        if !self
-            .available
-            .get(id)
-            .is_some_and(|(disabled, branch)| !disabled && *branch)
-        {
+        if !self.available.get(id).is_some_and(|s| s.expandable) {
             return false;
         }
         let changed = if expanded {
@@ -242,6 +254,7 @@ impl SourceTree {
                     depth,
                     parent: parent.map(str::to_owned),
                     disabled: n.disabled,
+                    selectable: n.selectable,
                     branch: !n.children.is_empty(),
                     expanded: open,
                     section: n.section,
@@ -395,6 +408,26 @@ mod tests {
         t.replace(vec![node]).unwrap();
         assert_eq!(t.selected(), None);
     }
+    #[test]
+    fn nonselectable_containers_still_disclose_and_identical_updates_share_rows() {
+        let mut root = SourceNode::new("offline-card", "Offline Card");
+        root.selectable = false;
+        root.children.push(SourceNode::new("copy", "Running Copy"));
+        let mut tree = SourceTree::default();
+        tree.replace(vec![root.clone()]).unwrap();
+        let snapshot = tree.rows_snapshot();
+        tree.replace(vec![root]).unwrap();
+        assert!(Arc::ptr_eq(&snapshot, &tree.rows_snapshot()));
+        assert!(!tree.select("offline-card"));
+        assert!(tree.expand("offline-card", true));
+        tree.navigate(Navigation::Home);
+        assert_eq!(tree.selected(), Some("copy"));
+        tree.navigate(Navigation::Left);
+        assert_eq!(tree.selected(), Some("copy"));
+        assert!(tree.expand("offline-card", false));
+        assert_eq!(tree.selected(), Some("copy"));
+    }
+
     #[test]
     fn thousands_of_rows_keep_visible_order() {
         let mut t = SourceTree::default();

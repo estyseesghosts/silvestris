@@ -83,3 +83,22 @@ slot. Badges are trailing, noninteractive text; consumers should keep them
 short. The gallery's blue folder is an original geometric fixture, not final
 period-faithful icon artwork. Section/icon-slot unit coverage is in
 source_list::tests::sections_are_open_but_never_selected_or_collapsed.
+
+Rows now distinguish selection eligibility from disabled state. Set
+SourceNode.selectable=false for a container that can disclose children but
+must not become the workspace target (for example an offline card). Its
+disclosure remains enabled. Navigation skips it when choosing a selection.
+Identical model replacements keep the shared row snapshot without rebuilding
+or issuing a SourceList notification.
+
+set_row_accessory supplies trailing application-owned controls for visible
+non-heading rows. Consume accessory activation when row selection would be
+an unintended side effect. set_row_decorator wraps the complete row with
+application drag/context handlers; preserve its height for uniform_list and
+retain its child so framework focus/selection/disclosure stays authoritative.
+The application controls each accessory's availability. Use weak entity
+captures to avoid ownership cycles.
+
+Tests verify nonselectable containers can expand, identical replacements
+share snapshots, accessory clicks do not select another row, context handlers
+receive the correct row ID, and disclosure does not arm enclosing row drags.
