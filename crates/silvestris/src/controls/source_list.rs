@@ -112,6 +112,12 @@ impl SourceList {
         }
     }
 
+    pub fn clear_selection(&mut self, cx: &mut Context<Self>) {
+        if self.tree.clear_selection() {
+            cx.notify();
+        }
+    }
+
     pub fn set_expanded(&mut self, id: &str, expanded: bool, cx: &mut Context<Self>) {
         if self.tree.expand(id, expanded) {
             cx.notify();
@@ -334,7 +340,10 @@ impl Render for SourceList {
             }))
             .on_mouse_down(
                 MouseButton::Left,
-                cx.listener(|list, _, window, cx| window.focus(&list.focus, cx)),
+                cx.listener(|list, _, window, cx| {
+                    window.focus(&list.focus, cx);
+                    cx.stop_propagation();
+                }),
             )
             .on_key_down(cx.listener(|list, event: &gpui::KeyDownEvent, _, cx| {
                 if event.keystroke.modifiers.modified() {

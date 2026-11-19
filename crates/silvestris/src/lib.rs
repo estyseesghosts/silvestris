@@ -32,3 +32,13 @@ pub mod command;
 pub mod menu;
 
 pub mod shell;
+
+/// Mock-platform setup for downstream GPUI interaction tests. Font binary and
+/// native registration checks remain separate from this harness.
+#[cfg(feature = "test-support")]
+pub mod test_support {
+    pub fn initialize(preference: crate::ThemePreference, cx: &mut gpui::App) {
+        crate::theme::install(preference, cx);
+        crate::controls::text_field::bind_keys(cx);
+    }
+}

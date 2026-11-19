@@ -143,6 +143,10 @@ impl SourceTree {
         self.selected.as_deref()
     }
 
+    pub fn clear_selection(&mut self) -> bool {
+        self.selected.take().is_some()
+    }
+
     pub fn select(&mut self, id: &str) -> bool {
         if self.available.get(id).is_none_or(|s| !s.selectable) || self.selected() == Some(id) {
             return false;
@@ -332,6 +336,9 @@ mod tests {
         assert_eq!(t.selected(), Some("last"));
         t.navigate(Navigation::Down);
         assert_eq!(t.selected(), Some("last"));
+        assert!(t.clear_selection());
+        assert_eq!(t.selected(), None);
+        assert!(!t.clear_selection());
         t.replace(vec![]).unwrap();
         for n in [
             Navigation::Up,

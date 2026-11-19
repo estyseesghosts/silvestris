@@ -102,3 +102,13 @@ captures to avoid ownership cycles.
 Tests verify nonselectable containers can expand, identical replacements
 share snapshots, accessory clicks do not select another row, context handlers
 receive the correct row ID, and disclosure does not arm enclosing row drags.
+
+clear_selection clears a controller-owned selection without dispatching an
+action or changing expansion. Handled source-list mouse-down events stop at
+the component boundary so an enclosing workspace does not reclaim guest-key
+focus after an accessory click.
+
+Downstream GPUI tests can enable the test-support Cargo feature and call
+silvestris::test_support::initialize(preference, cx). This installs theme and
+text-field action bindings for the mock platform without claiming font
+registration. Production applications must still call silvestris::init.

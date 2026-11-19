@@ -8,6 +8,9 @@ repository.workspace = true
 
 description = "Snow Leopard (Mac OS X 10.6) Aqua and Geist application shell and controls for GPUI."
 
+[features]
+test-support = ["gpui/test-support"]
+
 [dependencies]
 silvestris-core = { workspace = true }
 silvestris-fonts = { workspace = true }
