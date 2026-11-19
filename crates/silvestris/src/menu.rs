@@ -52,6 +52,17 @@ impl PopupMenu {
     pub fn is_open(&self) -> bool {
         self.open
     }
+    /// Replace a consumer's command tree. Dismiss a changed open menu rather
+    /// than transferring its highlighted index to a different command.
+    pub fn set_model(&mut self, model: MenuModel, window: &mut Window, cx: &mut Context<Self>) {
+        if self.model != model {
+            if self.open { self.dismiss(window, cx, true); }
+            self.model = model;
+            self.path = vec![None];
+            self.scroll = vec![gpui::ScrollHandle::new()];
+            cx.notify();
+        }
+    }
     pub fn open(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         if !self.open {
             self.previous_focus = window.focused(cx);

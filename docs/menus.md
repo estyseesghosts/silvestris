@@ -12,6 +12,8 @@ activation dismisses and restores that responder. Window deactivation closes
 the menu and restores logical focus without activating the OS window.
 Consumers must invalidate the return target themselves if their view/session
 is removed while a menu is open.
+set_model replaces the command tree; if the model differs while open, the
+menu dismisses first so a highlighted index never moves to another command.
 
 - Command rows read live labels, checked state, availability and accelerators.
   Missing commands are disabled. Activation revalidates availability and then
