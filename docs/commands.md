@@ -33,6 +33,9 @@ which resolves secondary- to Command on macOS and Ctrl elsewhere. Empty
 contexts and shortcuts are errors. Normalized collisions (for example
 secondary-r versus ctrl-r on Windows) are errors; no partial bindings are
 installed. The caller installs the returned vector with cx.bind_keys.
+bindings_where(context, include, cx) does the same for the descriptors
+`include` accepts, so a consumer can leave out runtime-scoped IDs or keys
+that another responder (guest input) must see first.
 These bindings are startup snapshots: changing descriptor shortcut strings
 does not rewrite GPUI's global keymap. Runtime rebind ownership is not yet
 implemented. Enabled-state changes remain safe through invocation rechecking.

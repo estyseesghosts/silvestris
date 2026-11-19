@@ -103,13 +103,25 @@ impl CommandRegistry {
     /// secondary- using GPUI's host OS. Consumer mounts an InvokeCommand handler
     /// on the same scope and observes the registry for rendering invalidation.
     pub fn bindings(&self, context: &str, cx: &App) -> Result<Vec<KeyBinding>, String> {
+        self.bindings_where(context, |_| true, cx)
+    }
+
+    /// `bindings` for the descriptors `include` accepts. Use it to leave out
+    /// commands whose IDs change at runtime (startup bindings would go stale)
+    /// or whose shortcut keys must reach another responder first.
+    pub fn bindings_where(
+        &self,
+        context: &str,
+        include: impl Fn(&CommandDescriptor) -> bool,
+        cx: &App,
+    ) -> Result<Vec<KeyBinding>, String> {
         if context.trim().is_empty() {
             return Err("command bindings require an explicit focus context".into());
         }
         let predicate = KeyBindingContextPredicate::parse(context).map_err(|e| e.to_string())?;
         let mut seen = BTreeMap::new();
         let mut bindings = Vec::new();
-        for descriptor in self.descriptors.iter() {
+        for descriptor in self.descriptors.iter().filter(|d| include(d)) {
             let Some(keys) = &descriptor.shortcut else {
                 continue;
             };
@@ -410,6 +422,11 @@ mod tests {
                 .unwrap();
                 assert!(r.bindings("CommandTest", cx).is_err());
                 assert!(r.bindings("", cx).is_err());
+                // Filtering out one side of the conflict leaves one binding.
+                let only = r
+                    .bindings_where("CommandTest", |d| d.id.as_str() == "test.other", cx)
+                    .unwrap();
+                assert_eq!(only.len(), 1);
             })
         });
         let window = app.add_window(|_, cx| {
