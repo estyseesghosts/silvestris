@@ -13,8 +13,11 @@ pub mod sprites;
 pub mod theme;
 
 pub use silvestris_core as core;
-pub use silvestris_core::{Appearance, ThemeFamily, ThemeId, ThemePreference};
-pub use theme::{set_theme_preference, system_appearance_changed, ActiveTheme};
+pub use silvestris_core::{Appearance, FontOverrides, ThemeFamily, ThemeId, ThemePreference};
+pub use theme::{
+    clear_font_overrides, font_overrides, set_font_overrides, set_global_font_overrides,
+    set_theme_preference, system_appearance_changed, ActiveTheme,
+};
 
 /// Register bundled fonts and install the theme global. Call once, before
 /// opening windows.

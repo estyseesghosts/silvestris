@@ -32,6 +32,55 @@ pub struct Theme {
     pub grip: ResizeGrip,
 }
 
+/// Consumer-supplied font family substitutions for a resolved theme.
+///
+/// Sizes and every other token stay exactly as measured; only the family names
+/// change. Applications use this to adopt a house font without forking a theme,
+/// and can apply it globally or to one [`ThemeId`]. A specific theme's override
+/// wins over the global one.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FontOverrides {
+    pub ui: Option<&'static str>,
+    pub mono: Option<&'static str>,
+}
+
+impl FontOverrides {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn ui(mut self, family: &'static str) -> Self {
+        self.ui = Some(family);
+        self
+    }
+
+    #[must_use]
+    pub fn mono(mut self, family: &'static str) -> Self {
+        self.mono = Some(family);
+        self
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.ui.is_none() && self.mono.is_none()
+    }
+}
+
+impl Theme {
+    /// Replace only the UI/mono family names, keeping all measured sizes.
+    pub fn apply_font_overrides(&mut self, overrides: FontOverrides) {
+        if let Some(ui) = overrides.ui {
+            self.type_.ui = ui;
+        }
+        if let Some(mono) = overrides.mono {
+            self.type_.mono = mono;
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Typography {
     /// Family name as registered by silvestris-fonts.
