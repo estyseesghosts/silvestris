@@ -28,6 +28,60 @@ do not fall through to a guest-input handler. It does not own a focus handle;
 focused descendants route actions through it. Transient menus and text fields
 must take precedence in the binding context.
 
+## Responder chain
+
+`CommandRegistry` answers "what does this command mean and what is its
+metadata". It does not answer "which object should handle it right now". That
+is `responder::ResponderChain`, one per window.
+
+Build the chain from the outside in, then attach it to the surfaces that
+invoke:
+
+```rust
+use silvestris::responder::{Responder, ResponderChain, ResponderEntry, ResponderScope};
+
+let chain = cx.new(|_| ResponderChain::new());
+chain.update(cx, |chain, _| {
+    chain.push(ResponderEntry::new(ResponderScope::Application, "app", &app_delegate));
+    chain.push(ResponderEntry::new(ResponderScope::Document, "document", &document));
+    chain.push(
+        ResponderEntry::new(ResponderScope::Control, "field", &field)
+            .when_focused(&field_focus),
+    );
+});
+```
+
+Resolution walks back from the most recently pushed layer. The first layer
+that is active and claims the command wins; a claiming layer that reports
+`enabled: false` answers `Disabled` instead of falling through. Layers whose
+entity was dropped stop claiming, so a callback that outlives its window is a
+no-op rather than a panic.
+
+`Responder` has three methods: `handles` (ownership, which gives `stop`/`pass`
+semantics), `state` (enabled, checked and an optional title such as "Undo
+Typing") and `perform`. Validation and dispatch call the same `state`, so a
+menu row and a shortcut cannot disagree. `CommandScope`, `CommandButton` and
+`PopupMenu` accept `.chain(...)`; without one they use the registry alone, and
+invocation falls back to the registered callback when no layer claims the id.
+
+`ResponderEntry::custom` builds a layer from closures for an app delegate or a
+validation-only layer. `capture_keys(allow)` builds the canvas role: the layer
+swallows every command except an allow-list, which is how an emulator or editor
+canvas receives no shell shortcut while the shell still receives the keys it
+owns. That replaces hand-written `!SilvestrisTextField`-style exclusions.
+
+A menu or sheet does not change which control commands act on. Call
+`ResponderChain::begin_transient` before moving focus into the transient and
+`end_transient` when it closes; while it is open the chain resolves against the
+focus it captured. `FocusReturn` records and restores the focus handle for the
+same lifetime.
+
+`docs/guide.md` shows the composition; `docs/testing.md` covers what the
+scenario tests prove. Tests cover focus-selected layers, disabled layers not
+falling through, dropped entities, capture allow-lists, presentation titles,
+two document windows with separate chains, and one command reached through a
+button, a shortcut, a menu row and a direct call with the same result.
+
 bindings(context, cx) builds startup key bindings through GPUI KeyBinding::load,
 which resolves secondary- to Command on macOS and Ctrl elsewhere. Empty
 contexts and shortcuts are errors. Normalized collisions (for example

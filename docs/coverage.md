@@ -126,7 +126,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Focus and responder routing | `CommandScope`, GPUI focus handles | provisional | four | — | #57 |
+| Focus and responder routing | `ResponderChain`, `Responder`, `ResponderEntry`, `FocusReturn`, `CommandScope` | functional | four | — | #57 |
 | Keyboard shortcuts | `CommandRegistry::bindings`, `bindings_where` | functional | four | — | #57, #66 |
 | Modal sessions | `ConfirmationFocus` only | provisional | four | — | #21 |
 | Drag and drop | none | missing | — | — | #36 |
