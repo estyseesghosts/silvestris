@@ -7,6 +7,19 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #66, runtime rebinding. Additive:
+
+- `command::RESERVED_SHORTCUTS`, `RebindError`, `RebindWarning`,
+  `contexts_overlap` and `apply_bindings`.
+- `CommandRegistry::rebind`, `shortcut` and `set_binding_context`.
+- `controls::ShortcutRecorder` with `shortcut`, `focus_handle`, `on_record` and
+  `disabled`.
+
+Behaviour: a rebind refuses a conflicting chord in an overlapping context and
+keeps the old value; a reserved shortcut is accepted with a warning;
+`apply_bindings` replaces the GPUI command bindings and preserves non-command
+bindings, so a new chord dispatches immediately.
+
 PR #12, device-pixel snapping. Additive:
 
 - `paint::snap_edge`, `paint::snap_stroke_center` and `paint::snap_bounds`.

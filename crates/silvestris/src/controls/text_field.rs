@@ -869,8 +869,10 @@ impl Render for TextField {
             _ => gpui::Role::TextInput,
         };
 
+        let selector = format!("text-field-{}", cx.entity_id());
         div()
             .id(("silvestris-text-field", cx.entity_id()))
+            .debug_selector(move || selector)
             .key_context(KEY_CONTEXT)
             .role(role)
             .aria_label(self.label.clone())

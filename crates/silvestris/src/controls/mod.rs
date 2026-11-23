@@ -42,3 +42,6 @@ pub use combo_box::ComboBox;
 
 pub mod confirmation;
 pub use confirmation::{ConfirmationFocus, ConfirmationSheet};
+
+pub mod shortcut_recorder;
+pub use shortcut_recorder::ShortcutRecorder;

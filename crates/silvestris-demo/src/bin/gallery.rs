@@ -6,11 +6,11 @@ use gpui::{
     Window,
 };
 use silvestris::chrome::{open_window, window_options, WindowFrame};
-use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
+use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ConfirmationFocus, ConfirmationSheet, ControlSize,
-    Disclosure, ProgressIndicator, RadioGroup, RadioOption, Segment, SegmentedControl, Slider,
-    SourceList, SourceListEvent, TextField, TextFieldEvent,
+    Disclosure, ProgressIndicator, RadioGroup, RadioOption, Segment, SegmentedControl,
+    ShortcutRecorder, Slider, SourceList, SourceListEvent, TextField, TextFieldEvent,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -79,6 +79,7 @@ struct Gallery {
     routing_status: gpui::SharedString,
     transient: Entity<TransientLayer>,
     transient_status: gpui::SharedString,
+    shortcut_status: gpui::SharedString,
     modal: Option<ModalDemo>,
 }
 
@@ -356,6 +357,7 @@ impl Gallery {
             routing_status: "none".into(),
             transient,
             transient_status: "none".into(),
+            shortcut_status: "unchanged".into(),
             modal: None,
         }
     }
@@ -606,6 +608,52 @@ impl Render for Gallery {
                     .child("each button opens its role"),
             );
 
+        let sidebar_shortcut = self
+            .commands
+            .read(cx)
+            .shortcut(&CommandId::new("view.sidebar"))
+            .map(gpui::SharedString::from);
+        let shortcut_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(12.))
+            .child(
+                div().w(px(240.)).child(
+                    ShortcutRecorder::new("sidebar-shortcut", "Toggle sidebar")
+                        .shortcut(sidebar_shortcut)
+                        .on_record({
+                            let commands = self.commands.clone();
+                            let view = cx.entity();
+                            move |chord, _, cx| {
+                                let id = CommandId::new("view.sidebar");
+                                let result = commands.update(cx, |registry, cx| {
+                                    registry.rebind(&id, chord.as_deref(), cx)
+                                });
+                                let outcome = match &result {
+                                    Ok(warnings) if warnings.is_empty() => "rebound".to_string(),
+                                    Ok(_) => "rebound (reserved shortcut)".to_string(),
+                                    Err(error) => format!("refused: {error:?}"),
+                                };
+                                if result.is_ok() {
+                                    let contexts = ["Gallery && !SilvestrisTextField"];
+                                    let _ = command::apply_bindings(&commands, &contexts, cx);
+                                }
+                                view.update(cx, |gallery, cx| {
+                                    gallery.shortcut_status = outcome.into();
+                                    cx.notify();
+                                });
+                            }
+                        }),
+                ),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(format!("shortcut: {}", self.shortcut_status)),
+            );
+
         let modal_sheet = self.modal.as_ref().and_then(|demo| {
             if !demo.session.read(cx).is_active() {
                 return None;
@@ -690,6 +738,7 @@ impl Render for Gallery {
                             .child(disclosure)
                             .child(routing_row)
                             .child(transient_row)
+                            .child(shortcut_row)
                             .child(role_row)
                             .child(
                                 div()
