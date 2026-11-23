@@ -1,7 +1,7 @@
 //! A workspace placeholder for blank, unavailable, and failed content (HIG pp. 117–121).
-use gpui::{AnyElement, App, FontWeight, SharedString, Window, div, prelude::*, px};
+use gpui::{div, prelude::*, px, AnyElement, App, FontWeight, SharedString, Window};
 
-use crate::{ActiveTheme, convert::hsla};
+use crate::{convert::hsla, ActiveTheme};
 
 #[derive(IntoElement)]
 pub struct Notice {

@@ -1,8 +1,8 @@
 //! Document-modal confirmation sheet (HIG pp. 233–239).
-use gpui::{App, FocusHandle, MouseButton, SharedString, Window, div, prelude::*, px};
+use gpui::{div, prelude::*, px, App, FocusHandle, MouseButton, SharedString, Window};
 use std::rc::Rc;
 
-use crate::{ActiveTheme, command::InvokeCommand, convert::hsla};
+use crate::{command::InvokeCommand, convert::hsla, ActiveTheme};
 
 #[derive(Clone)]
 pub struct ConfirmationFocus {

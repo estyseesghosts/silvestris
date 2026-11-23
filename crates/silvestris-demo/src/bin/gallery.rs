@@ -8,8 +8,9 @@ use gpui::{
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    Button, ButtonStyle, Checkbox, CheckState, ControlSize, Disclosure, Segment, SegmentedControl, SourceList,
-    SourceListEvent, TextField, TextFieldEvent, RadioGroup, RadioOption, Slider, ProgressIndicator,
+    Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, ProgressIndicator,
+    RadioGroup, RadioOption, Segment, SegmentedControl, Slider, SourceList, SourceListEvent,
+    TextField, TextFieldEvent,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -389,16 +390,42 @@ impl Render for Gallery {
                             .child(buttons)
                             .child(fields)
                             .child(disclosure)
-                            .child(div().flex().items_center().gap(px(12.))
-                                .children([ControlSize::Regular, ControlSize::Small, ControlSize::Mini].into_iter().enumerate().map(|(i, size)| {
-                                    Checkbox::new(("catalog-check", i), ["Regular", "Small", "Mini / mixed"][i])
-                                        .size(size).state(self.checks[i])
-                                        .on_change(cx.listener(move |g, state: &CheckState, _, cx| {
-                                            g.checks[i] = *state;
-                                            cx.notify();
-                                        }))
-                                }))
-                                .child(Checkbox::new("disabled-check", "Disabled").checked(true).disabled(true)))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(12.))
+                                    .children(
+                                        [
+                                            ControlSize::Regular,
+                                            ControlSize::Small,
+                                            ControlSize::Mini,
+                                        ]
+                                        .into_iter()
+                                        .enumerate()
+                                        .map(
+                                            |(i, size)| {
+                                                Checkbox::new(
+                                                    ("catalog-check", i),
+                                                    ["Regular", "Small", "Mini / mixed"][i],
+                                                )
+                                                .size(size)
+                                                .state(self.checks[i])
+                                                .on_change(cx.listener(
+                                                    move |g, state: &CheckState, _, cx| {
+                                                        g.checks[i] = *state;
+                                                        cx.notify();
+                                                    },
+                                                ))
+                                            },
+                                        ),
+                                    )
+                                    .child(
+                                        Checkbox::new("disabled-check", "Disabled")
+                                            .checked(true)
+                                            .disabled(true),
+                                    ),
+                            )
                             .child(
                                 SegmentedControl::new(
                                     "view-selector",
@@ -418,23 +445,68 @@ impl Render for Gallery {
                                 )),
                             )
                             .child(
-                                div().flex().items_center().gap(px(24.0))
-                                    .child(RadioGroup::new(
-                                        "radio-group", "Export scope",
-                                        vec![RadioOption::new("Current Item"), RadioOption::new("All Items"), RadioOption::new("Selection").disabled(true)],
-                                    ).selected(Some(self.radio)).on_select(cx.listener(|g, selected, _, cx| {
-                                        g.radio = *selected;
-                                        cx.notify();
-                                    })))
-                                    .child(div().w(px(180.)).child(silvestris::controls::ComboBox::new(
-                                        "locations", "Location", self.combo.clone(),
-                                        vec!["Home".into(), "Documents".into(), "Desktop".into()],
-                                    )))
-                                    .child(div().w(px(180.)).flex().flex_col().gap(px(8.0))
-                                        .child(Slider::new("export-progress", "Progress preview", self.progress)
-                                            .on_change(cx.listener(|g, value, _, cx| { g.progress = *value; cx.notify(); })))
-                                        .child(ProgressIndicator::new("percent", "Export Progress", Some(self.progress)))
-                                        .child(ProgressIndicator::new("busy", "Preparing Export", None))),
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(24.0))
+                                    .child(
+                                        RadioGroup::new(
+                                            "radio-group",
+                                            "Export scope",
+                                            vec![
+                                                RadioOption::new("Current Item"),
+                                                RadioOption::new("All Items"),
+                                                RadioOption::new("Selection").disabled(true),
+                                            ],
+                                        )
+                                        .selected(Some(self.radio))
+                                        .on_select(
+                                            cx.listener(|g, selected, _, cx| {
+                                                g.radio = *selected;
+                                                cx.notify();
+                                            }),
+                                        ),
+                                    )
+                                    .child(div().w(px(180.)).child(
+                                        silvestris::controls::ComboBox::new(
+                                            "locations",
+                                            "Location",
+                                            self.combo.clone(),
+                                            vec![
+                                                "Home".into(),
+                                                "Documents".into(),
+                                                "Desktop".into(),
+                                            ],
+                                        ),
+                                    ))
+                                    .child(
+                                        div()
+                                            .w(px(180.))
+                                            .flex()
+                                            .flex_col()
+                                            .gap(px(8.0))
+                                            .child(
+                                                Slider::new(
+                                                    "export-progress",
+                                                    "Progress preview",
+                                                    self.progress,
+                                                )
+                                                .on_change(cx.listener(|g, value, _, cx| {
+                                                    g.progress = *value;
+                                                    cx.notify();
+                                                })),
+                                            )
+                                            .child(ProgressIndicator::new(
+                                                "percent",
+                                                "Export Progress",
+                                                Some(self.progress),
+                                            ))
+                                            .child(ProgressIndicator::new(
+                                                "busy",
+                                                "Preparing Export",
+                                                None,
+                                            )),
+                                    ),
                             )
                             .child(div().text_size(small_text).child(self.last_source.clone()))
                             .child(

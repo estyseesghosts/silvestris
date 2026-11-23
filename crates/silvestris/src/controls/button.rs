@@ -20,8 +20,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, App, ClickEvent, ElementId, FocusHandle, MouseButton, MouseExitEvent,
-    MouseMoveEvent, MouseUpEvent, SharedString, Window, canvas, div, prelude::*, px,
+    canvas, div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FocusHandle, MouseButton,
+    MouseExitEvent, MouseMoveEvent, MouseUpEvent, SharedString, Window,
 };
 use silvestris_core::tokens::{Bevel, Theme};
 use silvestris_core::{Gradient, Rgba8};

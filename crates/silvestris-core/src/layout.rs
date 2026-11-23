@@ -237,7 +237,13 @@ pub enum Divider {
 /// `halfSize = Math.floor(viewItem.viewMinimumSize / 2)`, as Lotus layout.rs
 /// cites). `other` is the rendered width of everything else that is not the
 /// workspace.
-pub fn drag(divider: Divider, g: &ShellGeometry, pointer: f32, viewport: f32, other: f32) -> Option<f32> {
+pub fn drag(
+    divider: Divider,
+    g: &ShellGeometry,
+    pointer: f32,
+    viewport: f32,
+    other: f32,
+) -> Option<f32> {
     let (min, max, proposed) = match divider {
         Divider::Sidebar => (g.sidebar_min, g.sidebar_max, pointer),
         Divider::Inspector => (g.inspector_min, g.inspector_max, viewport - pointer - other),
@@ -264,7 +270,12 @@ pub struct ToolbarSlot {
 /// overflow menu, whose button takes `overflow_width` when anything spills.
 /// Every command stays reachable (handbook 16: "Toolbar actions all
 /// accessible via visible buttons or overflow").
-pub fn fit_toolbar(items: &[ToolbarSlot], available: f32, gap: f32, overflow_width: f32) -> Vec<bool> {
+pub fn fit_toolbar(
+    items: &[ToolbarSlot],
+    available: f32,
+    gap: f32,
+    overflow_width: f32,
+) -> Vec<bool> {
     let total = |vis: &[bool], with_overflow: bool| {
         let mut w = 0.0;
         let mut n = 0;
@@ -431,7 +442,10 @@ mod tests {
                         }
                         // Overlay stays inside the workspace.
                         if let Some(o) = p.overlay {
-                            assert!(o.x >= p.workspace.x - 0.01 && o.right() <= p.workspace.right() + 0.01);
+                            assert!(
+                                o.x >= p.workspace.x - 0.01
+                                    && o.right() <= p.workspace.right() + 0.01
+                            );
                         }
                         // Overlay open/close: bit-identical workspace.
                         if i.visible && !i.pinned {
@@ -453,26 +467,62 @@ mod tests {
     #[test]
     fn drag_snaps_at_half_minimum_like_lotus() {
         assert_eq!(drag(Divider::Sidebar, &G, 99.0, 1600.0, 464.0), None);
-        assert_eq!(drag(Divider::Sidebar, &G, 100.0, 1600.0, 464.0), Some(200.0));
-        assert_eq!(drag(Divider::Sidebar, &G, 333.0, 1600.0, 464.0), Some(333.0));
-        assert_eq!(drag(Divider::Sidebar, &G, 900.0, 1600.0, 464.0), Some(440.0));
-        assert_eq!(drag(Divider::Sidebar, &G, 400.0, 1000.0, 464.0), Some(216.0));
+        assert_eq!(
+            drag(Divider::Sidebar, &G, 100.0, 1600.0, 464.0),
+            Some(200.0)
+        );
+        assert_eq!(
+            drag(Divider::Sidebar, &G, 333.0, 1600.0, 464.0),
+            Some(333.0)
+        );
+        assert_eq!(
+            drag(Divider::Sidebar, &G, 900.0, 1600.0, 464.0),
+            Some(440.0)
+        );
+        assert_eq!(
+            drag(Divider::Sidebar, &G, 400.0, 1000.0, 464.0),
+            Some(216.0)
+        );
         // Inspector: 1600 - 1200 - 44 = 356.
-        assert_eq!(drag(Divider::Inspector, &G, 1200.0, 1600.0, 44.0), Some(356.0));
-        assert_eq!(drag(Divider::Inspector, &G, 1600.0 - 44.0 - 149.0, 1600.0, 44.0), None);
+        assert_eq!(
+            drag(Divider::Inspector, &G, 1200.0, 1600.0, 44.0),
+            Some(356.0)
+        );
+        assert_eq!(
+            drag(Divider::Inspector, &G, 1600.0 - 44.0 - 149.0, 1600.0, 44.0),
+            None
+        );
     }
 
     #[test]
     fn toolbar_overflow_drops_low_priority_first_and_keeps_order() {
         let items = [
-            ToolbarSlot { width: 60.0, priority: 9 },
-            ToolbarSlot { width: 60.0, priority: 1 },
-            ToolbarSlot { width: 60.0, priority: 5 },
-            ToolbarSlot { width: 60.0, priority: 1 },
+            ToolbarSlot {
+                width: 60.0,
+                priority: 9,
+            },
+            ToolbarSlot {
+                width: 60.0,
+                priority: 1,
+            },
+            ToolbarSlot {
+                width: 60.0,
+                priority: 5,
+            },
+            ToolbarSlot {
+                width: 60.0,
+                priority: 1,
+            },
         ];
         assert_eq!(fit_toolbar(&items, 400.0, 8.0, 30.0), vec![true; 4]);
         // 60*3+30 + 3*8 = 234 fits after dropping the rightmost priority-1 item.
-        assert_eq!(fit_toolbar(&items, 240.0, 8.0, 30.0), vec![true, true, true, false]);
-        assert_eq!(fit_toolbar(&items, 170.0, 8.0, 30.0), vec![true, false, true, false]);
+        assert_eq!(
+            fit_toolbar(&items, 240.0, 8.0, 30.0),
+            vec![true, true, true, false]
+        );
+        assert_eq!(
+            fit_toolbar(&items, 170.0, 8.0, 30.0),
+            vec![true, false, true, false]
+        );
     }
 }

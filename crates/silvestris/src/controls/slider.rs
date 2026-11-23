@@ -5,11 +5,11 @@
 use std::{cell::Cell, rc::Rc};
 
 use gpui::{
-    App, Bounds, ElementId, FocusHandle, MouseButton, Pixels, SharedString, Window, canvas, div,
-    point, prelude::*, px, size,
+    canvas, div, point, prelude::*, px, size, App, Bounds, ElementId, FocusHandle, MouseButton,
+    Pixels, SharedString, Window,
 };
 
-use crate::{ActiveTheme, paint};
+use crate::{paint, ActiveTheme};
 
 const KNOB: f32 = 14.0;
 type Change = Rc<dyn Fn(&f32, &mut Window, &mut App)>;

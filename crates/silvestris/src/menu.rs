@@ -23,24 +23,34 @@ pub fn native_menus(
         entries: &[MenuEntry],
         descriptors: &silvestris_core::command::CommandSet,
     ) -> Vec<gpui::MenuItem> {
-        entries.iter().filter_map(|entry| match entry {
-            MenuEntry::Command(id) => descriptors.get(id).map(|descriptor| gpui::MenuItem::Action {
-                name: descriptor.menu_label().into(),
-                action: Box::new(InvokeCommand { id: id.as_str().into() }),
-                os_action: None,
-                checked: descriptor.checked,
-                disabled: !descriptor.enabled,
-            }),
-            MenuEntry::Submenu { label, entries } => Some(gpui::MenuItem::submenu(
-                gpui::Menu::new(label.clone()).items(items(entries, descriptors)),
-            )),
-            MenuEntry::Separator => Some(gpui::MenuItem::separator()),
-            MenuEntry::Heading(_) => None,
-        }).collect()
+        entries
+            .iter()
+            .filter_map(|entry| match entry {
+                MenuEntry::Command(id) => {
+                    descriptors
+                        .get(id)
+                        .map(|descriptor| gpui::MenuItem::Action {
+                            name: descriptor.menu_label().into(),
+                            action: Box::new(InvokeCommand {
+                                id: id.as_str().into(),
+                            }),
+                            os_action: None,
+                            checked: descriptor.checked,
+                            disabled: !descriptor.enabled,
+                        })
+                }
+                MenuEntry::Submenu { label, entries } => Some(gpui::MenuItem::submenu(
+                    gpui::Menu::new(label.clone()).items(items(entries, descriptors)),
+                )),
+                MenuEntry::Separator => Some(gpui::MenuItem::separator()),
+                MenuEntry::Heading(_) => None,
+            })
+            .collect()
     }
-    models.iter().map(|model| {
-        gpui::Menu::new(model.label.clone()).items(items(&model.entries, descriptors))
-    }).collect()
+    models
+        .iter()
+        .map(|model| gpui::Menu::new(model.label.clone()).items(items(&model.entries, descriptors)))
+        .collect()
 }
 
 /// Standard macOS Edit menu, dispatched through the focused TextField.
@@ -101,7 +111,9 @@ impl PopupMenu {
     /// than transferring its highlighted index to a different command.
     pub fn set_model(&mut self, model: MenuModel, window: &mut Window, cx: &mut Context<Self>) {
         if self.model != model {
-            if self.open { self.dismiss(window, cx, true); }
+            if self.open {
+                self.dismiss(window, cx, true);
+            }
             self.model = model;
             self.path = vec![None];
             self.scroll = vec![gpui::ScrollHandle::new()];

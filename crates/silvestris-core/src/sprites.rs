@@ -32,7 +32,11 @@ fn rgb(c: Rgba8) -> Rgb {
 }
 
 fn lerp(a: Rgb, b: Rgb, k: f32) -> Rgb {
-    [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]
+    [
+        a[0] + (b[0] - a[0]) * k,
+        a[1] + (b[1] - a[1]) * k,
+        a[2] + (b[2] - a[2]) * k,
+    ]
 }
 
 /// `clip(1 - ((u/ax)^2 + ((v-cy)/ay)^2), 0, 1) ^ p`
@@ -43,7 +47,14 @@ fn ellipse(u: f32, v: f32, ax: f32, cy: f32, ay: f32, p: f32) -> f32 {
 
 /// Colour of one sample at device position (`x`, `y`) of a `size`-pixel
 /// sprite, or `None` outside the disc. Mirrors `fit_traffic.render`.
-fn sample(light: &TrafficLight, s: &SphereShape, x: f32, y: f32, size: f32, scale: f32) -> Option<Rgb> {
+fn sample(
+    light: &TrafficLight,
+    s: &SphereShape,
+    x: f32,
+    y: f32,
+    size: f32,
+    scale: f32,
+) -> Option<Rgb> {
     let c0 = size / 2.0;
     let r = s.radius * c0;
     let (dx, dy) = (x - c0, y - c0);
@@ -53,27 +64,51 @@ fn sample(light: &TrafficLight, s: &SphereShape, x: f32, y: f32, size: f32, scal
     }
     let (u, v) = (dx / r, dy / r);
     let t = y / size;
-    let ring = lerp(rgb(light.ring_top), rgb(light.ring_bottom), t.powf(s.ring_pow));
+    let ring = lerp(
+        rgb(light.ring_top),
+        rgb(light.ring_bottom),
+        t.powf(s.ring_pow),
+    );
     let mut c = rgb(light.deep);
     // Darken toward the top ring.
-    let k = ((s.top_end - v) / (s.top_end + 1.0)).clamp(0.0, 1.0).powi(2) * s.top_k;
+    let k = ((s.top_end - v) / (s.top_end + 1.0))
+        .clamp(0.0, 1.0)
+        .powi(2)
+        * s.top_k;
     c = lerp(c, ring, k);
     // Radial glow centred low in the sphere.
-    c = lerp(c, rgb(light.glow), ellipse(u, v, s.glow_x, s.glow_y, s.glow_ry, s.glow_pow));
+    c = lerp(
+        c,
+        rgb(light.glow),
+        ellipse(u, v, s.glow_x, s.glow_y, s.glow_ry, s.glow_pow),
+    );
     // Edge shading toward the ring.
-    let k = ((d / r - s.edge_start) / (1.0 - s.edge_start)).clamp(0.0, 1.0).powi(2) * s.edge_k;
+    let k = ((d / r - s.edge_start) / (1.0 - s.edge_start))
+        .clamp(0.0, 1.0)
+        .powi(2)
+        * s.edge_k;
     c = lerp(c, ring, k);
     if d > r - s.ring_width * scale {
         c = ring;
     }
     // Specular cap.
-    c = lerp(c, rgb(light.specular), ellipse(u, v, s.spec_x, s.spec_y, s.spec_ry, s.spec_pow));
+    c = lerp(
+        c,
+        rgb(light.specular),
+        ellipse(u, v, s.spec_x, s.spec_y, s.spec_ry, s.spec_pow),
+    );
     Some(c)
 }
 
 /// Draw one sphere of logical diameter `diameter` at `scale` device pixels per
 /// logical pixel, box-filtering 4×4 samples per pixel (fit_traffic.SS).
-pub fn traffic_light(light: &TrafficLight, shape: &SphereShape, glyph: Glyph, diameter: f32, scale: f32) -> Sprite {
+pub fn traffic_light(
+    light: &TrafficLight,
+    shape: &SphereShape,
+    glyph: Glyph,
+    diameter: f32,
+    scale: f32,
+) -> Sprite {
     const SS: u32 = 4;
     let size = (diameter * scale).round().max(1.0) as u32;
     let sizef = size as f32;
@@ -88,9 +123,18 @@ pub fn traffic_light(light: &TrafficLight, shape: &SphereShape, glyph: Glyph, di
                 for sx in 0..SS {
                     let x = px as f32 + (sx as f32 + 0.5) / SS as f32;
                     let y = py as f32 + (sy as f32 + 0.5) / SS as f32;
-                    let Some(c) = sample(light, shape, x, y, sizef, scale) else { continue };
+                    let Some(c) = sample(light, shape, x, y, sizef, scale) else {
+                        continue;
+                    };
                     let half = sizef / 2.0;
-                    let c = draw_glyph(glyph, light.glyph, c, (x - half) / half, (y - half) / half, glyph_px);
+                    let c = draw_glyph(
+                        glyph,
+                        light.glyph,
+                        c,
+                        (x - half) / half,
+                        (y - half) / half,
+                        glyph_px,
+                    );
                     acc[0] += c[0];
                     acc[1] += c[1];
                     acc[2] += c[2];
@@ -126,7 +170,11 @@ fn draw_glyph(glyph: Glyph, ink: Rgba8, under: Rgb, x: f32, y: f32, px: f32) -> 
             r <= len * 0.95 && (d1 <= half || d2 <= half)
         }
     };
-    if hit { lerp(under, rgb(ink), ink.a as f32 / 255.0) } else { under }
+    if hit {
+        lerp(under, rgb(ink), ink.a as f32 / 255.0)
+    } else {
+        under
+    }
 }
 
 #[cfg(test)]
@@ -148,8 +196,14 @@ mod tests {
     fn scales_to_device_pixels() {
         let t = aqua_light();
         let shape = &t.traffic.shape;
-        assert_eq!(traffic_light(&t.traffic.zoom, shape, Glyph::Zoom, 14.0, 1.5).size, 21);
-        assert_eq!(traffic_light(&t.traffic.zoom, shape, Glyph::Zoom, 14.0, 2.0).size, 28);
+        assert_eq!(
+            traffic_light(&t.traffic.zoom, shape, Glyph::Zoom, 14.0, 1.5).size,
+            21
+        );
+        assert_eq!(
+            traffic_light(&t.traffic.zoom, shape, Glyph::Zoom, 14.0, 2.0).size,
+            28
+        );
     }
 
     /// Pixels of the same model rendered by fit_traffic.render (straight

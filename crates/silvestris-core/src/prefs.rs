@@ -83,7 +83,10 @@ pub enum Loaded<T> {
     Ok(T),
     /// The file exists but does not parse. Defaults are returned and the
     /// caller must not save over it (`Store::writable` is false).
-    Malformed { value: T, error: String },
+    Malformed {
+        value: T,
+        error: String,
+    },
 }
 
 /// A JSON preferences file that refuses to clobber a file it could not read.
@@ -94,12 +97,18 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn open<T: for<'de> Deserialize<'de> + Default>(path: impl Into<PathBuf>) -> (Self, Loaded<T>) {
+    pub fn open<T: for<'de> Deserialize<'de> + Default>(
+        path: impl Into<PathBuf>,
+    ) -> (Self, Loaded<T>) {
         let path = path.into();
         match std::fs::read_to_string(&path) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                (Store { path, writable: true }, Loaded::Missing(T::default()))
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (
+                Store {
+                    path,
+                    writable: true,
+                },
+                Loaded::Missing(T::default()),
+            ),
             Err(e) => (
                 Store {
                     path,
@@ -111,7 +120,13 @@ impl Store {
                 },
             ),
             Ok(text) => match serde_json::from_str(&text) {
-                Ok(v) => (Store { path, writable: true }, Loaded::Ok(v)),
+                Ok(v) => (
+                    Store {
+                        path,
+                        writable: true,
+                    },
+                    Loaded::Ok(v),
+                ),
                 Err(e) => (
                     Store {
                         path,
@@ -155,7 +170,8 @@ mod tests {
     use super::*;
 
     fn temp(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("silvestris-prefs-{}-{name}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("silvestris-prefs-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("prefs.json")

@@ -138,7 +138,10 @@ impl RenderOnce for SegmentedControl {
             })
             .collect();
         let widths: Vec<f32> = match self.label_margin {
-            Some(margin) => labels.iter().map(|w| (w + 2. * margin).ceil().max(self.min_segment_width)).collect(),
+            Some(margin) => labels
+                .iter()
+                .map(|w| (w + 2. * margin).ceil().max(self.min_segment_width))
+                .collect(),
             None => {
                 let w = labels
                     .iter()

@@ -13,8 +13,8 @@
 //! at `traffic_light_position`; Silvestris does not draw them.
 
 use gpui::{
-    canvas, div, point, prelude::*, px, size, AnyElement, App, Bounds, CursorStyle, Decorations, Entity,
-    HitboxBehavior, MouseButton, Pixels, Point, ResizeEdge, SharedString, Size, Window,
+    canvas, div, point, prelude::*, px, size, AnyElement, App, Bounds, CursorStyle, Decorations,
+    Entity, HitboxBehavior, MouseButton, Pixels, Point, ResizeEdge, SharedString, Size, Window,
     WindowBounds, WindowControlArea, WindowDecorations, WindowHandle, WindowKind, WindowOptions,
 };
 use silvestris_core::sprites::Glyph;
@@ -26,7 +26,12 @@ use crate::sprites::{self, Light};
 use crate::theme::ActiveTheme;
 
 /// Window options for a Silvestris window with custom chrome.
-pub fn window_options(title: impl Into<SharedString>, bounds: Bounds<Pixels>, min_size: Size<Pixels>, cx: &App) -> WindowOptions {
+pub fn window_options(
+    title: impl Into<SharedString>,
+    bounds: Bounds<Pixels>,
+    min_size: Size<Pixels>,
+    cx: &App,
+) -> WindowOptions {
     let theme = cx.theme();
     WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -52,7 +57,11 @@ pub fn window_options(title: impl Into<SharedString>, bounds: Bounds<Pixels>, mi
 /// 10.6 System Preferences capture (hig-09 images) keeps minimize active and
 /// shows zoom disabled; GPUI's Windows hit test then refuses HTMAXBUTTON and
 /// the resize edges (gpui_windows events.rs, `is_resizable`).
-pub fn fixed_window_options(title: impl Into<SharedString>, bounds: Bounds<Pixels>, cx: &App) -> WindowOptions {
+pub fn fixed_window_options(
+    title: impl Into<SharedString>,
+    bounds: Bounds<Pixels>,
+    cx: &App,
+) -> WindowOptions {
     WindowOptions {
         is_resizable: false,
         window_min_size: None,
@@ -152,8 +161,18 @@ fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
     // sphere off `traffic_left` (14 px sphere in a 21 px pitch leaves 3.5).
     let pad = ((hit_w - d) / 2.0).floor();
     let lights = [
-        (Light::Close, Glyph::Close, WindowControlArea::Close, "Close"),
-        (Light::Minimize, Glyph::Minimize, WindowControlArea::Min, "Minimize"),
+        (
+            Light::Close,
+            Glyph::Close,
+            WindowControlArea::Close,
+            "Close",
+        ),
+        (
+            Light::Minimize,
+            Glyph::Minimize,
+            WindowControlArea::Min,
+            "Minimize",
+        ),
         (Light::Zoom, Glyph::Zoom, WindowControlArea::Max, "Zoom"),
     ];
     div()
@@ -173,7 +192,11 @@ fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
         .children(lights.into_iter().map(move |(light, glyph, area, label)| {
             // A disabled button keeps the idle sphere and shows no glyph.
             let enabled = zoom || light != Light::Zoom;
-            let base = if active && enabled { light } else { Light::Idle };
+            let base = if active && enabled {
+                light
+            } else {
+                Light::Idle
+            };
             div()
                 .id(label)
                 .role(gpui::Role::Button)
@@ -181,7 +204,9 @@ fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
                 .w(hit_w)
                 .h(hit_h)
                 .relative()
-                .when(!enabled, |el| el.aria_label(format!("{label} (unavailable)")))
+                .when(!enabled, |el| {
+                    el.aria_label(format!("{label} (unavailable)"))
+                })
                 .when(enabled, |el| el.window_control_area(area))
                 .when(!cfg!(windows) && enabled, |el| {
                     el.on_click(move |_, window, _| match area {
@@ -191,47 +216,70 @@ fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
                     })
                 })
                 .child(
-                    canvas(|_, _, _| (), move |bounds, _, window, cx| {
-                        let sphere = Bounds::new(
-                            point(bounds.origin.x + pad, bounds.origin.y + px(m_top(cx))),
-                            size(d, d),
-                        );
-                        // Emboss: the disc repeated one hairline lower in
-                        // `traffic.emboss`, showing as a crescent under the
-                        // sphere (M: traffic.close.column row 18, d8 over c3).
-                        let emboss = cx.theme().traffic.emboss;
-                        if emboss.a > 0 {
-                            let low = sphere + point(px(0.), crate::convert::hairline(window));
-                            window.paint_quad(gpui::fill(low, crate::convert::rgba(emboss)).corner_radii(d / 2.0));
-                        }
-                        let image = sprites::traffic(base, Glyph::None, window, cx);
-                        window
-                            .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
-                            .ok();
-                    })
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, cx| {
+                            let sphere = Bounds::new(
+                                point(bounds.origin.x + pad, bounds.origin.y + px(m_top(cx))),
+                                size(d, d),
+                            );
+                            // Emboss: the disc repeated one hairline lower in
+                            // `traffic.emboss`, showing as a crescent under the
+                            // sphere (M: traffic.close.column row 18, d8 over c3).
+                            let emboss = cx.theme().traffic.emboss;
+                            if emboss.a > 0 {
+                                let low = sphere + point(px(0.), crate::convert::hairline(window));
+                                window.paint_quad(
+                                    gpui::fill(low, crate::convert::rgba(emboss))
+                                        .corner_radii(d / 2.0),
+                                );
+                            }
+                            let image = sprites::traffic(base, Glyph::None, window, cx);
+                            window
+                                .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
+                                .ok();
+                        },
+                    )
                     .absolute()
                     .size_full(),
                 )
                 // Hovering the group shows colour and glyphs, also in an
                 // inactive window (10.6 behaviour).
-                .when(enabled, |el| el.child(
-                    div()
-                        .absolute()
-                        .size_full()
-                        .opacity(0.)
-                        .group_hover("silvestris-traffic-lights", |s| s.opacity(1.))
-                        .child(canvas(|_, _, _| (), move |bounds, _, window, cx| {
-                            let sphere = Bounds::new(
-                                point(bounds.origin.x + pad, bounds.origin.y + px(m_top(cx))),
-                                size(d, d),
-                            );
-                            let image = sprites::traffic(light, glyph, window, cx);
-                            window
-                                .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
-                                .ok();
-                        })
-                        .size_full()),
-                ))
+                .when(enabled, |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .size_full()
+                            .opacity(0.)
+                            .group_hover("silvestris-traffic-lights", |s| s.opacity(1.))
+                            .child(
+                                canvas(
+                                    |_, _, _| (),
+                                    move |bounds, _, window, cx| {
+                                        let sphere = Bounds::new(
+                                            point(
+                                                bounds.origin.x + pad,
+                                                bounds.origin.y + px(m_top(cx)),
+                                            ),
+                                            size(d, d),
+                                        );
+                                        let image = sprites::traffic(light, glyph, window, cx);
+                                        window
+                                            .paint_image(
+                                                sphere,
+                                                sphere,
+                                                0.0.into(),
+                                                image,
+                                                0,
+                                                false,
+                                            )
+                                            .ok();
+                                    },
+                                )
+                                .size_full(),
+                            ),
+                    )
+                })
         }))
 }
 
@@ -256,10 +304,20 @@ impl RenderOnce for WindowFrame {
         let active = window.is_window_active();
         let decorations = window.window_decorations();
         let maximized = window.is_maximized();
-        let chrome = if active { theme.chrome.active } else { theme.chrome.inactive };
-        let bottom = if active { theme.chrome.bottom_active } else { theme.chrome.bottom_inactive };
+        let chrome = if active {
+            theme.chrome.active
+        } else {
+            theme.chrome.inactive
+        };
+        let bottom = if active {
+            theme.chrome.bottom_active
+        } else {
+            theme.chrome.bottom_inactive
+        };
         let band_height = m.titlebar_height + self.toolbar_height;
-        let client = matches!(decorations, Decorations::Client { .. }) && !cfg!(windows) && !cfg!(target_os = "macos");
+        let client = matches!(decorations, Decorations::Client { .. })
+            && !cfg!(windows)
+            && !cfg!(target_os = "macos");
         let radius = if maximized { 0.0 } else { m.window_radius };
         let draws_lights = !cfg!(target_os = "macos");
         let fixed = self.fixed;
@@ -293,22 +351,34 @@ impl RenderOnce for WindowFrame {
                         window.start_window_move();
                     }
                 })
-                .on_mouse_down(MouseButton::Right, |e, window, _| window.show_window_menu(e.position))
+                .on_mouse_down(MouseButton::Right, |e, window, _| {
+                    window.show_window_menu(e.position)
+                })
             })
             .child({
-                canvas(|_, _, _| (), move |bounds, _, window, _| {
-                    paint::chrome(window, bounds, &chrome, radius, false);
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        paint::chrome(window, bounds, &chrome, radius, false);
+                    },
+                )
                 .absolute()
                 .size_full()
             })
             .font_family(theme.type_.ui)
             .text_size(px(theme.type_.size_title))
             .when(self.show_title, |el| {
-                el.when(c.title_engrave.a > 0, |el| el.child(title_text(c.title_engrave, 1.0)))
-                    .child(title_text(if active { c.title } else { c.title_inactive }, 0.0))
+                el.when(c.title_engrave.a > 0, |el| {
+                    el.child(title_text(c.title_engrave, 1.0))
+                })
+                .child(title_text(
+                    if active { c.title } else { c.title_inactive },
+                    0.0,
+                ))
             })
-            .when(draws_lights, |el| el.child(traffic_lights(&theme, active, !fixed)))
+            .when(draws_lights, |el| {
+                el.child(traffic_lights(&theme, active, !fixed))
+            })
             .when_some(self.toolbar, |el, toolbar| {
                 el.child(
                     div()
@@ -325,7 +395,11 @@ impl RenderOnce for WindowFrame {
         // hit test; Linux client decorations start a resize on press.
         let resizable = !maximized && !fixed;
         native_grip(window, cx, if resizable { theme.grip.hit } else { 0.0 });
-        let grip_style = if self.bottom_bar.is_some() { theme.grip.bar } else { theme.grip.body };
+        let grip_style = if self.bottom_bar.is_some() {
+            theme.grip.bar
+        } else {
+            theme.grip.body
+        };
         let grip = div()
             .id("silvestris-resize-grip")
             .absolute()
@@ -334,13 +408,18 @@ impl RenderOnce for WindowFrame {
             .size(px(theme.grip.hit))
             .when(client, |el| {
                 el.cursor(CursorStyle::ResizeUpLeftDownRight)
-                    .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_resize(ResizeEdge::BottomRight))
+                    .on_mouse_down(MouseButton::Left, |_, window, _| {
+                        window.start_window_resize(ResizeEdge::BottomRight)
+                    })
             })
             .when(theme.grip.visible, |el| {
                 el.child(
-                    canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        paint::resize_grip(window, bounds.bottom_right(), &grip_style);
-                    })
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            paint::resize_grip(window, bounds.bottom_right(), &grip_style);
+                        },
+                    )
                     .size_full(),
                 )
             });
@@ -374,9 +453,12 @@ impl RenderOnce for WindowFrame {
                         .w_full()
                         .h(px(m.bottom_bar_height))
                         .child(
-                            canvas(|_, _, _| (), move |bounds, _, window, _| {
-                                paint::chrome(window, bounds, &bottom, 0.0, true);
-                            })
+                            canvas(
+                                |_, _, _| (),
+                                move |bounds, _, window, _| {
+                                    paint::chrome(window, bounds, &bottom, 0.0, true);
+                                },
+                            )
                             .absolute()
                             .size_full(),
                         )
@@ -396,7 +478,12 @@ impl RenderOnce for WindowFrame {
 
 /// Linux client decorations: transparent inset with resize edges and a drawn
 /// shadow (gpui examples/window_shadow.rs).
-fn client_decorated(frame: gpui::Stateful<gpui::Div>, decorations: Decorations, radius: f32, window: &mut Window) -> AnyElement {
+fn client_decorated(
+    frame: gpui::Stateful<gpui::Div>,
+    decorations: Decorations,
+    radius: f32,
+    window: &mut Window,
+) -> AnyElement {
     let Decorations::Client { tiling } = decorations else {
         return frame.into_any_element();
     };
@@ -411,7 +498,10 @@ fn client_decorated(frame: gpui::Stateful<gpui::Div>, decorations: Decorations, 
             canvas(
                 |_bounds, window, _| {
                     window.insert_hitbox(
-                        Bounds::new(point(px(0.), px(0.)), window.window_bounds().get_bounds().size),
+                        Bounds::new(
+                            point(px(0.), px(0.)),
+                            window.window_bounds().get_bounds().size,
+                        ),
                         HitboxBehavior::Normal,
                     )
                 },
@@ -445,7 +535,12 @@ fn client_decorated(frame: gpui::Stateful<gpui::Div>, decorations: Decorations, 
                     el.shadow(vec![gpui::BoxShadow::new(
                         px(0.),
                         px(10.),
-                        gpui::Hsla { h: 0., s: 0., l: 0., a: 0.45 },
+                        gpui::Hsla {
+                            h: 0.,
+                            s: 0.,
+                            l: 0.,
+                            a: 0.45,
+                        },
                     )
                     .blur_radius(px(CLIENT_SHADOW - 10.))])
                 })

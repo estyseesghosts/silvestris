@@ -8,8 +8,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, px, App, Bounds, ElementId, FocusHandle, KeyDownEvent,
-    MouseButton, SharedString, Window,
+    canvas, div, prelude::*, px, App, Bounds, ElementId, FocusHandle, KeyDownEvent, MouseButton,
+    SharedString, Window,
 };
 
 use crate::controls::ControlSize;
@@ -64,16 +64,30 @@ impl RenderOnce for Stepper {
         };
         let enabled = self.can_increase || self.can_decrease;
         let focus: FocusHandle = window
-            .use_keyed_state(self.id.clone(), cx, |_, cx| cx.focus_handle().tab_stop(true))
+            .use_keyed_state(self.id.clone(), cx, |_, cx| {
+                cx.focus_handle().tab_stop(true)
+            })
             .read(cx)
             .clone();
         let states = theme.controls.push;
-        let up = if self.can_increase { states.normal } else { states.disabled };
-        let down = if self.can_decrease { states.normal } else { states.disabled };
+        let up = if self.can_increase {
+            states.normal
+        } else {
+            states.disabled
+        };
+        let down = if self.can_decrease {
+            states.normal
+        } else {
+            states.disabled
+        };
         let ring_focus = focus.clone();
         let ring = theme.colors.focus_ring;
         let profile = theme.metrics.focus_ring;
-        let half = |id: &'static str, dir: i32, ok: bool, glyph: &'static str, bevel: silvestris_core::tokens::Bevel| {
+        let half = |id: &'static str,
+                    dir: i32,
+                    ok: bool,
+                    glyph: &'static str,
+                    bevel: silvestris_core::tokens::Bevel| {
             let f = self.on_step.clone();
             div()
                 .id(id)
@@ -87,9 +101,12 @@ impl RenderOnce for Stepper {
                 .text_size(px(6.0))
                 .text_color(hsla(bevel.text))
                 .child(
-                    canvas(|_, _, _| (), move |b, _, window, _| paint::bevel(window, b, 2.0, &bevel))
-                        .absolute()
-                        .inset_0(),
+                    canvas(
+                        |_, _, _| (),
+                        move |b, _, window, _| paint::bevel(window, b, 2.0, &bevel),
+                    )
+                    .absolute()
+                    .inset_0(),
                 )
                 .child(div().relative().child(glyph))
                 .when(ok, |el| {
@@ -132,13 +149,22 @@ impl RenderOnce for Stepper {
                     })
             })
             .child(half("stepper-up", 1, self.can_increase, "\u{25B2}", up))
-            .child(half("stepper-down", -1, self.can_decrease, "\u{25BC}", down))
+            .child(half(
+                "stepper-down",
+                -1,
+                self.can_decrease,
+                "\u{25BC}",
+                down,
+            ))
             .child(
-                canvas(|_, _, _| (), move |b: Bounds<gpui::Pixels>, _, window, _| {
-                    if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
-                        paint::focus_ring(window, b, 2.0, ring, profile);
-                    }
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |b: Bounds<gpui::Pixels>, _, window, _| {
+                        if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
+                            paint::focus_ring(window, b, 2.0, ring, profile);
+                        }
+                    },
+                )
                 .absolute()
                 .inset_0(),
             )
