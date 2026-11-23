@@ -49,6 +49,8 @@ Applications own domain models, session identity, preference persistence and
 command callbacks. The framework owns generic layout and interaction state.
 No crate imports Lotus, Azahar or an emulator worker.
 
+- [Consumer pins and integration rules](docs/consumers.md)
+- [Public API changes by commit range](CHANGELOG.md)
 - [Shell composition](docs/shell.md)
 - [Sidebar and divider](docs/sidebar.md)
 - [Source lists](docs/source-list.md)
