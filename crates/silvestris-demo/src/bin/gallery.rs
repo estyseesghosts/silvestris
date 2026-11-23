@@ -17,6 +17,7 @@ use silvestris::menu::PopupMenu;
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
+use silvestris::transient::TransientLayer;
 use silvestris::window_role::{open_role, WindowRole};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
@@ -75,6 +76,8 @@ struct Gallery {
     routing_field: gpui::FocusHandle,
     routing_canvas: gpui::FocusHandle,
     routing_status: gpui::SharedString,
+    transient: Entity<TransientLayer>,
+    transient_status: gpui::SharedString,
 }
 
 impl Responder for Gallery {
@@ -282,6 +285,16 @@ impl Gallery {
                 )
                 .unwrap()
         });
+        let transient = cx.new(|cx| TransientLayer::new(window, cx));
+        cx.observe(&transient, |gallery, layer, cx| {
+            gallery.transient_status = match (layer.read(cx).len(), layer.read(cx).top_kind()) {
+                (0, _) => "none".into(),
+                (depth, Some(kind)) => format!("{depth} (top: {})", kind.label()).into(),
+                (depth, None) => format!("{depth}").into(),
+            };
+            cx.notify();
+        })
+        .detach();
         let menu = cx.new(|cx| {
             PopupMenu::new(
                 MenuModel {
@@ -308,6 +321,7 @@ impl Gallery {
                 cx,
             )
         });
+        menu.update(cx, |menu, cx| menu.set_layer(transient.clone(), cx));
         menu.update(cx, |menu, cx| menu.set_chain(routing.clone(), cx));
         Gallery {
             menu,
@@ -332,6 +346,8 @@ impl Gallery {
             routing_field,
             routing_canvas,
             routing_status: "none".into(),
+            transient,
+            transient_status: "none".into(),
         }
     }
 
@@ -494,6 +510,33 @@ impl Render for Gallery {
                     .text_color(secondary)
                     .child(format!("Copy handled by: {}", self.routing_status)),
             );
+        let transient_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(12.))
+            .child(
+                Button::new("open-transient-menu", "Open View menu")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|g, _, window, cx| {
+                        g.menu.update(cx, |menu, cx| {
+                            menu.open(point(px(120.), px(220.)), window, cx)
+                        });
+                    })),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(format!("transient surfaces: {}", self.transient_status)),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child("Escape closes the innermost; the combo list shares this layer"),
+            );
+
         let role_row = div()
             .flex()
             .flex_row()
@@ -583,6 +626,7 @@ impl Render for Gallery {
                             .child(fields)
                             .child(disclosure)
                             .child(routing_row)
+                            .child(transient_row)
                             .child(role_row)
                             .child(
                                 div()
@@ -661,18 +705,21 @@ impl Render for Gallery {
                                             }),
                                         ),
                                     )
-                                    .child(div().w(px(180.)).child(
-                                        silvestris::controls::ComboBox::new(
-                                            "locations",
-                                            "Location",
-                                            self.combo.clone(),
-                                            vec![
-                                                "Home".into(),
-                                                "Documents".into(),
-                                                "Desktop".into(),
-                                            ],
+                                    .child(
+                                        div().w(px(180.)).child(
+                                            silvestris::controls::ComboBox::new(
+                                                "locations",
+                                                "Location",
+                                                self.combo.clone(),
+                                                vec![
+                                                    "Home".into(),
+                                                    "Documents".into(),
+                                                    "Desktop".into(),
+                                                ],
+                                            )
+                                            .layer(self.transient.clone()),
                                         ),
-                                    ))
+                                    )
                                     .child(
                                         div()
                                             .w(px(180.))

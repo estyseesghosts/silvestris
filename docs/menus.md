@@ -7,11 +7,12 @@ as the toolbar, footer and accelerator, plus an Appearance submenu.
 
 Construct the entity with the model, registry, window and context. Mount it
 once as a deferred overlay at priority 1 above normal content. open(position)
-takes focus and records the previous responder. Escape/Tab, outside click or
-activation dismisses and restores that responder. Window deactivation closes
-the menu and restores logical focus without activating the OS window.
-Consumers must invalidate the return target themselves if their view/session
-is removed while a menu is open.
+takes focus. Outside click, scroll, Escape, Tab and window deactivation dismiss
+through the window's `TransientLayer` (#60), which restores the responder that
+had focus before the first surface opened. An open submenu closes on the first
+Escape and the menu on the second. Consumers must invalidate the return target
+themselves if their view or session is removed while a menu is open.
+`set_layer` joins a shared layer; without it the menu owns a private one.
 set_model replaces the command tree; if the model differs while open, the
 menu dismisses first so a highlighted index never moves to another command.
 
