@@ -31,6 +31,13 @@ the default screen copy also records DWM shadows and any desktop occlusion.
 Use these captures to inspect real application composition, alongside native
 input checks. Images under target/ are local development artifacts.
 
+## Roadmap
+
+Silvestris is the GUI layer for lotus, sandcat, chaus and johjoh: apps compose
+and extend it rather than drawing their own controls. Milestones, the consumer
+gap register, the issue anatomy and the definition of done are in
+[ROADMAP.md](ROADMAP.md); the tracking issue is #72.
+
 ## Consumer entry points
 
 Depend on crates/silvestris and use the exact same GPUI revision. Call
