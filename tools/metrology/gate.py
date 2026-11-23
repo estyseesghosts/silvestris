@@ -140,7 +140,7 @@ def main():
             failures.append(key)
         if args.accept:
             golden_path.parent.mkdir(parents=True, exist_ok=True)
-            Image.open(candidate_path).save(golden_path)
+            golden_path.write_bytes(candidate_path.read_bytes())
             accepted.append(key)
             row["status"] = "accepted"
             row["detail"] = args.reason
@@ -167,7 +167,7 @@ def main():
                 continue
             target = args.goldens / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            Image.open(candidate_path).save(target)
+            target.write_bytes(candidate_path.read_bytes())
             manifest[key] = sha256(target)
             reasons[key] = args.reason
             rows.append({"key": key, "status": "added", "detail": args.reason, "changed": 0,
