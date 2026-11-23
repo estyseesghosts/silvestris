@@ -772,6 +772,44 @@
       "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
     },
     {
+      "id": "checkbox.off",
+      "control": "checkbox",
+      "state": "regular, unchecked",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        78,
+        366,
+        132,
+        31
+      ],
+      "size": [
+        132,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "checkbox.mixed",
+      "control": "checkbox",
+      "state": "mixed",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        294,
+        366,
+        148,
+        31
+      ],
+      "size": [
+        148,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
       "id": "disclosure.collapsed",
       "control": "disclosure",
       "state": "collapsed, right-pointing",
