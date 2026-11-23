@@ -144,11 +144,17 @@ pub struct DocumentWindowFixture {
 }
 
 impl DocumentWindowFixture {
-    /// Creates a focusable document window.
-    pub fn new(cx: &mut Context<Self>, title: impl Into<SharedString>) -> Self {
+    /// Creates a focusable document window with a title.
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        title: impl Into<SharedString>,
+    ) -> Self {
+        let title = title.into();
+        window.set_window_title(title.as_ref());
         Self {
             focus: cx.focus_handle(),
-            title: title.into(),
+            title,
         }
     }
 
@@ -524,8 +530,8 @@ mod tests {
     #[test]
     fn documents_keep_focus_per_window() {
         let mut scenario = Scenario::new();
-        let first = scenario.open(|_, cx| DocumentWindowFixture::new(cx, "First"));
-        let second = scenario.open(|_, cx| DocumentWindowFixture::new(cx, "Second"));
+        let first = scenario.open(|window, cx| DocumentWindowFixture::new(window, cx, "First"));
+        let second = scenario.open(|window, cx| DocumentWindowFixture::new(window, cx, "Second"));
         let first_fixture = first.entity(scenario.app()).expect("first document");
         let second_fixture = second.entity(scenario.app()).expect("second document");
         let first_focus = scenario.update(|_, cx| first_fixture.read(cx).focus());
@@ -548,7 +554,8 @@ mod tests {
     #[test]
     fn utility_panel_takes_focus() {
         let mut scenario = Scenario::new();
-        let _document = scenario.open(|_, cx| DocumentWindowFixture::new(cx, "Document"));
+        let _document =
+            scenario.open(|window, cx| DocumentWindowFixture::new(window, cx, "Document"));
         let panel = scenario.open(|_, cx| UtilityPanelFixture::new(cx, "Inspector"));
         let panel_fixture = panel.entity(scenario.app()).expect("utility panel");
         let panel_focus = scenario.update(|_, cx| panel_fixture.read(cx).focus());

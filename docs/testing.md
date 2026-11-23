@@ -109,9 +109,9 @@ gate (#18). Headless dispatch is not a substitute for either.
 
 ## Current coverage
 
-Twelve tests: focus/click/press/advance/close and multi-window order in the
+Fourteen tests: focus/click/press/advance/close and multi-window order in the
 driver; text-field typing and submit; source-list keyboard navigation;
 two-document focus isolation; utility-panel focus; table-stub rendering;
 confirmation-sheet accept and Escape; popup-menu dispatch and focus restore;
-shell-shortcut isolation from a focused text field; script record/replay; and
-script error reporting.
+shell-shortcut isolation from a focused text field; script record/replay;
+script activate/title checks; script click; and script error reporting.

@@ -435,8 +435,11 @@ fn unescape(text: &str) -> String {
 mod tests {
     use super::{Recorder, ScenarioScript, ScriptEnv};
     use crate::controls::TextFieldEvent;
-    use crate::test_support::fixtures::TextFieldFixture;
+    use crate::test_support::fixtures::{
+        ConfirmationSheetFixture, DocumentWindowFixture, TextFieldFixture,
+    };
     use crate::test_support::scenario::Scenario;
+    use std::time::Duration;
 
     #[test]
     fn records_and_replays_a_text_field_scenario() {
@@ -449,6 +452,7 @@ mod tests {
         recorder.focus("field", &focus);
         recorder.type_text("hello");
         recorder.press("enter");
+        recorder.advance(Duration::from_millis(16));
         recorder.expect_focus("field", &focus);
         recorder.expect_selector("field", "fixture-text-field");
         recorder.expect_window_count(1);
@@ -457,7 +461,7 @@ mod tests {
 
         assert_eq!(
             script_text,
-            "focus field\ntype hello\npress enter\nexpect-focus field\n\
+            "focus field\ntype hello\npress enter\nadvance 16\nexpect-focus field\n\
              expect-selector field\nexpect-window-count 1\n"
         );
         assert_eq!(scenario.update(|_, cx| fixture.read(cx).text(cx)), "hello");
@@ -491,5 +495,37 @@ mod tests {
             .replay(&mut scenario, &ScriptEnv::new())
             .expect_err("missing focus binding");
         assert!(error.to_string().contains("no focus handle"));
+    }
+
+    #[test]
+    fn script_activates_windows_and_checks_title() {
+        let mut scenario = Scenario::new();
+        scenario.open(|window, cx| DocumentWindowFixture::new(window, cx, "First"));
+        scenario.open(|window, cx| DocumentWindowFixture::new(window, cx, "Second"));
+
+        let script = ScenarioScript::parse(
+            "expect-no-focus\nactivate 0\nexpect-title First\nexpect-window-count 2\n",
+        )
+        .expect("parse script");
+        script
+            .replay(&mut scenario, &ScriptEnv::new())
+            .expect("replay script");
+    }
+
+    #[test]
+    fn script_clicks_a_sheet_button() {
+        let mut scenario = Scenario::new();
+        let window = scenario.open(ConfirmationSheetFixture::new);
+        let fixture = window.entity(scenario.app()).expect("sheet fixture");
+        let mut env = ScriptEnv::new();
+        env.bind_selector("accept", "sheet-accept");
+
+        let script =
+            ScenarioScript::parse("click accept\nexpect-window-count 1\n").expect("parse script");
+        script.replay(&mut scenario, &env).expect("replay script");
+        assert_eq!(
+            scenario.update(|_, cx| fixture.read(cx).responses()),
+            vec![true]
+        );
     }
 }
