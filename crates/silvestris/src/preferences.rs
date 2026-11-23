@@ -67,7 +67,10 @@ pub struct PreferencesNavigator {
 
 impl PreferencesNavigator {
     pub fn new(current: Option<SharedString>) -> Self {
-        Self { current, ..Self::default() }
+        Self {
+            current,
+            ..Self::default()
+        }
     }
     pub fn current(&self) -> Option<&SharedString> {
         self.current.as_ref()
@@ -89,12 +92,16 @@ impl PreferencesNavigator {
         !self.forward.is_empty()
     }
     pub fn go_back(&mut self) -> bool {
-        let Some(to) = self.back.pop() else { return false };
+        let Some(to) = self.back.pop() else {
+            return false;
+        };
         self.forward.push(std::mem::replace(&mut self.current, to));
         true
     }
     pub fn go_forward(&mut self) -> bool {
-        let Some(to) = self.forward.pop() else { return false };
+        let Some(to) = self.forward.pop() else {
+            return false;
+        };
         self.back.push(std::mem::replace(&mut self.current, to));
         true
     }
@@ -142,9 +149,16 @@ pub struct PreferencePane {
 }
 impl PreferencePane {
     pub fn new(id: impl Into<SharedString>, label: impl Into<SharedString>) -> Self {
-        Self { id: id.into(), label: label.into(), icon: None }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            icon: None,
+        }
     }
-    pub fn icon<E: IntoElement>(mut self, icon: impl Fn(&mut Window, &mut App) -> E + 'static) -> Self {
+    pub fn icon<E: IntoElement>(
+        mut self,
+        icon: impl Fn(&mut Window, &mut App) -> E + 'static,
+    ) -> Self {
         self.icon = Some(Rc::new(move |w, cx| icon(w, cx).into_any_element()));
         self
     }
@@ -158,12 +172,18 @@ pub struct PreferenceCategory {
 }
 impl PreferenceCategory {
     pub fn new(label: impl Into<SharedString>, panes: Vec<PreferencePane>) -> Self {
-        Self { label: label.into(), panes }
+        Self {
+            label: label.into(),
+            panes,
+        }
     }
 }
 
 pub fn find<'a>(categories: &'a [PreferenceCategory], id: &str) -> Option<&'a PreferencePane> {
-    categories.iter().flat_map(|c| &c.panes).find(|p| p.id.as_ref() == id)
+    categories
+        .iter()
+        .flat_map(|c| &c.panes)
+        .find(|p| p.id.as_ref() == id)
 }
 
 /// Lays `content` out at its natural height and reports the viewport height
@@ -176,16 +196,14 @@ pub fn fit_content(
     content: impl IntoElement,
     on_height: impl Fn(Pixels, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
-    div()
-        .flex_none()
-        .w_full()
-        .relative()
-        .child(content)
-        .child(
-            canvas(move |bounds, window, cx| on_height(bounds.bottom(), window, cx), |_, _, _, _| {})
-                .absolute()
-                .inset_0(),
+    div().flex_none().w_full().relative().child(content).child(
+        canvas(
+            move |bounds, window, cx| on_height(bounds.bottom(), window, cx),
+            |_, _, _, _| {},
         )
+        .absolute()
+        .inset_0(),
+    )
 }
 
 // --- Toolbar -----------------------------------------------------------------
@@ -234,7 +252,11 @@ impl RenderOnce for PreferencesToolbar {
             )
             .min_segment_width(14.0)
             .on_select(move |id, window, cx| {
-                let to = if id.as_ref() == "back" { Navigation::Back } else { Navigation::Forward };
+                let to = if id.as_ref() == "back" {
+                    Navigation::Back
+                } else {
+                    Navigation::Forward
+                };
                 if let Some(f) = &nav {
                     f(to, window, cx);
                 }
@@ -278,7 +300,10 @@ pub struct PreferencesOverview {
 }
 impl PreferencesOverview {
     pub fn new(categories: Vec<PreferenceCategory>) -> Self {
-        Self { categories, on_select: None }
+        Self {
+            categories,
+            on_select: None,
+        }
     }
     pub fn on_select(mut self, f: impl Fn(&SharedString, &mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(f));
@@ -298,8 +323,16 @@ impl RenderOnce for PreferencesOverview {
             .overflow_y_scroll();
         for (index, category) in self.categories.into_iter().enumerate() {
             // M: prefs.overview.bands — window colour, then the group fill.
-            let fill = if index % 2 == 0 { c.window } else { c.group_fill };
-            let mut grid = div().flex().flex_wrap().pl(px(GRID_INSET)).pt(px(ICON_TOP - 6.0));
+            let fill = if index % 2 == 0 {
+                c.window
+            } else {
+                c.group_fill
+            };
+            let mut grid = div()
+                .flex()
+                .flex_wrap()
+                .pl(px(GRID_INSET))
+                .pt(px(ICON_TOP - 6.0));
             for pane in category.panes {
                 grid = grid.child(cell(pane, self.on_select.clone(), window, cx));
             }
@@ -309,7 +342,9 @@ impl RenderOnce for PreferencesOverview {
                     .min_h(px(BAND_HEIGHT))
                     .relative()
                     .bg(hsla(fill))
-                    .when(index > 0, |el| el.border_t_1().border_color(hsla(c.band_rule)))
+                    .when(index > 0, |el| {
+                        el.border_t_1().border_color(hsla(c.band_rule))
+                    })
                     .pb(px(6.0))
                     .child(
                         div()
@@ -327,12 +362,19 @@ impl RenderOnce for PreferencesOverview {
     }
 }
 
-fn cell(pane: PreferencePane, on_select: Option<SelectFn>, window: &mut Window, cx: &mut App) -> impl IntoElement {
+fn cell(
+    pane: PreferencePane,
+    on_select: Option<SelectFn>,
+    window: &mut Window,
+    cx: &mut App,
+) -> impl IntoElement {
     let theme = cx.theme().clone();
     let id = pane.id.clone();
     let element_id = ElementId::Name(format!("preference-pane-{id}").into());
     let focus: FocusHandle = window
-        .use_keyed_state(element_id.clone(), cx, |_, cx| cx.focus_handle().tab_stop(true))
+        .use_keyed_state(element_id.clone(), cx, |_, cx| {
+            cx.focus_handle().tab_stop(true)
+        })
         .read(cx)
         .clone();
     let ring_focus = focus.clone();
@@ -364,11 +406,14 @@ fn cell(pane: PreferencePane, on_select: Option<SelectFn>, window: &mut Window, 
                 .flex_none()
                 .children(icon)
                 .child(
-                    gpui::canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
-                            paint::focus_ring(window, bounds, 4.0, ring, profile);
-                        }
-                    })
+                    gpui::canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
+                                paint::focus_ring(window, bounds, 4.0, ring, profile);
+                            }
+                        },
+                    )
                     .absolute()
                     .inset_0(),
                 ),
@@ -410,14 +455,24 @@ pub struct TabView {
 type OverflowFn = Rc<dyn Fn(gpui::Size<Pixels>, &mut Window, &mut App)>;
 impl TabView {
     pub fn new(id: impl Into<ElementId>) -> Self {
-        Self { id: id.into(), tabs: Vec::new(), selected: None, on_select: None, on_overflow: None, content: Vec::new() }
+        Self {
+            id: id.into(),
+            tabs: Vec::new(),
+            selected: None,
+            on_select: None,
+            on_overflow: None,
+            content: Vec::new(),
+        }
     }
     /// Reports each frame how much wider and taller (positive) or narrower
     /// and shorter (negative) the view needs to be: height for the content,
     /// width for the tab strip plus a 16 px inset each side. The window can
     /// then resize to the pane as 10.6 System Preferences does. Content that
     /// still does not fit scrolls with a [`Scrollbar`](crate::controls::Scrollbar).
-    pub fn on_overflow(mut self, f: impl Fn(gpui::Size<Pixels>, &mut Window, &mut App) + 'static) -> Self {
+    pub fn on_overflow(
+        mut self,
+        f: impl Fn(gpui::Size<Pixels>, &mut Window, &mut App) + 'static,
+    ) -> Self {
         self.on_overflow = Some(Rc::new(f));
         self
     }
@@ -454,7 +509,11 @@ impl RenderOnce for TabView {
             .min_h_0()
             .flex()
             .flex_col()
-            .pt(px(if has_tabs { BOX_TOP - half } else { BOX_TOP - 14.0 }));
+            .pt(px(if has_tabs {
+                BOX_TOP - half
+            } else {
+                BOX_TOP - 14.0
+            }));
         let body = div()
             .id("tab-view-box")
             .debug_selector(|| "tab-view-box".into())
@@ -471,13 +530,21 @@ impl RenderOnce for TabView {
             .rounded(px(4.0))
             .child(
                 // Top edge is darker than the sides (M: groupbox.top vs .left).
-                div().absolute().top(px(-1.0)).left(px(2.0)).right(px(2.0)).h(px(1.0)).bg(hsla(c.group_border_top)),
+                div()
+                    .absolute()
+                    .top(px(-1.0))
+                    .left(px(2.0))
+                    .right(px(2.0))
+                    .h(px(1.0))
+                    .bg(hsla(c.group_border_top)),
             )
             .child({
                 let scroll = window
-                    .use_keyed_state(ElementId::Name(format!("{}-scroll", self.id).into()), cx, |_, _| {
-                        gpui::ScrollHandle::new()
-                    })
+                    .use_keyed_state(
+                        ElementId::Name(format!("{}-scroll", self.id).into()),
+                        cx,
+                        |_, _| gpui::ScrollHandle::new(),
+                    )
                     .read(cx)
                     .clone();
                 let measured = content_height.clone();
@@ -507,9 +574,12 @@ impl RenderOnce for TabView {
                                     .relative()
                                     .children(self.content)
                                     .child(
-                                        canvas(move |b, _, _| measured.set(b.size.height), |_, _, _, _| {})
-                                            .absolute()
-                                            .inset_0(),
+                                        canvas(
+                                            move |b, _, _| measured.set(b.size.height),
+                                            |_, _, _, _| {},
+                                        )
+                                        .absolute()
+                                        .inset_0(),
                                     ),
                             ),
                     )
@@ -518,9 +588,12 @@ impl RenderOnce for TabView {
                         &scroll,
                     ))
                     .child(
-                        canvas(move |b, _, _| measured_viewport.set(b.size.height), |_, _, _, _| {})
-                            .absolute()
-                            .inset_0(),
+                        canvas(
+                            move |b, _, _| measured_viewport.set(b.size.height),
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .inset_0(),
                     )
             });
         root = root.child(body);
@@ -561,7 +634,11 @@ impl RenderOnce for TabView {
             root = root.child(
                 canvas(
                     move |view, window, cx| {
-                        let width = if has_tabs { tabs_width.get() + px(32.0) - view.size.width } else { px(0.) };
+                        let width = if has_tabs {
+                            tabs_width.get() + px(32.0) - view.size.width
+                        } else {
+                            px(0.)
+                        };
                         let height = content_height.get() + px(pad_top + 12.0) - viewport.get();
                         f(gpui::size(width, height), window, cx);
                     },
@@ -591,11 +668,21 @@ pub struct FormRow {
 impl FormRow {
     /// A labelled control. The colon is added here.
     pub fn new(label: impl Into<SharedString>, control: impl IntoElement) -> Self {
-        Self { label: Some(label.into()), control: control.into_any_element(), note: None, id: None }
+        Self {
+            label: Some(label.into()),
+            control: control.into_any_element(),
+            note: None,
+            id: None,
+        }
     }
     /// A control that carries its own label (checkbox, radio group, button).
     pub fn control(control: impl IntoElement) -> Self {
-        Self { label: None, control: control.into_any_element(), note: None, id: None }
+        Self {
+            label: None,
+            control: control.into_any_element(),
+            note: None,
+            id: None,
+        }
     }
     /// Small explanatory text under the control.
     pub fn note(mut self, note: impl Into<SharedString>) -> Self {
@@ -609,7 +696,10 @@ impl FormRow {
 }
 impl Form {
     pub fn new(label_width: f32) -> Self {
-        Self { label_width, rows: Vec::new() }
+        Self {
+            label_width,
+            rows: Vec::new(),
+        }
     }
     pub fn row(mut self, row: FormRow) -> Self {
         self.rows.push(row);
@@ -627,8 +717,8 @@ impl RenderOnce for Form {
         let row_height = theme.metrics.push_small_height;
         let small = theme.type_.size_small;
         let label_width = self.label_width;
-        div().flex().flex_col().gap(px(CONTROL_GAP)).children(self.rows.into_iter().enumerate().map(
-            move |(index, row)| {
+        div().flex().flex_col().gap(px(CONTROL_GAP)).children(
+            self.rows.into_iter().enumerate().map(move |(index, row)| {
                 let id = row.id.unwrap_or(ElementId::Integer(index as u64));
                 let selector = id.to_string();
                 div()
@@ -655,16 +745,19 @@ impl RenderOnce for Form {
                             .flex()
                             .flex_col()
                             .gap(px(2.0))
-                            .child(div().min_h(px(row_height)).flex().items_center().child(row.control))
-                            .children(row.note.map(|note| {
+                            .child(
                                 div()
-                                    .text_size(px(small))
-                                    .text_color(secondary)
-                                    .child(note)
+                                    .min_h(px(row_height))
+                                    .flex()
+                                    .items_center()
+                                    .child(row.control),
+                            )
+                            .children(row.note.map(|note| {
+                                div().text_size(px(small)).text_color(secondary).child(note)
                             })),
                     )
-            },
-        ))
+            }),
+        )
     }
 }
 

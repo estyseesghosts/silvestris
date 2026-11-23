@@ -1,6 +1,6 @@
 //! Editable combo box (HIG pp. 296–298). Text entry reuses the field's IME,
 //! clipboard and undo-free editing model; the popup offers discrete suggestions.
-use gpui::{App, ElementId, Entity, SharedString, Window, div, prelude::*, px};
+use gpui::{div, prelude::*, px, App, ElementId, Entity, SharedString, Window};
 use std::rc::Rc;
 
 use super::{ControlSize, PopUpButton, TextField};

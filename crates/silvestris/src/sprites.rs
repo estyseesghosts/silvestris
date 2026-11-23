@@ -76,15 +76,24 @@ pub fn traffic(light: Light, glyph: Glyph, window: &mut Window, cx: &mut App) ->
         Light::Zoom => &theme.traffic.zoom,
         Light::Idle => &theme.traffic.idle,
     };
-    let sprite = traffic_light(params, &theme.traffic.shape, glyph, theme.metrics.traffic_diameter, scale);
+    let sprite = traffic_light(
+        params,
+        &theme.traffic.shape,
+        glyph,
+        theme.metrics.traffic_diameter,
+        scale,
+    );
     // RenderImage holds straight-alpha BGRA (gpui platform.rs
     // decode_static_image_from_decoder swaps RGBA → BGRA the same way).
     let mut bgra = sprite.rgba;
     for p in bgra.as_chunks_mut::<4>().0 {
         p.swap(0, 2);
     }
-    let buffer = RgbaImage::from_raw(sprite.size, sprite.size, bgra).expect("sprite buffer is size²×4");
+    let buffer =
+        RgbaImage::from_raw(sprite.size, sprite.size, bgra).expect("sprite buffer is size²×4");
     let image = Arc::new(RenderImage::new(SmallVec::from_elem(Frame::new(buffer), 1)));
-    cx.global_mut::<SpriteCache>().images.insert(key, image.clone());
+    cx.global_mut::<SpriteCache>()
+        .images
+        .insert(key, image.clone());
     image
 }

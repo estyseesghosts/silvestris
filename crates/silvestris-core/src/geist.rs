@@ -110,7 +110,12 @@ fn metrics() -> Metrics {
     }
 }
 
-const GRIP_NONE: GripStyle = GripStyle { inset: 0.0, shade: T, line: T, highlight: T };
+const GRIP_NONE: GripStyle = GripStyle {
+    inset: 0.0,
+    shade: T,
+    line: T,
+    highlight: T,
+};
 
 fn traffic(idle_ring: Rgba8, idle_body: Rgba8) -> TrafficLights {
     let solid = |ring: u32, body: u32| TrafficLight {
@@ -266,7 +271,12 @@ pub fn geist_dark() -> Theme {
         },
         traffic: traffic(c(0x454545), c(0x2e2e2e)),
         // designed: no drawn grip (flat chrome); the corner still resizes.
-        grip: ResizeGrip { visible: false, bar: GRIP_NONE, body: GRIP_NONE, hit: 15.0 },
+        grip: ResizeGrip {
+            visible: false,
+            bar: GRIP_NONE,
+            body: GRIP_NONE,
+            hit: 15.0,
+        },
     }
 }
 
@@ -397,6 +407,11 @@ pub fn geist_light() -> Theme {
         },
         traffic: traffic(c(0xc9c9c9), c(0xe6e6e6)),
         // designed: no drawn grip (flat chrome); the corner still resizes.
-        grip: ResizeGrip { visible: false, bar: GRIP_NONE, body: GRIP_NONE, hit: 15.0 },
+        grip: ResizeGrip {
+            visible: false,
+            bar: GRIP_NONE,
+            body: GRIP_NONE,
+            hit: 15.0,
+        },
     }
 }

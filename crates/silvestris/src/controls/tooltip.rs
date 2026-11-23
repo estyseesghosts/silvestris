@@ -1,8 +1,8 @@
 //! Theme-aware help tags (HIG pp. 163–165).
 
-use gpui::{Context, Div, Render, SharedString, Stateful, Window, div, prelude::*, px};
+use gpui::{div, prelude::*, px, Context, Div, Render, SharedString, Stateful, Window};
 
-use crate::{ActiveTheme, convert::hsla};
+use crate::{convert::hsla, ActiveTheme};
 
 pub fn attach(element: Stateful<Div>, text: impl Into<SharedString>) -> Stateful<Div> {
     let text = text.into();

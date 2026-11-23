@@ -3,9 +3,9 @@
 
 use std::rc::Rc;
 
-use gpui::{App, ElementId, MouseButton, SharedString, Window, canvas, div, prelude::*, px};
+use gpui::{canvas, div, prelude::*, px, App, ElementId, MouseButton, SharedString, Window};
 
-use crate::{ActiveTheme, convert::hsla, paint};
+use crate::{convert::hsla, paint, ActiveTheme};
 
 pub struct RadioOption {
     pub label: SharedString,

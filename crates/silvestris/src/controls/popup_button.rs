@@ -52,7 +52,11 @@ pub struct PopUpButton {
 
 impl PopUpButton {
     /// `label` is the accessible name; the button shows the selected item.
-    pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>, items: Vec<SharedString>) -> Self {
+    pub fn new(
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        items: Vec<SharedString>,
+    ) -> Self {
         Self {
             id: id.into(),
             label: label.into(),
@@ -96,7 +100,9 @@ fn open(state: &gpui::Entity<State>, start: usize, window: &mut Window, cx: &mut
     let focus = state.update(cx, |s, cx| {
         s.open = true;
         s.highlight = start;
-        s.menu_focus.get_or_insert_with(|| cx.focus_handle()).clone()
+        s.menu_focus
+            .get_or_insert_with(|| cx.focus_handle())
+            .clone()
     });
     window.focus(&focus, cx);
 }
@@ -114,9 +120,11 @@ impl RenderOnce for PopUpButton {
         let enabled = !self.disabled && !self.items.is_empty();
         let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
         let focus: FocusHandle = window
-            .use_keyed_state(ElementId::Name(format!("{}-focus", self.id).into()), cx, |_, cx| {
-                cx.focus_handle().tab_stop(true)
-            })
+            .use_keyed_state(
+                ElementId::Name(format!("{}-focus", self.id).into()),
+                cx,
+                |_, cx| cx.focus_handle().tab_stop(true),
+            )
             .read(cx)
             .clone();
         let height = match self.size {
@@ -126,9 +134,20 @@ impl RenderOnce for PopUpButton {
         };
         let text_size = self.size.label_size(&theme);
         let radius = m.push_radius.min(height / 2.0);
-        let body = if enabled { theme.controls.push.normal } else { theme.controls.push.disabled };
-        let cap = if enabled { theme.controls.push_default } else { theme.controls.push.disabled };
-        let current = self.selected.unwrap_or(0).min(self.items.len().saturating_sub(1));
+        let body = if enabled {
+            theme.controls.push.normal
+        } else {
+            theme.controls.push.disabled
+        };
+        let cap = if enabled {
+            theme.controls.push_default
+        } else {
+            theme.controls.push.disabled
+        };
+        let current = self
+            .selected
+            .unwrap_or(0)
+            .min(self.items.len().saturating_sub(1));
         let shown = self
             .selected
             .and_then(|i| self.items.get(i).cloned())
@@ -154,8 +173,11 @@ impl RenderOnce for PopUpButton {
             .items_center()
             .h(px(height))
             .when(self.arrow_only, |el| el.w(px(CAP + 2.0)))
-            .when(!self.arrow_only, |el| el.min_w(px(self.min_width.max(CAP + 24.0)))
-                .pl(px(8.0)).pr(px(CAP + 6.0)))
+            .when(!self.arrow_only, |el| {
+                el.min_w(px(self.min_width.max(CAP + 24.0)))
+                    .pl(px(8.0))
+                    .pr(px(CAP + 6.0))
+            })
             .text_size(px(text_size))
             .text_color(hsla(body.text))
             .child(
@@ -170,9 +192,12 @@ impl RenderOnce for PopUpButton {
                             point(bounds.right() - px(CAP), bounds.origin.y),
                             gpui::size(px(CAP), bounds.size.height),
                         );
-                        window.with_content_mask(Some(gpui::ContentMask { bounds: cap_bounds }), |window| {
-                            paint::bevel(window, bounds, radius, &cap);
-                        });
+                        window.with_content_mask(
+                            Some(gpui::ContentMask { bounds: cap_bounds }),
+                            |window| {
+                                paint::bevel(window, bounds, radius, &cap);
+                            },
+                        );
                         if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
                             paint::focus_ring(window, bounds, radius, ring, profile);
                         }
@@ -181,7 +206,9 @@ impl RenderOnce for PopUpButton {
                 .absolute()
                 .inset_0(),
             )
-            .when(!self.arrow_only, |el| el.child(div().relative().truncate().child(shown)))
+            .when(!self.arrow_only, |el| {
+                el.child(div().relative().truncate().child(shown))
+            })
             .child(
                 // Up/down arrow pair (U+25B4/U+25BE small triangles).
                 div()
@@ -211,7 +238,11 @@ impl RenderOnce for PopUpButton {
                 })
                 .on_click(move |_, window, cx| open(&click_state, current, window, cx))
                 .on_key_down(move |event: &KeyDownEvent, window, cx| {
-                    if matches!(event.keystroke.key.as_str(), "space" | "enter" | "up" | "down") && key_items > 0 {
+                    if matches!(
+                        event.keystroke.key.as_str(),
+                        "space" | "enter" | "up" | "down"
+                    ) && key_items > 0
+                    {
                         cx.stop_propagation();
                         open(&key_state, current, window, cx);
                     }
@@ -226,7 +257,9 @@ impl RenderOnce for PopUpButton {
             // Current row over the button (10.6 pop-up placement).
             let origin = point(
                 bounds.origin.x,
-                bounds.origin.y + (bounds.size.height - px(row)) / 2.0 - px(m.menu_padding) - px(row) * current as f32,
+                bounds.origin.y + (bounds.size.height - px(row)) / 2.0
+                    - px(m.menu_padding)
+                    - px(row) * current as f32,
             );
             let sel = theme.lists.menu;
             let menu_text = theme.colors.menu_text;
@@ -263,9 +296,12 @@ impl RenderOnce for PopUpButton {
                         .text_color(hsla(if hot { sel.text } else { menu_text }))
                         .when(hot, |el| {
                             el.child(
-                                canvas(|_, _, _| (), move |b, _, window, _| paint::selection(window, b, &sel))
-                                    .absolute()
-                                    .inset_0(),
+                                canvas(
+                                    |_, _, _| (),
+                                    move |b, _, window, _| paint::selection(window, b, &sel),
+                                )
+                                .absolute()
+                                .inset_0(),
                             )
                         })
                         .when(index == current, |el| {
@@ -333,7 +369,12 @@ impl RenderOnce for PopUpButton {
                         }
                         window.refresh();
                     })
-                    .child(anchored().position(origin).snap_to_window_with_margin(px(4.)).child(panel)),
+                    .child(
+                        anchored()
+                            .position(origin)
+                            .snap_to_window_with_margin(px(4.))
+                            .child(panel),
+                    ),
             )
             .with_priority(2)
         });

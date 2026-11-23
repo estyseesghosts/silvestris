@@ -1,7 +1,7 @@
 //! Compact labelled values for status bars and tile edges (handbook 13).
-use gpui::{App, Div, ElementId, Rgba, SharedString, Stateful, div, prelude::*, px};
+use gpui::{div, prelude::*, px, App, Div, ElementId, Rgba, SharedString, Stateful};
 
-use crate::{ActiveTheme, convert::hsla};
+use crate::{convert::hsla, ActiveTheme};
 
 pub fn value(
     id: impl Into<ElementId>,

@@ -22,10 +22,11 @@
 use std::ops::Range;
 
 use gpui::{
-    actions, canvas, div, point, prelude::*, px, size, App, Bounds, ClipboardItem, Context, CursorStyle,
-    Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
-    GlobalElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad,
-    Pixels, Point, ShapedLine, SharedString, Style, Subscription, TextRun, UTF16Selection, UnderlineStyle, Window,
+    actions, canvas, div, point, prelude::*, px, size, App, Bounds, ClipboardItem, Context,
+    CursorStyle, Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter,
+    FocusHandle, Focusable, GlobalElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString, Style,
+    Subscription, TextRun, UTF16Selection, UnderlineStyle, Window,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -71,7 +72,11 @@ pub fn bind_keys(cx: &mut App) {
     // macOS, Ctrl for both elsewhere (handbook 12, shortcut policy).
     macro_rules! k {
         ($mac:literal, $other:literal) => {
-            if cfg!(target_os = "macos") { $mac } else { $other }
+            if cfg!(target_os = "macos") {
+                $mac
+            } else {
+                $other
+            }
         };
     }
     let ctx = Some(KEY_CONTEXT);
@@ -87,7 +92,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(k!("alt-left", "ctrl-left"), WordLeft, ctx),
         KeyBinding::new(k!("alt-right", "ctrl-right"), WordRight, ctx),
         KeyBinding::new(k!("alt-shift-left", "ctrl-shift-left"), SelectWordLeft, ctx),
-        KeyBinding::new(k!("alt-shift-right", "ctrl-shift-right"), SelectWordRight, ctx),
+        KeyBinding::new(
+            k!("alt-shift-right", "ctrl-shift-right"),
+            SelectWordRight,
+            ctx,
+        ),
         KeyBinding::new("home", Home, ctx),
         KeyBinding::new("end", End, ctx),
         KeyBinding::new("shift-home", SelectHome, ctx),
@@ -165,7 +174,9 @@ impl TextField {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle().tab_stop(true);
         let subscriptions = vec![
-            cx.on_focus(&focus, window, |this, window, cx| this.restart_blink(window, cx)),
+            cx.on_focus(&focus, window, |this, window, cx| {
+                this.restart_blink(window, cx)
+            }),
             cx.on_blur(&focus, window, |this, _, cx| {
                 this.blink_epoch += 1;
                 this.selecting = false;
@@ -211,7 +222,12 @@ impl TextField {
         cx.notify();
     }
 
-    pub(super) fn replace_from_control(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn replace_from_control(
+        &mut self,
+        text: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_text(text, cx);
         if self.focus.is_focused(window) {
             self.restart_blink(window, cx);
@@ -219,7 +235,11 @@ impl TextField {
         cx.emit(TextFieldEvent::Changed);
     }
 
-    pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_placeholder(
+        &mut self,
+        placeholder: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
         self.placeholder = placeholder.into();
         cx.notify();
     }
@@ -253,8 +273,15 @@ impl TextField {
         cx.notify();
     }
 
-    fn field_tokens(&self, theme: &silvestris_core::tokens::Theme) -> silvestris_core::tokens::Field {
-        if self.search && !self.masked { theme.controls.search } else { theme.controls.field }
+    fn field_tokens(
+        &self,
+        theme: &silvestris_core::tokens::Theme,
+    ) -> silvestris_core::tokens::Field {
+        if self.search && !self.masked {
+            theme.controls.search
+        } else {
+            theme.controls.field
+        }
     }
 
     fn clear_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -280,24 +307,24 @@ impl TextField {
         self.caret_on = true;
         self.blink_epoch += 1;
         cx.notify();
-        let Some(interval) = crate::native::caret_blink() else { return };
+        let Some(interval) = crate::native::caret_blink() else {
+            return;
+        };
         let epoch = self.blink_epoch;
-        cx.spawn_in(window, async move |this, cx| {
-            loop {
-                cx.background_executor().timer(interval).await;
-                let keep = this
-                    .update(cx, |this, cx| {
-                        if this.blink_epoch != epoch {
-                            return false;
-                        }
-                        this.caret_on = !this.caret_on;
-                        cx.notify();
-                        true
-                    })
-                    .unwrap_or(false);
-                if !keep {
-                    break;
-                }
+        cx.spawn_in(window, async move |this, cx| loop {
+            cx.background_executor().timer(interval).await;
+            let keep = this
+                .update(cx, |this, cx| {
+                    if this.blink_epoch != epoch {
+                        return false;
+                    }
+                    this.caret_on = !this.caret_on;
+                    cx.notify();
+                    true
+                })
+                .unwrap_or(false);
+            if !keep {
+                break;
             }
         })
         .detach();
@@ -306,11 +333,19 @@ impl TextField {
     // --- offsets -----------------------------------------------------------
 
     fn cursor(&self) -> usize {
-        if self.reversed { self.selected.start } else { self.selected.end }
+        if self.reversed {
+            self.selected.start
+        } else {
+            self.selected.end
+        }
     }
 
     fn previous_boundary(&self, offset: usize) -> usize {
-        self.content.grapheme_indices(true).rev().find_map(|(i, _)| (i < offset).then_some(i)).unwrap_or(0)
+        self.content
+            .grapheme_indices(true)
+            .rev()
+            .find_map(|(i, _)| (i < offset).then_some(i))
+            .unwrap_or(0)
     }
 
     fn next_boundary(&self, offset: usize) -> usize {
@@ -362,7 +397,11 @@ impl TextField {
         if !self.masked {
             return offset;
         }
-        self.content.grapheme_indices(true).take_while(|(i, _)| *i < offset).count() * BULLET.len()
+        self.content
+            .grapheme_indices(true)
+            .take_while(|(i, _)| *i < offset)
+            .count()
+            * BULLET.len()
     }
 
     /// Inverse of `display_offset`.
@@ -371,7 +410,11 @@ impl TextField {
             return display;
         }
         let n = display / BULLET.len();
-        self.content.grapheme_indices(true).nth(n).map(|(i, _)| i).unwrap_or(self.content.len())
+        self.content
+            .grapheme_indices(true)
+            .nth(n)
+            .map(|(i, _)| i)
+            .unwrap_or(self.content.len())
     }
 
     fn display_text(&self) -> String {
@@ -425,7 +468,8 @@ impl TextField {
         if self.content.is_empty() {
             return 0;
         }
-        self.content_offset(line.closest_index_for_x(position.x - origin.x)).min(self.content.len())
+        self.content_offset(line.closest_index_for_x(position.x - origin.x))
+            .min(self.content.len())
     }
 
     // --- selection ---------------------------------------------------------
@@ -465,12 +509,20 @@ impl TextField {
     // --- actions -----------------------------------------------------------
 
     fn left(&mut self, _: &Left, window: &mut Window, cx: &mut Context<Self>) {
-        let to = if self.selected.is_empty() { self.previous_boundary(self.cursor()) } else { self.selected.start };
+        let to = if self.selected.is_empty() {
+            self.previous_boundary(self.cursor())
+        } else {
+            self.selected.start
+        };
         self.move_to(to, window, cx);
     }
 
     fn right(&mut self, _: &Right, window: &mut Window, cx: &mut Context<Self>) {
-        let to = if self.selected.is_empty() { self.next_boundary(self.cursor()) } else { self.selected.end };
+        let to = if self.selected.is_empty() {
+            self.next_boundary(self.cursor())
+        } else {
+            self.selected.end
+        };
         self.move_to(to, window, cx);
     }
 
@@ -490,11 +542,21 @@ impl TextField {
         self.move_to(self.next_word(self.cursor()), window, cx);
     }
 
-    fn select_word_left(&mut self, _: &SelectWordLeft, window: &mut Window, cx: &mut Context<Self>) {
+    fn select_word_left(
+        &mut self,
+        _: &SelectWordLeft,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.select_to(self.previous_word(self.cursor()), window, cx);
     }
 
-    fn select_word_right(&mut self, _: &SelectWordRight, window: &mut Window, cx: &mut Context<Self>) {
+    fn select_word_right(
+        &mut self,
+        _: &SelectWordRight,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.select_to(self.next_word(self.cursor()), window, cx);
     }
 
@@ -542,14 +604,24 @@ impl TextField {
         self.replace_selection("", window, cx);
     }
 
-    fn delete_word_left(&mut self, _: &DeleteWordLeft, window: &mut Window, cx: &mut Context<Self>) {
+    fn delete_word_left(
+        &mut self,
+        _: &DeleteWordLeft,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.selected.is_empty() {
             self.select_to(self.previous_word(self.cursor()), window, cx);
         }
         self.replace_selection("", window, cx);
     }
 
-    fn delete_word_right(&mut self, _: &DeleteWordRight, window: &mut Window, cx: &mut Context<Self>) {
+    fn delete_word_right(
+        &mut self,
+        _: &DeleteWordRight,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.selected.is_empty() {
             self.select_to(self.next_word(self.cursor()), window, cx);
         }
@@ -560,7 +632,9 @@ impl TextField {
         if self.masked {
             window.play_system_bell();
         } else if !self.selected.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(self.content[self.selected.clone()].to_string()));
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.content[self.selected.clone()].to_string(),
+            ));
         }
     }
 
@@ -568,7 +642,9 @@ impl TextField {
         if self.masked {
             window.play_system_bell();
         } else if !self.selected.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(self.content[self.selected.clone()].to_string()));
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.content[self.selected.clone()].to_string(),
+            ));
             self.replace_selection("", window, cx);
         }
     }
@@ -587,7 +663,12 @@ impl TextField {
 
     // --- mouse -------------------------------------------------------------
 
-    fn on_mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    fn on_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.disabled {
             return;
         }
@@ -611,7 +692,12 @@ impl TextField {
         self.selecting = false;
     }
 
-    fn on_mouse_move(&mut self, event: &MouseMoveEvent, window: &mut Window, cx: &mut Context<Self>) {
+    fn on_mouse_move(
+        &mut self,
+        event: &MouseMoveEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.selecting {
             self.select_to(self.index_for_position(event.position), window, cx);
         }
@@ -635,11 +721,24 @@ impl EntityInputHandler for TextField {
         Some(self.content[range].to_string())
     }
 
-    fn selected_text_range(&mut self, _: bool, _: &mut Window, _: &mut Context<Self>) -> Option<UTF16Selection> {
-        Some(UTF16Selection { range: self.range_to_utf16(&self.selected), reversed: self.reversed })
+    fn selected_text_range(
+        &mut self,
+        _: bool,
+        _: &mut Window,
+        _: &mut Context<Self>,
+    ) -> Option<UTF16Selection> {
+        Some(UTF16Selection {
+            range: self.range_to_utf16(&self.selected),
+            reversed: self.reversed,
+        })
     }
 
-    fn set_selected_text_range(&mut self, range_utf16: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
+    fn set_selected_text_range(
+        &mut self,
+        range_utf16: Range<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let range = self.range_from_utf16(&range_utf16);
         self.select_range(range, window, cx);
     }
@@ -704,7 +803,9 @@ impl EntityInputHandler for TextField {
         let start16 = self.offset_to_utf16(range.start);
         let len16 = new_text.encode_utf16().count();
         self.selected = new_selected_range_utf16
-            .map(|s| self.range_from_utf16(&(start16 + s.start.min(len16)..start16 + s.end.min(len16))))
+            .map(|s| {
+                self.range_from_utf16(&(start16 + s.start.min(len16)..start16 + s.end.min(len16)))
+            })
             .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
         self.reversed = false;
         window.notify_text_input_changed(&self.focus);
@@ -719,13 +820,25 @@ impl EntityInputHandler for TextField {
         _: &mut Window,
         _: &mut Context<Self>,
     ) -> Option<Bounds<Pixels>> {
-        let (line, origin, bounds) = (self.last_layout.as_ref()?, self.last_origin?, self.last_bounds?);
+        let (line, origin, bounds) = (
+            self.last_layout.as_ref()?,
+            self.last_origin?,
+            self.last_bounds?,
+        );
         let range = self.range_from_utf16(&range_utf16);
         let x = |o: usize| origin.x + line.x_for_index(self.display_offset(o));
-        Some(Bounds::from_corners(point(x(range.start), bounds.top()), point(x(range.end), bounds.bottom())))
+        Some(Bounds::from_corners(
+            point(x(range.start), bounds.top()),
+            point(x(range.end), bounds.bottom()),
+        ))
     }
 
-    fn character_index_for_point(&mut self, p: Point<Pixels>, _: &mut Window, _: &mut Context<Self>) -> Option<usize> {
+    fn character_index_for_point(
+        &mut self,
+        p: Point<Pixels>,
+        _: &mut Window,
+        _: &mut Context<Self>,
+    ) -> Option<usize> {
         let bounds = self.last_bounds?;
         if !bounds.contains(&p) {
             return None;
@@ -762,7 +875,9 @@ impl Render for TextField {
             .role(role)
             .aria_label(self.label.clone())
             .aria_placeholder(self.placeholder.clone())
-            .when(!self.masked, |el| el.aria_value(SharedString::from(self.content.clone())))
+            .when(!self.masked, |el| {
+                el.aria_value(SharedString::from(self.content.clone()))
+            })
             .relative()
             .w_full()
             .h(px(height))
@@ -798,58 +913,94 @@ impl Render for TextField {
                     .on_mouse_move(cx.listener(Self::on_mouse_move))
             })
             .child(
-                canvas(|_, _, _| (), move |bounds, _, window, _| {
-                    paint::field(window, bounds, radius, &field, enabled);
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        paint::field(window, bounds, radius, &field, enabled);
+                    },
+                )
                 .absolute()
                 .inset_0(),
             )
             .child(TextElement { field: cx.entity() })
             .when(search, |el| {
-                el.child(canvas(
-                    |_, _, _| (),
-                    move |bounds, _, window, _| {
-                        let center = bounds.center();
-                        let lens = Bounds::new(center - point(px(3.5), px(3.5)), size(px(6.), px(6.)));
-                        window.paint_quad(gpui::quad(
-                            lens, px(3.), gpui::transparent_black(), px(1.),
-                            hsla(field.placeholder), gpui::BorderStyle::Solid,
-                        ));
-                        let mut handle = gpui::PathBuilder::stroke(px(1.0));
-                        handle.move_to(center + point(px(1.5), px(1.5)));
-                        handle.line_to(center + point(px(4.), px(4.)));
-                        if let Ok(path) = handle.build() {
-                            window.paint_path(path, hsla(field.placeholder));
-                        }
-                    },
-                ).absolute().left(px(4.)).top_0().bottom_0().w(px(14.)))
+                el.child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            let center = bounds.center();
+                            let lens =
+                                Bounds::new(center - point(px(3.5), px(3.5)), size(px(6.), px(6.)));
+                            window.paint_quad(gpui::quad(
+                                lens,
+                                px(3.),
+                                gpui::transparent_black(),
+                                px(1.),
+                                hsla(field.placeholder),
+                                gpui::BorderStyle::Solid,
+                            ));
+                            let mut handle = gpui::PathBuilder::stroke(px(1.0));
+                            handle.move_to(center + point(px(1.5), px(1.5)));
+                            handle.line_to(center + point(px(4.), px(4.)));
+                            if let Ok(path) = handle.build() {
+                                window.paint_path(path, hsla(field.placeholder));
+                            }
+                        },
+                    )
+                    .absolute()
+                    .left(px(4.))
+                    .top_0()
+                    .bottom_0()
+                    .w(px(14.)),
+                )
             })
             .when(clearable, |el| {
-                el.on_key_down(cx.listener(|field, event: &gpui::KeyDownEvent, window, cx| {
-                    if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
-                        cx.stop_propagation();
-                        field.clear_search(window, cx);
-                    }
-                })).child(
-                    div().id("clear-search")
-                        .role(gpui::Role::Button).aria_label("Clear Search")
-                        .absolute().right(px(3.)).top_0().bottom_0().w(px(16.))
-                        .flex().items_center().justify_center()
-                        .text_color(hsla(field.placeholder)).cursor_pointer()
-                        .occlude()
-                        .on_mouse_down(MouseButton::Left, cx.listener(|field, _, window, cx| {
-                            window.focus(&field.focus, cx);
+                el.on_key_down(
+                    cx.listener(|field, event: &gpui::KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified()
+                        {
                             cx.stop_propagation();
-                        }))
-                        .on_click(cx.listener(|field, _, window, cx| field.clear_search(window, cx)))
+                            field.clear_search(window, cx);
+                        }
+                    }),
+                )
+                .child(
+                    div()
+                        .id("clear-search")
+                        .role(gpui::Role::Button)
+                        .aria_label("Clear Search")
+                        .absolute()
+                        .right(px(3.))
+                        .top_0()
+                        .bottom_0()
+                        .w(px(16.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_color(hsla(field.placeholder))
+                        .cursor_pointer()
+                        .occlude()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(|field, _, window, cx| {
+                                window.focus(&field.focus, cx);
+                                cx.stop_propagation();
+                            }),
+                        )
+                        .on_click(
+                            cx.listener(|field, _, window, cx| field.clear_search(window, cx)),
+                        )
                         .child("×"),
                 )
             })
             .when(focused, |el| {
                 el.child(
-                    canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        paint::focus_ring(window, bounds, radius, ring_color, ring);
-                    })
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            paint::focus_ring(window, bounds, radius, ring_color, ring);
+                        },
+                    )
                     .absolute()
                     .inset_0(),
                 )
@@ -891,7 +1042,10 @@ impl Element for TextElement {
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, ()) {
-        let mut style = Style { position: gpui::Position::Absolute, ..Default::default() };
+        let mut style = Style {
+            position: gpui::Position::Absolute,
+            ..Default::default()
+        };
         style.inset.top = px(0.).into();
         style.inset.left = px(0.).into();
         style.size.width = gpui::relative(1.).into();
@@ -933,15 +1087,28 @@ impl Element for TextElement {
         };
         let runs = match field.marked.as_ref().filter(|_| !field.content.is_empty()) {
             Some(marked) => {
-                let (s, e) = (field.display_offset(marked.start), field.display_offset(marked.end));
+                let (s, e) = (
+                    field.display_offset(marked.start),
+                    field.display_offset(marked.end),
+                );
                 [
-                    TextRun { len: s, ..run.clone() },
                     TextRun {
-                        len: e - s,
-                        underline: Some(UnderlineStyle { color: Some(run.color), thickness: px(1.), wavy: false }),
+                        len: s,
                         ..run.clone()
                     },
-                    TextRun { len: text.len() - e, ..run },
+                    TextRun {
+                        len: e - s,
+                        underline: Some(UnderlineStyle {
+                            color: Some(run.color),
+                            thickness: px(1.),
+                            wavy: false,
+                        }),
+                        ..run.clone()
+                    },
+                    TextRun {
+                        len: text.len() - e,
+                        ..run
+                    },
                 ]
                 .into_iter()
                 .filter(|r| r.len > 0)
@@ -950,7 +1117,9 @@ impl Element for TextElement {
             None => vec![run],
         };
         let font_size = style.font_size.to_pixels(window.rem_size());
-        let line = window.text_system().shape_line(text.into(), font_size, &runs, None);
+        let line = window
+            .text_system()
+            .shape_line(text.into(), font_size, &runs, None);
 
         // Text box: inside the border by the measured inset.
         let search = field.search && !field.masked;
@@ -963,12 +1132,19 @@ impl Element for TextElement {
         let clip_left = bounds.left() + clip_inset;
         let clip = Bounds::from_corners(
             point(clip_left, bounds.top() + px(1.)),
-            point((bounds.right() - clip_inset).max(clip_left), bounds.bottom() - px(1.)),
+            point(
+                (bounds.right() - clip_inset).max(clip_left),
+                bounds.bottom() - px(1.),
+            ),
         );
         let visible = (bounds.size.width - left - right).max(px(0.));
 
         // Keep the caret inside the visible box.
-        let caret_x = if field.content.is_empty() { px(0.) } else { line.x_for_index(field.display_offset(field.cursor())) };
+        let caret_x = if field.content.is_empty() {
+            px(0.)
+        } else {
+            line.x_for_index(field.display_offset(field.cursor()))
+        };
         let mut scroll_x = field.scroll_x;
         if line.width() <= visible || field.content.is_empty() {
             scroll_x = px(0.);
@@ -990,21 +1166,34 @@ impl Element for TextElement {
         let caret_top = bounds.top() + px(m.caret_inset_top);
         let caret_bottom = bounds.bottom() - px(m.caret_inset_bottom);
 
-        let selection = (focused && !field.selected.is_empty() && !field.content.is_empty()).then(|| {
-            let x0 = origin.x + line.x_for_index(field.display_offset(field.selected.start));
-            let x1 = origin.x + line.x_for_index(field.display_offset(field.selected.end));
-            gpui::fill(
-                Bounds::from_corners(point(x0, caret_top), point(x1, caret_bottom)),
-                hsla(f.selection),
-            )
-        });
-        let caret = (focused && field.selected.is_empty() && field.caret_on && window.is_window_active()).then(|| {
-            gpui::fill(
-                Bounds::new(point(origin.x + caret_x, caret_top), size(px(m.caret_width), caret_bottom - caret_top)),
-                hsla(f.caret),
-            )
-        });
-        Prepaint { line, origin, clip, scroll_x, selection, caret }
+        let selection =
+            (focused && !field.selected.is_empty() && !field.content.is_empty()).then(|| {
+                let x0 = origin.x + line.x_for_index(field.display_offset(field.selected.start));
+                let x1 = origin.x + line.x_for_index(field.display_offset(field.selected.end));
+                gpui::fill(
+                    Bounds::from_corners(point(x0, caret_top), point(x1, caret_bottom)),
+                    hsla(f.selection),
+                )
+            });
+        let caret =
+            (focused && field.selected.is_empty() && field.caret_on && window.is_window_active())
+                .then(|| {
+                    gpui::fill(
+                        Bounds::new(
+                            point(origin.x + caret_x, caret_top),
+                            size(px(m.caret_width), caret_bottom - caret_top),
+                        ),
+                        hsla(f.caret),
+                    )
+                });
+        Prepaint {
+            line,
+            origin,
+            clip,
+            scroll_x,
+            selection,
+            caret,
+        }
     }
 
     fn paint(
@@ -1018,18 +1207,42 @@ impl Element for TextElement {
         cx: &mut App,
     ) {
         let focus = self.field.read(cx).focus.clone();
-        window.handle_input(&focus, ElementInputHandler::new(bounds, self.field.clone()), cx);
+        window.handle_input(
+            &focus,
+            ElementInputHandler::new(bounds, self.field.clone()),
+            cx,
+        );
         let line_height = window.line_height();
-        window.with_content_mask(Some(gpui::ContentMask { bounds: prepaint.clip }), |window| {
-            if let Some(selection) = prepaint.selection.take() {
-                window.paint_quad(selection);
-            }
-            prepaint.line.paint(prepaint.origin, line_height, gpui::TextAlign::Left, None, window, cx).ok();
-            if let Some(caret) = prepaint.caret.take() {
-                window.paint_quad(caret);
-            }
-        });
-        let (line, origin, scroll_x, clip) = (prepaint.line.clone(), prepaint.origin, prepaint.scroll_x, prepaint.clip);
+        window.with_content_mask(
+            Some(gpui::ContentMask {
+                bounds: prepaint.clip,
+            }),
+            |window| {
+                if let Some(selection) = prepaint.selection.take() {
+                    window.paint_quad(selection);
+                }
+                prepaint
+                    .line
+                    .paint(
+                        prepaint.origin,
+                        line_height,
+                        gpui::TextAlign::Left,
+                        None,
+                        window,
+                        cx,
+                    )
+                    .ok();
+                if let Some(caret) = prepaint.caret.take() {
+                    window.paint_quad(caret);
+                }
+            },
+        );
+        let (line, origin, scroll_x, clip) = (
+            prepaint.line.clone(),
+            prepaint.origin,
+            prepaint.scroll_x,
+            prepaint.clip,
+        );
         self.field.update(cx, |field, _| {
             field.last_layout = Some(line);
             field.last_origin = Some(origin);

@@ -45,17 +45,17 @@ mod imp {
     use super::FrameCapabilities;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-    use windows::Win32::Graphics::Gdi::ScreenToClient;
-    use windows::Win32::UI::HiDpi::GetDpiForWindow;
-    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows::Win32::Graphics::Dwm::{
         DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL,
     };
+    use windows::Win32::Graphics::Gdi::ScreenToClient;
+    use windows::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetCaretBlinkTime, GetClientRect, GetWindowLongPtrW, IsZoomed,
-        SetWindowLongPtrW, SetWindowPos, ShowWindowAsync, GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT,
-        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-        SW_RESTORE, WM_NCDESTROY, WM_NCHITTEST, WS_CAPTION,
+        GetCaretBlinkTime, GetClientRect, GetWindowLongPtrW, IsZoomed, SetWindowLongPtrW,
+        SetWindowPos, ShowWindowAsync, GWL_STYLE, HTBOTTOMRIGHT, HTCLIENT, SWP_FRAMECHANGED,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_RESTORE, WM_NCDESTROY,
+        WM_NCHITTEST, WS_CAPTION,
     };
 
     pub fn configure_frame(window: &gpui::Window) -> FrameCapabilities {
@@ -73,7 +73,12 @@ mod imp {
             let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
             SetWindowLongPtrW(hwnd, GWL_STYLE, style | WS_CAPTION.0 as isize);
             if let Err(error) = SetWindowPos(
-                hwnd, None, 0, 0, 0, 0,
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
             ) {
                 log::warn!("could not refresh the Windows frame: {error}");
@@ -94,12 +99,16 @@ mod imp {
 
     fn hwnd(window: &gpui::Window) -> Option<HWND> {
         let handle = HasWindowHandle::window_handle(window).ok()?;
-        let RawWindowHandle::Win32(win32) = handle.as_raw() else { return None };
+        let RawWindowHandle::Win32(win32) = handle.as_raw() else {
+            return None;
+        };
         Some(HWND(win32.hwnd.get() as *mut core::ffi::c_void))
     }
 
     pub fn restore_zoomed(window: &gpui::Window) -> bool {
-        let Some(hwnd) = hwnd(window) else { return false };
+        let Some(hwnd) = hwnd(window) else {
+            return false;
+        };
         // SAFETY: HWND belongs to the live GPUI window.
         unsafe {
             if !IsZoomed(hwnd).as_bool() {
@@ -135,7 +144,14 @@ mod imp {
         }
     }
 
-    unsafe extern "system" fn grip_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, id: usize, size: usize) -> LRESULT {
+    unsafe extern "system" fn grip_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        id: usize,
+        size: usize,
+    ) -> LRESULT {
         if msg == WM_NCDESTROY {
             // SAFETY: removing our own subclass from the window being destroyed.
             unsafe {
@@ -155,7 +171,10 @@ mod imp {
                 return result;
             }
             // lparam carries signed screen coordinates (GET_X_LPARAM/GET_Y_LPARAM).
-            let mut p = POINT { x: (lparam.0 & 0xffff) as i16 as i32, y: ((lparam.0 >> 16) & 0xffff) as i16 as i32 };
+            let mut p = POINT {
+                x: (lparam.0 & 0xffff) as i16 as i32,
+                y: ((lparam.0 >> 16) & 0xffff) as i16 as i32,
+            };
             let mut rc = RECT::default();
             if !ScreenToClient(hwnd, &mut p).as_bool() || GetClientRect(hwnd, &mut rc).is_err() {
                 return result;

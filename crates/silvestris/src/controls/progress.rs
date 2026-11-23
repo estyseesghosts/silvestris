@@ -4,11 +4,11 @@
 use std::time::Duration;
 
 use gpui::{
-    Animation, AnimationExt, App, Bounds, ContentMask, ElementId, SharedString, Window, canvas,
-    div, point, prelude::*, px, size,
+    canvas, div, point, prelude::*, px, size, Animation, AnimationExt, App, Bounds, ContentMask,
+    ElementId, SharedString, Window,
 };
 
-use crate::{ActiveTheme, paint};
+use crate::{paint, ActiveTheme};
 
 #[derive(IntoElement)]
 pub struct ProgressIndicator {

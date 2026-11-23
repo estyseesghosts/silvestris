@@ -199,7 +199,12 @@ fn traffic_light() -> TrafficLights {
 /// Map each colour of a bevel (`f` on every gradient stop).
 fn map_bevel(b: Bevel, f: impl Fn(Rgba8) -> Rgba8) -> Bevel {
     let gr = |x: Gradient| Gradient::new(f(x.from), f(x.to));
-    Bevel { border: gr(b.border), upper: gr(b.upper), lower: gr(b.lower), ..b }
+    Bevel {
+        border: gr(b.border),
+        upper: gr(b.upper),
+        lower: gr(b.lower),
+        ..b
+    }
 }
 
 /// estimated: pressed push button. No 10.6 capture shows one; a post-10.6
@@ -209,7 +214,12 @@ fn map_bevel(b: Bevel, f: impl Fn(Rgba8) -> Rgba8) -> Bevel {
 /// measured 10.6 default bevel.
 fn aqua_pressed(c: Rgba8) -> Rgba8 {
     let f = |v: u8, a: f32, b: f32| (v as f32 * a + b).round().clamp(0.0, 255.0) as u8;
-    Rgba8::rgba(f(c.r, 1.255, -97.0), f(c.g, 1.266, -101.4), f(c.b, 1.141, -52.1), c.a)
+    Rgba8::rgba(
+        f(c.r, 1.255, -97.0),
+        f(c.g, 1.266, -101.4),
+        f(c.b, 1.141, -52.1),
+        c.a,
+    )
 }
 
 pub fn aqua_light() -> Theme {
@@ -348,44 +358,44 @@ pub fn aqua_light() -> Theme {
         provenance: Provenance::Measured,
         type_: typography(),
         colors: Colors {
-            window: c(0xededed),        // M: window.body; Force Quit body
-            content: WHITE,             // M: table.header_and_rows rows
-            canvas: c(0x1e1e1e),        // designed: neutral dark well for consumer previews
+            window: c(0xededed), // M: window.body; Force Quit body
+            content: WHITE,      // M: table.header_and_rows rows
+            canvas: c(0x1e1e1e), // designed: neutral dark well for consumer previews
             text: BLACK,
             text_secondary: c(0x4c4c4c), // designed
-            text_disabled: c(0x9a9a9a), // checkbox.off.disabled label tone
+            text_disabled: c(0x9a9a9a),  // checkbox.off.disabled label tone
             text_on_accent: WHITE,
             title: c(0x262626),          // designed: title glyph core over chrome
             title_inactive: c(0x7a7a7a), // designed
             title_engrave: WHITE.alpha(150),
-            separator: c(0xc0c0c0),     // M: table.header.divider
-            divider: c(0xb4b4b4),       // M: sidebar.divider
+            separator: c(0xc0c0c0), // M: table.header.divider
+            divider: c(0xb4b4b4),   // M: sidebar.divider
             // M: focus.ring.search: peak row solved from 6fa3d4 over c1 and 6b9fd0 over a9
             // (alpha 0.83, colour 5e9dd8); the outer row is 0.68 of that (89accc over c1).
             focus_ring: Rgba8::rgba(0x5e, 0x9d, 0xd8, 211),
-            accent: c(0x3b77da),        // Force Quit active list selection
-            link: c(0x0b47d8),          // designed
+            accent: c(0x3b77da), // Force Quit active list selection
+            link: c(0x0b47d8),   // designed
             success: c(0x2b9a3f),
             warning: c(0xd28e0b),
             error: c(0xd0302a),
             info: c(0x3b77da),
-            sidebar: c(0xdee4ea),         // M: sidebar.background
+            sidebar: c(0xdee4ea),          // M: sidebar.background
             sidebar_inactive: c(0xececec), // M: 10.6.8 capture, inactive Utilities sidebar
-            sidebar_heading: c(0x738193), // M: sidebar.header.text glyph core
-            row_alternate: c(0xedf3fe),   // M: table.header_and_rows
-            group_fill: c(0xe6e6e6),      // M: groupbox.fill
-            group_border: c(0xc8c8c8),    // M: groupbox.left
+            sidebar_heading: c(0x738193),  // M: sidebar.header.text glyph core
+            row_alternate: c(0xedf3fe),    // M: table.header_and_rows
+            group_fill: c(0xe6e6e6),       // M: groupbox.fill
+            group_border: c(0xc8c8c8),     // M: groupbox.left
             group_border_top: c(0xababab), // M: groupbox.top
-            band_rule: c(0xd8d8d8),       // M: prefs.overview.bands
-            menu: c(0xf2f2f2),            // M: menu.body
+            band_rule: c(0xd8d8d8),        // M: prefs.overview.bands
+            menu: c(0xf2f2f2),             // M: menu.body
             menu_text: BLACK,
             menu_text_disabled: c(0xa3a3a3),
-            menu_separator: c(0xd7d7d8),  // M: menu.body separator row
+            menu_separator: c(0xd7d7d8), // M: menu.body separator row
             menu_separator_highlight: c(0xf4f4f5),
-            tooltip: c(0xffffc6),         // designed: help tags not captured
+            tooltip: c(0xffffc6), // designed: help tags not captured
             tooltip_border: c(0xb5b5a0),
             tooltip_text: BLACK,
-            shadow: BLACK.alpha(90),      // M: win.shadow.* peak alpha ~94 below the window
+            shadow: BLACK.alpha(90), // M: win.shadow.* peak alpha ~94 below the window
             scrim: BLACK.alpha(40),
         },
         metrics: metrics(),
@@ -548,8 +558,18 @@ pub fn aqua_light() -> Theme {
         // (198-172)/(255-172) = 0.31 white; 0.157, 0.443, 0.022 black.
         grip: ResizeGrip {
             visible: true,
-            bar: GripStyle { inset: 4.0, shade: BLACK.alpha(37), line: BLACK.alpha(107), highlight: WHITE.alpha(80) },
-            body: GripStyle { inset: 1.0, shade: BLACK.alpha(40), line: BLACK.alpha(113), highlight: BLACK.alpha(6) },
+            bar: GripStyle {
+                inset: 4.0,
+                shade: BLACK.alpha(37),
+                line: BLACK.alpha(107),
+                highlight: WHITE.alpha(80),
+            },
+            body: GripStyle {
+                inset: 1.0,
+                shade: BLACK.alpha(40),
+                line: BLACK.alpha(113),
+                highlight: BLACK.alpha(6),
+            },
             // The bar grip spans 15 px from the corner (inset 4 + 10 + shade 1).
             hit: 15.0,
         },
@@ -657,7 +677,7 @@ pub fn aqua_dark() -> Theme {
             group_fill: c(0x333333),
             group_border: c(0x474747),
             group_border_top: c(0x262626), // designed: dark mirror of the Aqua top edge
-            band_rule: c(0x2a2a2a),       // designed
+            band_rule: c(0x2a2a2a),        // designed
             menu: c(0x2c2c2e),
             menu_text: c(0xeeeeee),
             menu_text_disabled: c(0x777777),
@@ -834,8 +854,18 @@ pub fn aqua_dark() -> Theme {
         // weight to show and the white highlight less.
         grip: ResizeGrip {
             visible: true,
-            bar: GripStyle { inset: 4.0, shade: BLACK.alpha(60), line: BLACK.alpha(150), highlight: WHITE.alpha(40) },
-            body: GripStyle { inset: 1.0, shade: BLACK.alpha(60), line: BLACK.alpha(150), highlight: WHITE.alpha(20) },
+            bar: GripStyle {
+                inset: 4.0,
+                shade: BLACK.alpha(60),
+                line: BLACK.alpha(150),
+                highlight: WHITE.alpha(40),
+            },
+            body: GripStyle {
+                inset: 1.0,
+                shade: BLACK.alpha(60),
+                line: BLACK.alpha(150),
+                highlight: WHITE.alpha(20),
+            },
             hit: 15.0,
         },
         traffic: TrafficLights {

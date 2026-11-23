@@ -3,9 +3,9 @@
 
 use std::ops::Range;
 
-use gpui::{App, Div, ElementId, Stateful, UniformList, Window, div, prelude::*, px, uniform_list};
+use gpui::{div, prelude::*, px, uniform_list, App, Div, ElementId, Stateful, UniformList, Window};
 
-use crate::{ActiveTheme, convert::hsla};
+use crate::{convert::hsla, ActiveTheme};
 
 pub fn virtual_table(
     id: impl Into<ElementId>,

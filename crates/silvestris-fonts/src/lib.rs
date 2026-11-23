@@ -44,9 +44,24 @@ pub static FACES: &[Face] = &[
     face!(LATO, "lato/Lato-Italic.ttf", 400, true),
     face!(LATO, "lato/Lato-Bold.ttf", 700, false),
     face!(LATO, "lato/Lato-BoldItalic.ttf", 700, true),
-    face!(SOURCE_CODE_PRO, "source-code-pro/SourceCodePro-Regular.ttf", 400, false),
-    face!(SOURCE_CODE_PRO, "source-code-pro/SourceCodePro-It.ttf", 400, true),
-    face!(SOURCE_CODE_PRO, "source-code-pro/SourceCodePro-Bold.ttf", 700, false),
+    face!(
+        SOURCE_CODE_PRO,
+        "source-code-pro/SourceCodePro-Regular.ttf",
+        400,
+        false
+    ),
+    face!(
+        SOURCE_CODE_PRO,
+        "source-code-pro/SourceCodePro-It.ttf",
+        400,
+        true
+    ),
+    face!(
+        SOURCE_CODE_PRO,
+        "source-code-pro/SourceCodePro-Bold.ttf",
+        700,
+        false
+    ),
     face!(INTER, "inter/Inter-Regular.ttf", 400, false),
     face!(INTER, "inter/Inter-Italic.ttf", 400, true),
     face!(INTER, "inter/Inter-Medium.ttf", 500, false),
@@ -67,7 +82,10 @@ pub const MANIFEST: &str = include_str!("../fonts/manifest.json");
 /// attribution/licenses next to binaries").
 pub static LICENSES: &[(&str, &str)] = &[
     ("Lato", include_str!("../fonts/lato/OFL.txt")),
-    ("Source Code Pro", include_str!("../fonts/source-code-pro/LICENSE.md")),
+    (
+        "Source Code Pro",
+        include_str!("../fonts/source-code-pro/LICENSE.md"),
+    ),
     ("Inter", include_str!("../fonts/inter/LICENSE.txt")),
     ("Geist Mono", include_str!("../fonts/geist-mono/OFL.txt")),
 ];
@@ -80,17 +98,30 @@ mod tests {
     fn every_face_is_a_truetype_file_listed_in_the_manifest() {
         for f in FACES {
             assert_eq!(&f.bytes[..4], &[0, 1, 0, 0], "{} is not TrueType", f.file);
-            assert!(MANIFEST.contains(&format!("\"file\": \"{}\"", f.file)), "{} missing", f.file);
+            assert!(
+                MANIFEST.contains(&format!("\"file\": \"{}\"", f.file)),
+                "{} missing",
+                f.file
+            );
         }
         let listed = MANIFEST.matches("\"file\": ").count();
-        assert_eq!(listed, FACES.len(), "manifest lists faces that are not compiled in");
+        assert_eq!(
+            listed,
+            FACES.len(),
+            "manifest lists faces that are not compiled in"
+        );
     }
 
     #[test]
     fn every_family_has_regular_and_bold_and_a_license() {
         for fam in FAMILIES {
             for w in [400, 700] {
-                assert!(FACES.iter().any(|f| f.family == fam && f.weight == w && !f.italic), "{fam} {w}");
+                assert!(
+                    FACES
+                        .iter()
+                        .any(|f| f.family == fam && f.weight == w && !f.italic),
+                    "{fam} {w}"
+                );
             }
             let (_, text) = LICENSES.iter().find(|(n, _)| *n == fam).unwrap();
             assert!(text.contains("SIL Open Font License"), "{fam}");

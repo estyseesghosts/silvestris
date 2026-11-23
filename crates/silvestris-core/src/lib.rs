@@ -50,11 +50,19 @@ mod conformance {
         // Measured 10.6 source-list heading (M: sidebar.header.text): bold
         // upper-case 11 pt, ~3.5:1. Kept for fidelity; large-text threshold 3:1.
         (ThemeId::AQUA_LIGHT, "sidebar_heading", "historical"),
-        (ThemeId::AQUA_DARK, "sidebar_heading", "mirrors Aqua Light heading weight"),
+        (
+            ThemeId::AQUA_DARK,
+            "sidebar_heading",
+            "mirrors Aqua Light heading weight",
+        ),
         // Measured Force Quit table selection, flat 3b77da with white 13 pt
         // text: 4.34:1. Kept for fidelity; Dark Aqua's 2f63b8 passes.
         (ThemeId::AQUA_LIGHT, "table selection", "historical"),
-        (ThemeId::GEIST_DARK, "text_disabled", "disabled text is exempt (WCAG 1.4.3)"),
+        (
+            ThemeId::GEIST_DARK,
+            "text_disabled",
+            "disabled text is exempt (WCAG 1.4.3)",
+        ),
     ];
 
     fn exempt(id: ThemeId, what: &str) -> bool {
@@ -114,7 +122,10 @@ mod conformance {
             assert_ne!(p.normal.text, p.disabled.text, "{id:?} disabled label");
             let cb = &t.controls.checkbox;
             assert_ne!(cb.normal, cb.selected, "{id:?} checkbox on");
-            assert_ne!(t.lists.table_active, t.lists.table_inactive, "{id:?} selection focus");
+            assert_ne!(
+                t.lists.table_active, t.lists.table_inactive,
+                "{id:?} selection focus"
+            );
             assert_ne!(t.chrome.active, t.chrome.inactive, "{id:?} window activity");
         }
     }
