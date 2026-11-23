@@ -7,6 +7,21 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #62, preference storage. Additive:
+
+- `silvestris_core::prefs`: `Versioned`, `Migration`, `migrate`, `Storage`,
+  `FileStorage`; `Store::open_versioned`, `Store::with_storage`,
+  `Store::with_storage_versioned`, `Store::map_storage`, `Store::version`.
+  `Store::save` and `writable` are unchanged.
+- `silvestris::prefs::Preferences<T>` entity with `open`, `with_storage`,
+  `value`, `writable`, `schema_version`, `set`, `on_change`, `subscribe` and
+  `save`.
+
+Behaviour: ordered migrations run on the raw JSON object and preserve unknown
+fields; a migration gap or a malformed file disables saving; a document newer
+than the code is kept as written; `set` writes through and notifies keyed and
+global subscribers plus entity observers.
+
 PR #21, modal sessions. Additive:
 
 - `modal::ModalSession` with `scope`, `phase`, `is_active`, `allows`,

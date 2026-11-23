@@ -41,3 +41,60 @@ form commit a field's value when focus leaves it as well as on Return.
 Not implemented: per-pane window height animation, search with spotlight
 highlighting of matching icons, the round help button, and a captured
 reference for the enabled pop-up, stepper and dark-mode panes.
+
+
+## Preference storage
+
+`silvestris_core::prefs` owns the document; `silvestris::prefs::Preferences`
+adds the GPUI entity that views observe. The application chooses where the
+bytes live.
+
+- `Store::open(path)` and `Store::open_versioned(path, migrations)` use a JSON
+  file. `Store::with_storage(...)` takes any `Storage` implementation, so a
+  consumer can keep its own backend. `FileStorage` writes a sibling temporary
+  file and renames it into place.
+- `Loaded` distinguishes a missing file, a parsed document and a malformed one.
+  A malformed read disables saving: `writable()` is false and `save()` refuses,
+  so a broken file is never replaced with defaults.
+- `Versioned` has `schema_version` and `set_schema_version`. `Migration` is an
+  ordered step on the raw JSON object (`from`, `to`, `apply`). Migrations run
+  from the document's version to the default type's version; a gap is an error
+  and disables saving rather than writing a half-migrated document. A document
+  newer than the code is left as written and stays writable.
+- Unknown fields survive because every preferences type uses
+  `#[serde(flatten)] extra`. They also survive migration, which rewrites the
+  JSON object rather than a narrowed struct. lotus's `desktop.json`
+  `silvestris` object with `schema_version=1` therefore loads unchanged, and a
+  v1 type with no migrations loads at target 1.
+
+`Preferences<T>` wraps the store as an entity:
+
+```rust
+let (prefs, loaded) = Preferences::<ShellPreferences>::open(path, &MIGRATIONS, cx);
+prefs.update(cx, |prefs, cx| {
+    prefs.set("theme", |value| value.theme = next, cx)
+})?;
+```
+
+`set(key, change, cx)` clones the value, applies the change, writes through
+when the store is writable, then calls the callbacks registered for `key`,
+then every `subscribe` callback, then `cx.notify()`. An unchanged value does
+not write or notify. The entity's observers are what bound controls (#61) use.
+
+Theme changes stay live without recreating state (#70): the application
+registers an `on_change("theme", ...)` callback that calls
+`silvestris::set_theme_preference`, and every window observes the theme global
+as it already does. The store does not own theme application.
+
+Nothing here moves a consumer's file into a Silvestris-owned location; the
+path is an argument.
+
+## Storage tests
+
+Core: a malformed file is never overwritten, unknown fields round-trip, widths
+survive, ordered migrations rename fields and preserve unknown ones, a
+migration gap disables saving and keeps the bytes, a future version is kept as
+is, and a memory backend replaces the file. GPUI: one key notifies only its
+subscribers plus all subscribers, an unchanged value does not notify, a change
+writes through the application backend, a migration upgrades the entity and
+keeps newer fields, and a malformed document disables writes.
