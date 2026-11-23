@@ -36,6 +36,8 @@ pub mod menu;
 
 pub mod preferences;
 
+pub mod responder;
+
 pub mod shell;
 
 /// Scenario harness for downstream GPUI interaction tests. Font binary and

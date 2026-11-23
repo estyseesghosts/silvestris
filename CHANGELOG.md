@@ -5,6 +5,23 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 216de9b
+
+PR #57, responder chain. Additive:
+
+- `responder::Responder` with `handles`, `state` and `perform`, plus
+  `ResponderState` (`enabled`, `checked`, `title`).
+- `responder::ResponderChain` with `push`, `replace`, `resolve`, `validate`,
+  `dispatch`, `present`, `begin_transient` and `end_transient`.
+- `responder::ResponderEntry` with `new`, `custom`, `active_when`,
+  `when_focused` and `capture_keys`; `ResponderScope`.
+- `responder::FocusReturn` for transient surfaces and sheets.
+- `CommandButton::chain`, `CommandScope::chain`, `PopupMenu::set_chain`.
+
+Behaviour: a resolved responder's `state` decides enabled and label for menu,
+toolbar and shortcut presentation; a claiming but disabled layer answers
+`Disabled` without falling through; a dropped responder entity passes outward.
+
 ## After 3ac1105
 
 Pending #74 integration commit:

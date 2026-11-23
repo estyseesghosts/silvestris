@@ -14,6 +14,9 @@ use silvestris::controls::{
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
+use silvestris::responder::{
+    Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
+};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
 actions!(
@@ -37,6 +40,25 @@ struct Gallery {
     combo: Entity<TextField>,
     radio: usize,
     progress: f32,
+    routing: Entity<ResponderChain>,
+    routing_field: gpui::FocusHandle,
+    routing_canvas: gpui::FocusHandle,
+    routing_status: gpui::SharedString,
+}
+
+impl Responder for Gallery {
+    fn handles(&self, id: &CommandId) -> bool {
+        id.as_str() == "edit.copy"
+    }
+
+    fn state(&self, _id: &CommandId, _cx: &App) -> ResponderState {
+        ResponderState::enabled()
+    }
+
+    fn perform(&mut self, _id: &CommandId, _window: &mut Window, cx: &mut Context<Self>) {
+        self.routing_status = "window".into();
+        cx.notify();
+    }
 }
 
 impl Gallery {
@@ -185,6 +207,50 @@ impl Gallery {
                     .unwrap();
             }
         });
+        let routing_field = cx.focus_handle();
+        let routing_canvas = cx.focus_handle();
+        let this = cx.entity();
+        let routing = cx.new(|_| ResponderChain::new());
+        let field_weak = this.downgrade();
+        let canvas_weak = this.downgrade();
+        routing.update(cx, |chain, _| {
+            chain.push(ResponderEntry::new(
+                ResponderScope::Application,
+                "window",
+                &this,
+            ));
+            chain.push(
+                ResponderEntry::custom(ResponderScope::Control, "field")
+                    .when_focused(&routing_field)
+                    .handles(|id, _| id.as_str() == "edit.copy")
+                    .perform(move |_, _, cx| {
+                        let _ = field_weak.update(cx, |gallery, cx| {
+                            gallery.routing_status = "field".into();
+                            cx.notify();
+                        });
+                    }),
+            );
+            chain.push(
+                ResponderEntry::custom(ResponderScope::Control, "canvas")
+                    .when_focused(&routing_canvas)
+                    .capture_keys([])
+                    .perform(move |_, _, cx| {
+                        let _ = canvas_weak.update(cx, |gallery, cx| {
+                            gallery.routing_status = "canvas".into();
+                            cx.notify();
+                        });
+                    }),
+            );
+        });
+        commands.update(cx, |registry, cx| {
+            registry
+                .register(
+                    CommandDescriptor::action("edit.copy", "Copy"),
+                    |_, _, _| {},
+                    cx,
+                )
+                .unwrap()
+        });
         let menu = cx.new(|cx| {
             PopupMenu::new(
                 MenuModel {
@@ -211,6 +277,7 @@ impl Gallery {
                 cx,
             )
         });
+        menu.update(cx, |menu, cx| menu.set_chain(routing.clone(), cx));
         Gallery {
             menu,
             commands,
@@ -230,6 +297,10 @@ impl Gallery {
             radio: 0,
             progress: 0.42,
             last_field: "none".into(),
+            routing,
+            routing_field,
+            routing_canvas,
+            routing_status: "none".into(),
         }
     }
 
@@ -246,6 +317,7 @@ impl Render for Gallery {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let commands = self.commands.clone();
+        let chain = self.routing.clone();
         let footer_commands = self.commands.clone();
         let label = theme.id.label();
         let view = cx.entity();
@@ -338,12 +410,66 @@ impl Render for Gallery {
                     .text_color(secondary)
                     .child(self.last_field.clone()),
             );
+        let routing_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(12.))
+            .child(
+                CommandButton::new("routing-copy", "edit.copy", self.commands.clone())
+                    .chain(self.routing.clone()),
+            )
+            .child(
+                Button::new("focus-routing-field", "Focus field")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|g, _, window, cx| {
+                        window.focus(&g.routing_field, cx);
+                    })),
+            )
+            .child(
+                div()
+                    .track_focus(&self.routing_field)
+                    .debug_selector(|| "routing-field".into())
+                    .w(px(64.))
+                    .h(px(22.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_size(small_text)
+                    .child("field"),
+            )
+            .child(
+                Button::new("focus-routing-canvas", "Focus canvas")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|g, _, window, cx| {
+                        window.focus(&g.routing_canvas, cx);
+                    })),
+            )
+            .child(
+                div()
+                    .track_focus(&self.routing_canvas)
+                    .debug_selector(|| "routing-canvas".into())
+                    .w(px(64.))
+                    .h(px(22.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_size(small_text)
+                    .child("canvas"),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(format!("Copy handled by: {}", self.routing_status)),
+            );
         div()
             .size_full()
             .key_context("Gallery")
             .on_action(move |action: &InvokeCommand, window, cx| {
                 cx.stop_propagation();
-                CommandRegistry::invoke(&commands, &CommandId::new(&action.id), window, cx);
+                let chain = chain.read(cx).clone();
+                chain.dispatch(&commands, &CommandId::new(&action.id), window, cx);
             })
             .track_focus(&self.focus)
             .on_action(cx.listener(|_, _: &AquaLight, _, cx| set(ThemeId::AQUA_LIGHT, cx)))
@@ -390,6 +516,7 @@ impl Render for Gallery {
                             .child(buttons)
                             .child(fields)
                             .child(disclosure)
+                            .child(routing_row)
                             .child(
                                 div()
                                     .flex()

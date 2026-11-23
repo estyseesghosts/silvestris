@@ -2,6 +2,7 @@
 //! UI/shortcut adapters revalidate descriptors at invocation time, then run
 //! the application callback outside the registry's entity borrow.
 use crate::controls::{Button, ButtonStyle, ControlSize};
+use crate::responder::ResponderChain;
 use gpui::{
     prelude::*, App, Context, ElementId, Entity, KeyBinding, KeyBindingContextPredicate, Window,
 };
@@ -165,6 +166,7 @@ pub struct CommandButton {
     id: ElementId,
     command: CommandId,
     registry: Entity<CommandRegistry>,
+    chain: Option<Entity<ResponderChain>>,
     style: ButtonStyle,
     size: ControlSize,
 }
@@ -178,9 +180,15 @@ impl CommandButton {
             id: id.into(),
             command: command.into(),
             registry,
+            chain: None,
             style: ButtonStyle::Textured,
             size: ControlSize::Regular,
         }
+    }
+    /// Resolve and validate through the window's responder chain (#57).
+    pub fn chain(mut self, chain: Entity<ResponderChain>) -> Self {
+        self.chain = Some(chain);
+        self
     }
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
@@ -212,7 +220,15 @@ impl RenderOnce for CommandButton {
             .selected(checked)
             .on_click(move |_, window, cx| {
                 cx.stop_propagation();
-                CommandRegistry::invoke(&self.registry, &self.command, window, cx);
+                match self.chain.clone() {
+                    Some(chain) => {
+                        let chain = chain.read(cx).clone();
+                        chain.dispatch(&self.registry, &self.command, window, cx);
+                    }
+                    None => {
+                        CommandRegistry::invoke(&self.registry, &self.command, window, cx);
+                    }
+                }
             })
     }
 }
@@ -225,6 +241,7 @@ pub struct CommandScope {
     id: ElementId,
     context: gpui::SharedString,
     registry: Entity<CommandRegistry>,
+    chain: Option<Entity<ResponderChain>>,
     children: Vec<gpui::AnyElement>,
 }
 impl CommandScope {
@@ -237,8 +254,15 @@ impl CommandScope {
             id: id.into(),
             context: context.into(),
             registry,
+            chain: None,
             children: Vec::new(),
         }
+    }
+    /// Resolve InvokeCommand actions through the responder chain (#57) before
+    /// falling back to the registry callback.
+    pub fn chain(mut self, chain: Entity<ResponderChain>) -> Self {
+        self.chain = Some(chain);
+        self
     }
 }
 impl ParentElement for CommandScope {
@@ -248,13 +272,23 @@ impl ParentElement for CommandScope {
 }
 impl RenderOnce for CommandScope {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let chain = self.chain.clone();
         gpui::div()
             .id(self.id)
             .size_full()
             .key_context(self.context.as_ref())
             .on_action(move |action: &InvokeCommand, window, cx| {
                 cx.stop_propagation();
-                CommandRegistry::invoke(&self.registry, &CommandId::new(&action.id), window, cx);
+                let id = CommandId::new(&action.id);
+                match chain.clone() {
+                    Some(chain) => {
+                        let chain = chain.read(cx).clone();
+                        chain.dispatch(&self.registry, &id, window, cx);
+                    }
+                    None => {
+                        CommandRegistry::invoke(&self.registry, &id, window, cx);
+                    }
+                }
             })
             .children(self.children)
     }

@@ -3,7 +3,9 @@
 use crate::{
     command::{CommandRegistry, InvokeCommand},
     convert::hsla,
-    paint, ActiveTheme,
+    paint,
+    responder::ResponderChain,
+    ActiveTheme,
 };
 use gpui::{
     anchored, canvas, deferred, div, point, prelude::*, px, size, Anchor, AnchoredPositionMode,
@@ -70,6 +72,7 @@ pub fn native_edit_menu() -> gpui::Menu {
 pub struct PopupMenu {
     model: MenuModel,
     registry: Entity<CommandRegistry>,
+    chain: Option<Entity<ResponderChain>>,
     focus: FocusHandle,
     previous_focus: Option<FocusHandle>,
     position: Point<Pixels>,
@@ -96,12 +99,30 @@ impl PopupMenu {
         Self {
             model,
             registry,
+            chain: None,
             focus: cx.focus_handle(),
             previous_focus: None,
             position: point(px(0.), px(0.)),
             open: false,
             path: vec![None],
             scroll: vec![gpui::ScrollHandle::new()],
+        }
+    }
+    /// Resolve and validate through the window's responder chain (#57). Without
+    /// one, the registry's own enabled state is used.
+    pub fn set_chain(&mut self, chain: Entity<ResponderChain>, cx: &mut Context<Self>) {
+        cx.observe(&chain, |_, _, cx| cx.notify()).detach();
+        self.chain = Some(chain);
+    }
+    fn descriptor(
+        &self,
+        id: &CommandId,
+        window: &Window,
+        cx: &App,
+    ) -> Option<silvestris_core::command::CommandDescriptor> {
+        match &self.chain {
+            Some(chain) => chain.read(cx).present(&self.registry, id, window, cx),
+            None => self.registry.read(cx).descriptors().get(id).cloned(),
         }
     }
     pub fn is_open(&self) -> bool {
@@ -123,6 +144,9 @@ impl PopupMenu {
     pub fn open(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         if !self.open {
             self.previous_focus = window.focused(cx);
+            if let Some(chain) = self.chain.clone() {
+                chain.update(cx, |chain, cx| chain.begin_transient(window, cx));
+            }
         }
         self.position = position;
         self.path = vec![None];
@@ -132,6 +156,11 @@ impl PopupMenu {
         cx.notify();
     }
     pub fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>, restore: bool) {
+        if self.open {
+            if let Some(chain) = self.chain.clone() {
+                chain.update(cx, |chain, _| chain.end_transient());
+            }
+        }
         self.open = false;
         if restore {
             if let Some(focus) = self.previous_focus.take() {
@@ -161,23 +190,25 @@ impl PopupMenu {
         }
         entries
     }
-    fn enabled(&self, entry: &MenuEntry, cx: &App) -> bool {
+    fn enabled(&self, entry: &MenuEntry, window: &Window, cx: &App) -> bool {
         match entry {
-            MenuEntry::Command(id) => self
-                .registry
-                .read(cx)
-                .descriptors()
-                .get(id)
-                .is_some_and(|d| d.enabled),
+            MenuEntry::Command(id) => self.descriptor(id, window, cx).is_some_and(|d| d.enabled),
             MenuEntry::Submenu { entries, .. } => !entries.is_empty(),
             _ => false,
         }
     }
-    fn highlight(&mut self, depth: usize, index: usize, submenu: bool, cx: &mut Context<Self>) {
+    fn highlight(
+        &mut self,
+        depth: usize,
+        index: usize,
+        submenu: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(entry) = self.entries(depth).get(index) else {
             return;
         };
-        let enabled = self.enabled(entry, cx);
+        let enabled = self.enabled(entry, window, cx);
         let child = enabled && submenu && matches!(entry, MenuEntry::Submenu { .. });
         let desired = if enabled { Some(index) } else { None };
         if self.path.get(depth) == Some(&desired) && (!child || self.path.len() > depth + 1) {
@@ -196,24 +227,35 @@ impl PopupMenu {
     fn choose(view: &Entity<Self>, depth: usize, index: usize, window: &mut Window, cx: &mut App) {
         let command = view.update(cx, |menu, cx| {
             let entry = menu.entries(depth).get(index)?.clone();
-            if !menu.enabled(&entry, cx) {
+            if !menu.enabled(&entry, window, cx) {
                 return None;
             }
             match entry {
                 MenuEntry::Command(id) => {
-                    let registry = menu.registry.clone();
                     menu.dismiss(window, cx, true);
-                    Some((registry, id))
+                    Some(id)
                 }
                 MenuEntry::Submenu { .. } => {
-                    menu.highlight(depth, index, true, cx);
+                    menu.highlight(depth, index, true, window, cx);
                     None
                 }
                 _ => None,
             }
         });
-        if let Some((registry, id)) = command {
-            CommandRegistry::invoke(&registry, &id, window, cx);
+        if let Some(id) = command {
+            let (registry, chain) = {
+                let menu = view.read(cx);
+                (menu.registry.clone(), menu.chain.clone())
+            };
+            match chain {
+                Some(chain) => {
+                    let chain = chain.read(cx).clone();
+                    chain.dispatch(&registry, &id, window, cx);
+                }
+                None => {
+                    CommandRegistry::invoke(&registry, &id, window, cx);
+                }
+            }
         }
     }
     fn key(view: &Entity<Self>, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut App) {
@@ -251,7 +293,7 @@ impl PopupMenu {
             let enabled: Vec<_> = entries
                 .iter()
                 .enumerate()
-                .filter_map(|(i, e)| menu.enabled(e, cx).then_some(i))
+                .filter_map(|(i, e)| menu.enabled(e, window, cx).then_some(i))
                 .collect();
             let current = menu.path[depth].and_then(|i| enabled.iter().position(|x| *x == i));
             let index = match key {
@@ -289,7 +331,7 @@ impl PopupMenu {
                 _ => None,
             };
             if let Some(i) = index {
-                menu.highlight(depth, i, false, cx);
+                menu.highlight(depth, i, false, window, cx);
             }
             None
         });
@@ -388,7 +430,7 @@ impl PopupMenu {
                 continue;
             }
             let descriptor = match entry {
-                MenuEntry::Command(id) => self.registry.read(cx).descriptors().get(id).cloned(),
+                MenuEntry::Command(id) => self.descriptor(id, window, cx),
                 _ => None,
             };
             let label = match entry {
@@ -399,7 +441,7 @@ impl PopupMenu {
                 MenuEntry::Submenu { label, .. } | MenuEntry::Heading(label) => label.clone(),
                 _ => unreachable!(),
             };
-            let enabled = self.enabled(entry, cx);
+            let enabled = self.enabled(entry, window, cx);
             let highlighted = enabled && self.path.get(depth) == Some(&Some(i));
             let selection = theme.lists.menu;
             let foreground = if !enabled {
@@ -464,9 +506,9 @@ impl PopupMenu {
                         ""
                     },
                 ))
-                .on_hover(move |over, _, cx| {
+                .on_hover(move |over, window, cx| {
                     if *over {
-                        hover.update(cx, |menu, cx| menu.highlight(depth, i, true, cx));
+                        hover.update(cx, |menu, cx| menu.highlight(depth, i, true, window, cx));
                     }
                 })
                 .when(enabled, |el| {
@@ -511,6 +553,7 @@ impl Render for PopupMenu {
         let key = cx.entity();
         let action_view = cx.entity();
         let registry = self.registry.clone();
+        let chain = self.chain.clone();
         div()
             .id("menu-shield")
             .debug_selector(|| "menu-shield".into())
@@ -540,7 +583,16 @@ impl Render for PopupMenu {
             .on_action(move |action: &InvokeCommand, window, cx| {
                 cx.stop_propagation();
                 action_view.update(cx, |menu, cx| menu.dismiss(window, cx, true));
-                CommandRegistry::invoke(&registry, &CommandId::new(&action.id), window, cx);
+                let id = CommandId::new(&action.id);
+                match chain.clone() {
+                    Some(chain) => {
+                        let chain = chain.read(cx).clone();
+                        chain.dispatch(&registry, &id, window, cx);
+                    }
+                    None => {
+                        CommandRegistry::invoke(&registry, &id, window, cx);
+                    }
+                }
             })
             .child(
                 anchored()
