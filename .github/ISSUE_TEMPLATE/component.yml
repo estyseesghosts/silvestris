@@ -1,0 +1,64 @@
+name: Component or framework work
+description: A Silvestris component, foundation, view, window or reference-app task. Read ROADMAP.md first.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every issue follows the anatomy in [ROADMAP.md](../blob/source-list-shell/ROADMAP.md#issue-anatomy-and-labels).
+        If a consumer (lotus, sandcat, chaus, johjoh) is drawing this itself today, say where.
+  - type: input
+    id: placement
+    attributes:
+      label: Milestone, layer, priority
+      placeholder: "M3 · view · P1"
+    validations:
+      required: true
+  - type: input
+    id: deps
+    attributes:
+      label: Depends on / unblocks
+      placeholder: "Depends on #58 · Unblocks #43"
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The gap, the current code, and which consumers or reference apps need it.
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: HIG pages (hig-09 notes/specs) and corpus captures (paths relative to a local hig-09 checkout).
+  - type: textarea
+    id: deliver
+    attributes:
+      label: Deliverables
+      description: Checkable, concrete outputs.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: avoid
+    attributes:
+      label: Avoid
+      description: Out-of-scope work and approaches that would recreate bespoke behaviour.
+    validations:
+      required: true
+  - type: textarea
+    id: traps
+    attributes:
+      label: Regression traps
+      description: Existing behaviour (often a consumer's) this can break, and how to test it.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - [ ]
+        - [ ] The definition of done in ROADMAP.md holds where applicable.
+    validations:
+      required: true
