@@ -1,5 +1,6 @@
 //! Editable combo box (HIG pp. 296–298). Text entry reuses the field's IME,
 //! clipboard and undo-free editing model; the popup offers discrete suggestions.
+use crate::transient::TransientLayer;
 use gpui::{div, prelude::*, px, App, ElementId, Entity, SharedString, Window};
 use std::rc::Rc;
 
@@ -15,6 +16,7 @@ pub struct ComboBox {
     suggestions: Vec<SharedString>,
     disabled: bool,
     on_choose: Option<Choose>,
+    layer: Option<Entity<TransientLayer>>,
 }
 
 impl ComboBox {
@@ -31,7 +33,14 @@ impl ComboBox {
             suggestions,
             disabled: false,
             on_choose: None,
+            layer: None,
         }
+    }
+
+    /// Share the window's transient layer with the suggestion list.
+    pub fn layer(mut self, layer: Entity<TransientLayer>) -> Self {
+        self.layer = Some(layer);
+        self
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -64,6 +73,7 @@ impl RenderOnce for ComboBox {
             .position(|text| text.as_ref() == field.read(cx).text());
         let options = self.suggestions.clone();
         let choose = self.on_choose;
+        let layer = self.layer;
         div()
             .id(self.id)
             .flex()
@@ -78,6 +88,7 @@ impl RenderOnce for ComboBox {
                     .selected(selected)
                     .arrow_only()
                     .size(ControlSize::Small)
+                    .when_some(layer, |button, layer| button.layer(layer))
                     .disabled(self.disabled || options.is_empty())
                     .on_choose(move |index, window, cx| {
                         if let Some(value) = options.get(*index) {

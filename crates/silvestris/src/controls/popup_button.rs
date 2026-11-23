@@ -16,12 +16,13 @@
 use std::rc::Rc;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, App, Bounds, ElementId, FocusHandle,
-    KeyDownEvent, MouseButton, Pixels, SharedString, Window,
+    anchored, canvas, deferred, div, point, prelude::*, px, App, Bounds, ElementId, Entity,
+    FocusHandle, KeyDownEvent, MouseButton, Pixels, SharedString, Window,
 };
 
 use crate::controls::ControlSize;
 use crate::convert::hsla;
+use crate::transient::{self, SurfaceId, TransientKind, TransientLayer};
 use crate::{paint, ActiveTheme};
 
 /// Width of the arrow cap (estimate from the disabled capture's right cap).
@@ -31,7 +32,7 @@ type ChooseFn = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 
 #[derive(Default)]
 struct State {
-    open: bool,
+    surface: Option<SurfaceId>,
     highlight: usize,
     bounds: Bounds<Pixels>,
     menu_focus: Option<FocusHandle>,
@@ -48,6 +49,7 @@ pub struct PopUpButton {
     min_width: f32,
     arrow_only: bool,
     on_choose: Option<ChooseFn>,
+    layer: Option<Entity<TransientLayer>>,
 }
 
 impl PopUpButton {
@@ -67,7 +69,16 @@ impl PopUpButton {
             min_width: 0.0,
             arrow_only: false,
             on_choose: None,
+            layer: None,
         }
+    }
+
+    /// Use the window's shared transient layer. Without one the button creates
+    /// a private layer, which is enough for a single pop-up but does not
+    /// coordinate with a menu elsewhere in the window.
+    pub fn layer(mut self, layer: Entity<TransientLayer>) -> Self {
+        self.layer = Some(layer);
+        self
     }
     pub fn selected(mut self, index: Option<usize>) -> Self {
         self.selected = index;
@@ -96,19 +107,46 @@ impl PopUpButton {
     }
 }
 
-fn open(state: &gpui::Entity<State>, start: usize, window: &mut Window, cx: &mut App) {
-    let focus = state.update(cx, |s, cx| {
-        s.open = true;
+fn open(
+    state: &gpui::Entity<State>,
+    layer: &Entity<TransientLayer>,
+    start: usize,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let (focus, bounds) = state.update(cx, |s, cx| {
         s.highlight = start;
-        s.menu_focus
+        let focus = s
+            .menu_focus
             .get_or_insert_with(|| cx.focus_handle())
-            .clone()
+            .clone();
+        (focus, s.bounds)
+    });
+    let handle = layer.update(cx, |layer, cx| {
+        layer.push(
+            crate::transient::SurfaceSpec::new(TransientKind::Popover).anchor(bounds),
+            window,
+            cx,
+        )
+    });
+    state.update(cx, |s, cx| {
+        s.surface = Some(handle.id());
+        cx.notify();
     });
     window.focus(&focus, cx);
 }
 
-fn close(state: &gpui::Entity<State>, button: &FocusHandle, window: &mut Window, cx: &mut App) {
-    state.update(cx, |s, _| s.open = false);
+fn close(
+    state: &gpui::Entity<State>,
+    layer: &Entity<TransientLayer>,
+    button: &FocusHandle,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let id = state.update(cx, |s, _| s.surface.take());
+    if let Some(id) = id {
+        layer.update(cx, |layer, cx| layer.close(id, true, window, cx));
+    }
     window.focus(button, cx);
     window.refresh();
 }
@@ -119,6 +157,16 @@ impl RenderOnce for PopUpButton {
         let m = &theme.metrics;
         let enabled = !self.disabled && !self.items.is_empty();
         let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
+        let layer = self.layer.clone().unwrap_or_else(|| {
+            window
+                .use_keyed_state(
+                    ElementId::Name(format!("{}-transient", self.id).into()),
+                    cx,
+                    |window, cx| cx.new(|cx| TransientLayer::new(window, cx)),
+                )
+                .read(cx)
+                .clone()
+        });
         let focus: FocusHandle = window
             .use_keyed_state(
                 ElementId::Name(format!("{}-focus", self.id).into()),
@@ -157,9 +205,11 @@ impl RenderOnce for PopUpButton {
         let profile = m.focus_ring;
         let items = Rc::new(self.items);
         let on_choose = self.on_choose;
-        let is_open = state.read(cx).open && enabled;
+        let surface = state.read(cx).surface;
+        let is_open = enabled && surface.is_some_and(|id| layer.read(cx).is_open(id));
 
         let key_state = state.clone();
+        let key_layer = layer.clone();
         let key_items = items.len();
         let mut button = div()
             .debug_selector(|| self.id.to_string())
@@ -229,6 +279,7 @@ impl RenderOnce for PopUpButton {
             );
         if enabled {
             let click_state = state.clone();
+            let click_layer = layer.clone();
             let mouse_focus = focus.clone();
             button = button
                 .track_focus(&focus)
@@ -236,7 +287,9 @@ impl RenderOnce for PopUpButton {
                     window.focus(&mouse_focus, cx);
                     cx.stop_propagation();
                 })
-                .on_click(move |_, window, cx| open(&click_state, current, window, cx))
+                .on_click(move |_, window, cx| {
+                    open(&click_state, &click_layer, current, window, cx)
+                })
                 .on_key_down(move |event: &KeyDownEvent, window, cx| {
                     if matches!(
                         event.keystroke.key.as_str(),
@@ -244,7 +297,7 @@ impl RenderOnce for PopUpButton {
                     ) && key_items > 0
                     {
                         cx.stop_propagation();
-                        open(&key_state, current, window, cx);
+                        open(&key_state, &key_layer, current, window, cx);
                     }
                 });
         }
@@ -279,6 +332,7 @@ impl RenderOnce for PopUpButton {
             for (index, item) in items.iter().enumerate() {
                 let choose = on_choose.clone();
                 let row_state = state.clone();
+                let row_layer = layer.clone();
                 let row_focus = focus.clone();
                 let hover_state = state.clone();
                 let hot = index == highlight;
@@ -316,7 +370,7 @@ impl RenderOnce for PopUpButton {
                             })
                         })
                         .on_mouse_up(MouseButton::Left, move |_, window, cx| {
-                            close(&row_state, &row_focus, window, cx);
+                            close(&row_state, &row_layer, &row_focus, window, cx);
                             if let Some(f) = &choose {
                                 f(&index, window, cx);
                             }
@@ -324,60 +378,171 @@ impl RenderOnce for PopUpButton {
                         .child(div().relative().child(item.clone())),
                 );
             }
-            let shield_state = state.clone();
-            let shield_focus = focus.clone();
             let key_state = state.clone();
+            let key_layer = layer.clone();
             let key_focus = focus.clone();
             let key_choose = on_choose.clone();
             let count = items.len();
-            deferred(
-                div()
-                    .id("popup-shield")
-                    .debug_selector(|| "popup-shield".into())
-                    .absolute()
-                    .top(-bounds.origin.y)
-                    .left(-bounds.origin.x)
-                    .w(window.viewport_size().width)
-                    .h(window.viewport_size().height)
-                    .occlude()
-                    .track_focus(&menu_focus)
-                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                        cx.stop_propagation();
-                        close(&shield_state, &shield_focus, window, cx);
-                    })
-                    .on_key_down(move |event: &KeyDownEvent, window, cx| {
-                        cx.stop_propagation();
-                        let mut chosen = None;
-                        match event.keystroke.key.as_str() {
-                            "up" => key_state.update(cx, |s, cx| {
-                                s.highlight = s.highlight.saturating_sub(1);
-                                cx.notify();
-                            }),
-                            "down" => key_state.update(cx, |s, cx| {
-                                s.highlight = (s.highlight + 1).min(count - 1);
-                                cx.notify();
-                            }),
-                            "enter" | "space" => chosen = Some(key_state.read(cx).highlight),
-                            "escape" | "tab" => close(&key_state, &key_focus, window, cx),
-                            _ => {}
-                        }
-                        if let Some(index) = chosen {
-                            close(&key_state, &key_focus, window, cx);
-                            if let Some(f) = &key_choose {
-                                f(&index, window, cx);
-                            }
-                        }
-                        window.refresh();
-                    })
-                    .child(
-                        anchored()
-                            .position(origin)
-                            .snap_to_window_with_margin(px(4.))
-                            .child(panel),
-                    ),
+            let shield = transient::shield(
+                layer,
+                surface.expect("checked above"),
+                window,
+                point(-bounds.origin.x, -bounds.origin.y),
             )
-            .with_priority(2)
+            .track_focus(&menu_focus)
+            .on_key_down(move |event: &KeyDownEvent, window, cx| {
+                cx.stop_propagation();
+                let mut chosen = None;
+                match event.keystroke.key.as_str() {
+                    "up" => key_state.update(cx, |s, cx| {
+                        s.highlight = s.highlight.saturating_sub(1);
+                        cx.notify();
+                    }),
+                    "down" => key_state.update(cx, |s, cx| {
+                        s.highlight = (s.highlight + 1).min(count - 1);
+                        cx.notify();
+                    }),
+                    "enter" | "space" => chosen = Some(key_state.read(cx).highlight),
+                    "escape" => {
+                        if key_layer.update(cx, |layer, cx| layer.escape(window, cx)) {
+                            key_state.update(cx, |s, _| s.surface = None);
+                        }
+                    }
+                    "tab" => close(&key_state, &key_layer, &key_focus, window, cx),
+                    _ => {}
+                }
+                if let Some(index) = chosen {
+                    close(&key_state, &key_layer, &key_focus, window, cx);
+                    if let Some(f) = &key_choose {
+                        f(&index, window, cx);
+                    }
+                }
+                window.refresh();
+            })
+            .child(
+                anchored()
+                    .position(origin)
+                    .snap_to_window_with_margin(px(4.))
+                    .child(panel),
+            );
+            deferred(shield).with_priority(2)
         });
         div().relative().flex_none().child(button).children(menu)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    use gpui::{Modifiers, TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::transient::TransientLayer;
+
+    struct Harness {
+        chosen: Rc<Cell<Option<usize>>>,
+        background_hits: Rc<Cell<usize>>,
+        layer: Entity<TransientLayer>,
+    }
+
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            let chosen = self.chosen.clone();
+            let hits = self.background_hits.clone();
+            div()
+                .size_full()
+                .track_focus(&cx.focus_handle())
+                .on_mouse_down(MouseButton::Left, move |_, _, _| hits.set(hits.get() + 1))
+                .child(
+                    div().absolute().top(px(40.)).left(px(40.)).child(
+                        PopUpButton::new(
+                            "popup-test",
+                            "Choice",
+                            vec!["One".into(), "Two".into(), "Three".into()],
+                        )
+                        .layer(self.layer.clone())
+                        .on_choose(move |index, _, _| chosen.set(Some(*index))),
+                    ),
+                )
+        }
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+    }
+
+    fn harness(app: &mut TestAppContext) -> (Entity<Harness>, &mut VisualTestContext) {
+        let chosen = Rc::new(Cell::new(None));
+        let background_hits = Rc::new(Cell::new(0));
+        app.add_window_view(|window, cx| {
+            let layer = cx.new(|cx| TransientLayer::new(window, cx));
+            Harness {
+                chosen,
+                background_hits,
+                layer,
+            }
+        })
+    }
+
+    #[test]
+    fn escape_and_outside_click_close_the_list_through_the_layer() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (handle, cx) = harness(&mut app);
+        draw(cx);
+
+        // Escape closes the list and returns focus to the button.
+        let button = cx.debug_bounds("popup-test").expect("popup button");
+        cx.simulate_click(button.center(), Modifiers::default());
+        draw(cx);
+        assert!(cx.debug_bounds("popup-panel").is_some());
+        cx.simulate_keystrokes("escape");
+        draw(cx);
+        assert!(cx.debug_bounds("popup-panel").is_none());
+        // An outside click dismisses and does not reach the background.
+        let button = cx.debug_bounds("popup-test").expect("popup button");
+        cx.simulate_click(button.center(), Modifiers::default());
+        draw(cx);
+        assert!(cx.debug_bounds("popup-panel").is_some());
+        cx.simulate_click(point(px(500.), px(400.)), Modifiers::default());
+        draw(cx);
+        assert!(cx.debug_bounds("popup-panel").is_none());
+        assert_eq!(
+            handle.read_with(cx, |view, _| view.background_hits.get()),
+            0,
+            "the shield consumes the outside click"
+        );
+
+        // Choosing a row closes and reports the index.
+        let button = cx.debug_bounds("popup-test").expect("popup button");
+        cx.simulate_click(button.center(), Modifiers::default());
+        draw(cx);
+        let row = cx.debug_bounds("popup-item-1").expect("second row");
+        cx.simulate_click(row.center(), Modifiers::default());
+        draw(cx);
+        assert!(cx.debug_bounds("popup-panel").is_none());
+        assert_eq!(handle.read_with(cx, |view, _| view.chosen.get()), Some(1));
+    }
+
+    #[test]
+    fn the_list_is_a_popover_on_the_shared_layer() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (handle, cx) = harness(&mut app);
+        draw(cx);
+        let button = cx.debug_bounds("popup-test").expect("popup button");
+        cx.simulate_click(button.center(), Modifiers::default());
+        draw(cx);
+        let (depth, kind) = handle.read_with(cx, |view, cx| {
+            (view.layer.read(cx).len(), view.layer.read(cx).top_kind())
+        });
+        assert_eq!(depth, 1);
+        assert_eq!(kind, Some(crate::transient::TransientKind::Popover));
     }
 }

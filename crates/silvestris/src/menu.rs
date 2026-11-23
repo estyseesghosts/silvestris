@@ -5,6 +5,7 @@ use crate::{
     convert::hsla,
     paint,
     responder::ResponderChain,
+    transient::{self, SurfaceId, SurfaceSpec, TransientKind, TransientLayer},
     ActiveTheme,
 };
 use gpui::{
@@ -74,9 +75,9 @@ pub struct PopupMenu {
     registry: Entity<CommandRegistry>,
     chain: Option<Entity<ResponderChain>>,
     focus: FocusHandle,
-    previous_focus: Option<FocusHandle>,
     position: Point<Pixels>,
-    open: bool,
+    layer: Entity<TransientLayer>,
+    surface: Option<SurfaceId>,
     // One highlighted row per open menu column.
     path: Vec<Option<usize>>,
     scroll: Vec<gpui::ScrollHandle>,
@@ -90,28 +91,36 @@ impl PopupMenu {
         cx: &mut Context<Self>,
     ) -> Self {
         cx.observe(&registry, |_, _, cx| cx.notify()).detach();
-        cx.observe_window_activation(window, |menu, window, cx| {
-            if !window.is_window_active() && menu.open {
-                menu.dismiss(window, cx, true);
-            }
-        })
-        .detach();
+        let layer = cx.new(|cx| TransientLayer::new(window, cx));
+        cx.observe(&layer, |_, _, cx| cx.notify()).detach();
         Self {
             model,
             registry,
             chain: None,
             focus: cx.focus_handle(),
-            previous_focus: None,
             position: point(px(0.), px(0.)),
-            open: false,
+            layer,
+            surface: None,
             path: vec![None],
             scroll: vec![gpui::ScrollHandle::new()],
         }
+    }
+
+    /// Put this menu on a window's shared transient layer. Without this it uses
+    /// a private layer, so two menus in one window would not exclude each other.
+    pub fn set_layer(&mut self, layer: Entity<TransientLayer>, cx: &mut Context<Self>) {
+        cx.observe(&layer, |_, _, cx| cx.notify()).detach();
+        if let Some(chain) = self.chain.clone() {
+            layer.update(cx, |layer, _| layer.set_chain(chain));
+        }
+        self.layer = layer;
     }
     /// Resolve and validate through the window's responder chain (#57). Without
     /// one, the registry's own enabled state is used.
     pub fn set_chain(&mut self, chain: Entity<ResponderChain>, cx: &mut Context<Self>) {
         cx.observe(&chain, |_, _, cx| cx.notify()).detach();
+        self.layer
+            .update(cx, |layer, _| layer.set_chain(chain.clone()));
         self.chain = Some(chain);
     }
     fn descriptor(
@@ -125,14 +134,15 @@ impl PopupMenu {
             None => self.registry.read(cx).descriptors().get(id).cloned(),
         }
     }
-    pub fn is_open(&self) -> bool {
-        self.open
+    pub fn is_open(&self, cx: &App) -> bool {
+        self.surface
+            .is_some_and(|id| self.layer.read(cx).is_open(id))
     }
     /// Replace a consumer's command tree. Dismiss a changed open menu rather
     /// than transferring its highlighted index to a different command.
     pub fn set_model(&mut self, model: MenuModel, window: &mut Window, cx: &mut Context<Self>) {
         if self.model != model {
-            if self.open {
+            if self.is_open(cx) {
                 self.dismiss(window, cx, true);
             }
             self.model = model;
@@ -142,37 +152,65 @@ impl PopupMenu {
         }
     }
     pub fn open(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.open {
-            self.previous_focus = window.focused(cx);
-            if let Some(chain) = self.chain.clone() {
-                chain.update(cx, |chain, cx| chain.begin_transient(window, cx));
-            }
+        if self.is_open(cx) {
+            // Reposition the existing surface: closing and reopening would
+            // record the menu's own focus as the return target.
+            self.position = position;
+            self.path = vec![None];
+            self.scroll = vec![gpui::ScrollHandle::new()];
+            window.focus(&self.focus, cx);
+            cx.notify();
+            return;
         }
         self.position = position;
         self.path = vec![None];
         self.scroll = vec![gpui::ScrollHandle::new()];
-        self.open = true;
+        let anchor = Bounds::new(position, size(px(0.), px(0.)));
+        let title = self.model.label.clone();
+        let handle = self.layer.update(cx, |layer, cx| {
+            layer.push(
+                SurfaceSpec::new(TransientKind::Menu)
+                    .anchor(anchor)
+                    .owner(crate::responder::ResponderScope::Window)
+                    .title(title),
+                window,
+                cx,
+            )
+        });
+        self.surface = Some(handle.id());
         window.focus(&self.focus, cx);
         cx.notify();
     }
     pub fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>, restore: bool) {
-        if self.open {
-            if let Some(chain) = self.chain.clone() {
-                chain.update(cx, |chain, _| chain.end_transient());
-            }
+        let Some(id) = self.surface.take() else {
+            return;
+        };
+        self.layer
+            .update(cx, |layer, cx| layer.close(id, restore, window, cx));
+        cx.notify();
+    }
+
+    /// Close the innermost surface. A submenu closes before its parent menu.
+    fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.path.len() > 1 {
+            self.path.pop();
+            cx.notify();
+            return true;
         }
-        self.open = false;
-        if restore {
-            if let Some(focus) = self.previous_focus.take() {
-                window.focus(&focus, cx);
-            } else {
-                window.blur(cx);
-            }
-        } else {
-            self.previous_focus = None;
-            window.blur(cx);
+        let Some(id) = self.surface else {
+            return false;
+        };
+        self.layer.update(cx, |layer, cx| {
+            layer.dismiss_surface(id, transient::DismissTrigger::Escape, window, cx, true)
+        });
+        if self
+            .surface
+            .is_some_and(|surface| !self.layer.read(cx).is_open(surface))
+        {
+            self.surface = None;
         }
         cx.notify();
+        true
     }
     fn entries(&self, depth: usize) -> &[MenuEntry] {
         let mut entries = self.model.entries.as_slice();
@@ -260,12 +298,16 @@ impl PopupMenu {
     }
     fn key(view: &Entity<Self>, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut App) {
         let choice = view.update(cx, |menu, cx| {
-            if !menu.open {
+            if !menu.is_open(cx) {
                 return None;
             }
             let depth = menu.path.len() - 1;
             let key = event.keystroke.key.as_str();
-            if key == "escape" || key == "tab" {
+            if key == "escape" {
+                menu.escape(window, cx);
+                return None;
+            }
+            if key == "tab" {
                 menu.dismiss(window, cx, true);
                 return None;
             }
@@ -544,9 +586,9 @@ impl PopupMenu {
 }
 impl Render for PopupMenu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if !self.open {
+        let Some(surface) = self.surface.filter(|id| self.layer.read(cx).is_open(*id)) else {
             return div().into_any_element();
-        }
+        };
         self.scroll
             .resize_with(self.path.len(), gpui::ScrollHandle::new);
         let panel = self.panel(&self.model.entries, 0, window, cx);
@@ -554,31 +596,13 @@ impl Render for PopupMenu {
         let action_view = cx.entity();
         let registry = self.registry.clone();
         let chain = self.chain.clone();
-        div()
-            .id("menu-shield")
-            .debug_selector(|| "menu-shield".into())
-            .absolute()
-            .inset_0()
+        let layer = self.layer.clone();
+        transient::shield(layer, surface, window, point(px(0.), px(0.)))
             .track_focus(&self.focus)
             .key_context("SilvestrisMenu")
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|menu, _, w, cx| {
-                    cx.stop_propagation();
-                    menu.dismiss(w, cx, true);
-                }),
-            )
-            .on_mouse_down(
-                MouseButton::Right,
-                cx.listener(|menu, _, w, cx| {
-                    cx.stop_propagation();
-                    menu.dismiss(w, cx, true);
-                }),
-            )
             .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_mouse_up(MouseButton::Right, |_, _, cx| cx.stop_propagation())
             .on_mouse_move(|_, _, cx| cx.stop_propagation())
-            .on_scroll(|_, _, cx| cx.stop_propagation())
             .on_key_down(move |event, window, cx| Self::key(&key, event, window, cx))
             .on_action(move |action: &InvokeCommand, window, cx| {
                 cx.stop_propagation();
@@ -687,7 +711,7 @@ mod tests {
             draw(cx);
             assert_eq!(hits.get(), 1);
             cx.update(|window, cx| {
-                assert!(!h.read(cx).menu.read(cx).is_open());
+                assert!(!h.read(cx).menu.read(cx).is_open(cx));
                 assert!(h.read(cx).focus.is_focused(window));
                 let menu = h.read(cx).menu.clone();
                 menu.update(cx, |m, cx| {
@@ -706,11 +730,11 @@ mod tests {
             cx.simulate_click(row.center(), Modifiers::default());
             draw(cx);
             assert_eq!(hits.get(), 1);
-            cx.update(|_, cx| assert!(h.read(cx).menu.read(cx).is_open()));
+            cx.update(|_, cx| assert!(h.read(cx).menu.read(cx).is_open(cx)));
             cx.simulate_click(point(px(500.), px(300.)), Modifiers::default());
             draw(cx);
             cx.update(|_, cx| {
-                assert!(!h.read(cx).menu.read(cx).is_open());
+                assert!(!h.read(cx).menu.read(cx).is_open(cx));
                 assert_eq!(h.read(cx).background_hits.get(), 0);
             });
         }
@@ -755,15 +779,30 @@ mod tests {
         draw(cx);
         assert_eq!(hits.get(), 1);
         cx.update(|window, cx| {
-            assert!(!h.read(cx).menu.read(cx).is_open());
+            assert!(!h.read(cx).menu.read(cx).is_open(cx));
             assert!(h.read(cx).focus.is_focused(window));
             let menu = h.read(cx).menu.clone();
             menu.update(cx, |m, cx| m.open(point(px(10.), px(10.)), window, cx));
         });
         draw(cx);
+        cx.simulate_keystrokes("home down right");
+        draw(cx);
+        assert!(cx.debug_bounds("menu-panel-1").is_some());
         cx.simulate_keystrokes("escape");
         draw(cx);
-        cx.update(|window, cx| assert!(h.read(cx).focus.is_focused(window)));
+        cx.update(|_, cx| {
+            assert!(
+                h.read(cx).menu.read(cx).is_open(cx),
+                "the first Escape closes only the submenu"
+            );
+        });
+        assert!(cx.debug_bounds("menu-panel-1").is_none());
+        cx.simulate_keystrokes("escape");
+        draw(cx);
+        cx.update(|window, cx| {
+            assert!(!h.read(cx).menu.read(cx).is_open(cx));
+            assert!(h.read(cx).focus.is_focused(window));
+        });
     }
     #[test]
     fn long_menu_fits_viewport_scrolls_to_end_and_closes_on_deactivation() {
@@ -813,6 +852,6 @@ mod tests {
         draw(cx);
         cx.deactivate_window();
         draw(cx);
-        cx.update(|_, cx| assert!(!h.read(cx).menu.read(cx).is_open()));
+        cx.update(|_, cx| assert!(!h.read(cx).menu.read(cx).is_open(cx)));
     }
 }

@@ -38,6 +38,8 @@ pub mod preferences;
 
 pub mod responder;
 
+pub mod transient;
+
 pub mod shell;
 
 pub mod window_role;

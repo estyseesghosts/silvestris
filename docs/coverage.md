@@ -46,6 +46,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Menu bar composition | `menu::native_menus` (macOS only) | missing | — | — | #24 |
 | Menu items, state, submenus | `core::command::MenuModel`, `MenuEntry`, `PopupMenu` | functional | four | — | #16, #25 |
 | Contextual menu | `PopupMenu` | functional | four | — | #16 |
+| Transient surfaces | `TransientLayer`, `TransientHandle`, `CancelToken` | functional | four | — | #60 |
 
 ## Controls
 
@@ -55,7 +56,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Default button throb | `ButtonStyle::Default` | provisional | four | — | #9 |
 | Bevel, icon, round, gradient buttons | none | missing | — | — | #26, #48, #75 |
 | Segmented control | `SegmentedControl`, `Segment` | functional | four | `segmented` | #11 |
-| Pop-up button | `PopUpButton` | provisional | four | `popup-button` | #1, #2 |
+| Pop-up button | `PopUpButton` | functional | four | `popup-button` | #1, #2 |
 | Scope buttons | none | missing | — | — | #46 |
 | Slider | `Slider` | functional | four | `slider` | #7 |
 | Stepper | `Stepper` | provisional | four | — | unfiled |

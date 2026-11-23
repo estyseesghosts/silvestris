@@ -60,6 +60,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Source lists](docs/source-list.md)
 - [Commands and key contexts](docs/commands.md)
 - [Popup menus](docs/menus.md)
+- [Transient surfaces](docs/transients.md)
 - [Segmented control](docs/segmented-control.md)
 - [Checkbox](docs/checkbox.md)
 - [Measured deviations and platform gaps](docs/exceptions.md)
