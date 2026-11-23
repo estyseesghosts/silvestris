@@ -7,6 +7,17 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #12, device-pixel snapping. Additive:
+
+- `paint::snap_edge`, `paint::snap_stroke_center` and `paint::snap_bounds`.
+- `paint::hline` and `paint::vline` snap both ends; `bevel`, `thumb`, `field`,
+  `focus_ring`, `selection`, `chrome` and `resize_grip` snap their bounds.
+
+Behaviour: painted quads start and end on device edges; centred strokes sit on
+device centres; a hairline is a whole number of device pixels
+(`round(scale).max(1)`) at any scale. Existing goldens shift by up to one device
+pixel and were re-accepted; 175% goldens are new.
+
 PR #62, preference storage. Additive:
 
 - `silvestris_core::prefs`: `Versioned`, `Migration`, `migrate`, `Storage`,

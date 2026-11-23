@@ -153,13 +153,24 @@ impl RenderOnce for Sidebar {
                     .w(px(theme.metrics.splitter_hot_zone.max(4.)))
                     .cursor(gpui::CursorStyle::ResizeLeftRight)
                     .child(
-                        div()
-                            .absolute()
-                            .right_0()
-                            .top_0()
-                            .bottom_0()
-                            .w(px(1.))
-                            .bg(hsla(theme.colors.divider)),
+                        gpui::canvas(
+                            |_, _, _| (),
+                            move |bounds, _, window, _| {
+                                let divider = theme.colors.divider;
+                                crate::paint::vline(
+                                    window,
+                                    bounds.right() - crate::convert::hairline(window),
+                                    bounds.origin.y,
+                                    bounds.size.height,
+                                    divider,
+                                );
+                            },
+                        )
+                        .absolute()
+                        .right_0()
+                        .top_0()
+                        .bottom_0()
+                        .w(crate::convert::hairline(window)),
                     )
                     .child(
                         gpui::canvas(

@@ -537,13 +537,24 @@ impl RenderOnce for TabView {
             .rounded(px(4.0))
             .child(
                 // Top edge is darker than the sides (M: groupbox.top vs .left).
-                div()
-                    .absolute()
-                    .top(px(-1.0))
-                    .left(px(2.0))
-                    .right(px(2.0))
-                    .h(px(1.0))
-                    .bg(hsla(c.group_border_top)),
+                gpui::canvas(|_, _, _| (), {
+                    let top = c.group_border_top;
+                    move |bounds, _, window, _| {
+                        let h = crate::convert::hairline(window);
+                        crate::paint::hline(
+                            window,
+                            bounds.origin.x,
+                            bounds.origin.y + h / 2.0,
+                            bounds.size.width,
+                            top,
+                        );
+                    }
+                })
+                .absolute()
+                .top(px(-1.0))
+                .left(px(2.0))
+                .right(px(2.0))
+                .h(crate::convert::hairline(window)),
             )
             .child({
                 let scroll = self.scroll.unwrap_or_else(|| {

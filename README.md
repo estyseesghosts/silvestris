@@ -51,6 +51,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 
 - [Coverage matrix](docs/coverage.md)
 - [Visual goldens and the render gate](docs/goldens.md)
+- [Device-pixel snapping](docs/snapping.md)
 - [Composition guide](docs/guide.md)
 - [Consumer pins and integration rules](docs/consumers.md)
 - [Public API changes by commit range](CHANGELOG.md)

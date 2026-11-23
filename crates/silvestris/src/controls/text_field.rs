@@ -931,15 +931,16 @@ impl Render for TextField {
                             let center = bounds.center();
                             let lens =
                                 Bounds::new(center - point(px(3.5), px(3.5)), size(px(6.), px(6.)));
+                            let hairline = crate::convert::hairline(window);
                             window.paint_quad(gpui::quad(
                                 lens,
                                 px(3.),
                                 gpui::transparent_black(),
-                                px(1.),
+                                hairline,
                                 hsla(field.placeholder),
                                 gpui::BorderStyle::Solid,
                             ));
-                            let mut handle = gpui::PathBuilder::stroke(px(1.0));
+                            let mut handle = gpui::PathBuilder::stroke(hairline);
                             handle.move_to(center + point(px(1.5), px(1.5)));
                             handle.line_to(center + point(px(4.), px(4.)));
                             if let Ok(path) = handle.build() {
@@ -1100,7 +1101,7 @@ impl Element for TextElement {
                         len: e - s,
                         underline: Some(UnderlineStyle {
                             color: Some(run.color),
-                            thickness: px(1.),
+                            thickness: crate::convert::hairline(window),
                             wavy: false,
                         }),
                         ..run.clone()

@@ -59,10 +59,11 @@ pub fn across(g: Gradient, width: f32) -> Background {
     )
 }
 
-/// One device pixel rounded to a whole number of device pixels, in logical
-/// pixels: 1 at 1x, 1 at 2x (two device px), 4/3 at 1.5x. Keeps rings and
-/// separators the same device width everywhere on screen at fractional
-/// scales instead of alternating between 1 and 2 device pixels.
+/// A hairline in logical pixels whose device width is a whole number:
+/// `round(scale) / scale`. That is one device pixel at 1x and 1.25x, two at
+/// 1.5x, 1.75x and 2x. A fractional scale cannot draw exactly one device pixel;
+/// choosing the nearest whole number keeps the line crisp instead of letting
+/// it alternate between one and two device pixels across the frame.
 pub fn hairline(window: &Window) -> Pixels {
     let s = window.scale_factor();
     gpui::px(s.round().max(1.0) / s)

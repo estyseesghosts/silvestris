@@ -8,7 +8,7 @@
 param(
     [string]$Out = "target/goldens",
     [string[]]$Appearance = @("aqua-light", "aqua-dark", "geist-light", "geist-dark"),
-    [string[]]$Scale = @("1.0", "1.25", "1.5", "2.0"),
+    [string[]]$Scale = @("1.0", "1.25", "1.5", "1.75", "2.0"),
     [string]$PrependPath = "",
     [switch]$Accept,
     [string]$Reason = "",
@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($PrependPath)) {
 if ($PrependPath) {
     $env:PATH = "$PrependPath;$env:PATH"
 }
-$percent = @{ "1.0" = "100"; "1.25" = "125"; "1.5" = "150"; "2.0" = "200" }
+$percent = @{ "1.0" = "100"; "1.25" = "125"; "1.5" = "150"; "1.75" = "175"; "2.0" = "200" }
 
 foreach ($theme in $Appearance) {
     foreach ($factor in $Scale) {
