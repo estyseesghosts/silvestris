@@ -6,7 +6,7 @@ Work is chosen by three inputs: what consumers are drawing themselves today (the
 
 Adoption status: lotus, chaus and johjoh are active consumers. Sandcat currently builds against an uncommitted Silvestris checkout; it is not a gating consumer, and its adoption is deferred until Silvestris's own foundations land. Sandcat rows in the gap register are demand evidence, not a schedule.
 
-Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Consumer rules and pins: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)). Public API changes per commit range: `CHANGELOG.md`.
+Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Composition: `docs/guide.md`. Consumer rules, pins and the gap register: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)). Public API changes per commit range: `CHANGELOG.md`.
 
 ## Layers
 
@@ -183,47 +183,7 @@ issues), `P1` (needed by a reference app or consumer soon), `P2` (completeness a
 
 ## Consumer gap register
 
-Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that replaces it; adoption happens in the consumer's repository once the Silvestris issue lands. Sandcat rows are inventory only while its adoption is deferred.
-
-| Consumer | Bespoke today | Replaced by |
-|---|---|---|
-| lotus | `settings_window/shared.rs` `fit_size`/`fit_pending` pane resizing | [#14](https://github.com/estyseesghosts/silvestris/issues/14) |
-| lotus | `settings_window/controllers.rs`, `field_text`/`parse_field` | [#61](https://github.com/estyseesghosts/silvestris/issues/61), [#54](https://github.com/estyseesghosts/silvestris/issues/54) |
-| lotus | `settings_window/bindings.rs` shortcut editor | [#66](https://github.com/estyseesghosts/silvestris/issues/66) |
-| lotus | `gauges.rs` stat cards, pills, sparklines | [#45](https://github.com/estyseesghosts/silvestris/issues/45) |
-| lotus | `icons.rs` 16 px stroke icon set, `group_icon` | [#48](https://github.com/estyseesghosts/silvestris/issues/48) |
-| lotus | `lotus_window/command_palette.rs` | [#76](https://github.com/estyseesghosts/silvestris/issues/76) |
-| lotus | `tiling.rs` edge drop zones, drag previews | [#36](https://github.com/estyseesghosts/silvestris/issues/36) (primitives); tiling policy stays app-owned |
-| lotus | Split stage dividers | [#53](https://github.com/estyseesghosts/silvestris/issues/53) |
-| lotus | Memory, register, breakpoint, kernel, snapshot tables; event timeline | [#32](https://github.com/estyseesghosts/silvestris/issues/32), [#33](https://github.com/estyseesghosts/silvestris/issues/33), [#40](https://github.com/estyseesghosts/silvestris/issues/40) |
-| lotus | `state_dot`, row accessories in the session list | [#4](https://github.com/estyseesghosts/silvestris/issues/4) |
-| lotus | Status bar values (`status_value`), toolbar ([lotus#133](https://github.com/estyseesghosts/lotus/issues/133)) | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#26](https://github.com/estyseesghosts/silvestris/issues/26) |
-| lotus | Secondary windows (investigation, regression, record/test) ([lotus#134](https://github.com/estyseesghosts/lotus/issues/134)) | [#20](https://github.com/estyseesghosts/silvestris/issues/20), [#27](https://github.com/estyseesghosts/silvestris/issues/27) |
-| lotus | Flat legacy primary action buttons | [#10](https://github.com/estyseesghosts/silvestris/issues/10) |
-| lotus | Vendored Silvestris patches ([lotus#141](https://github.com/estyseesghosts/lotus/issues/141) inspector, [lotus#74](https://github.com/estyseesghosts/lotus/issues/74) focus deferral, [lotus#58](https://github.com/estyseesghosts/lotus/issues/58) Settings bounds) | [#74](https://github.com/estyseesghosts/silvestris/issues/74) |
-| lotus | PICA texture/preview rendering, debugger domain panels | app-owned (domain views composed from Silvestris tables/splits) |
-| sandcat | `apps/desktop/src/scrollbar.rs` Aqua scroller over `ListState` | [#40](https://github.com/estyseesghosts/silvestris/issues/40) |
-| sandcat | Composer on the discarded `TextArea` prototype | [#58](https://github.com/estyseesghosts/silvestris/issues/58) (new multiline API); sandcat re-adopts after the foundations land |
-| sandcat | `body_segments` / code-block rendering in transcript | [#38](https://github.com/estyseesghosts/silvestris/issues/38) |
-| sandcat | `status_label`/`status_color` session badges, `project_tone` | [#4](https://github.com/estyseesghosts/silvestris/issues/4), [#48](https://github.com/estyseesghosts/silvestris/issues/48) |
-| sandcat | First-run / server pairing setup state | [#30](https://github.com/estyseesghosts/silvestris/issues/30) |
-| sandcat | Permission prompts and forms | [#22](https://github.com/estyseesghosts/silvestris/issues/22), [#23](https://github.com/estyseesghosts/silvestris/issues/23), [#54](https://github.com/estyseesghosts/silvestris/issues/54) |
-| sandcat | Theme/model/agent pickers in toolbar | [#2](https://github.com/estyseesghosts/silvestris/issues/2), [#76](https://github.com/estyseesghosts/silvestris/issues/76) |
-| sandcat | `!SilvestrisTextField` key-context exclusions | [#57](https://github.com/estyseesghosts/silvestris/issues/57) |
-| sandcat | Shutdown draft flush | [#59](https://github.com/estyseesghosts/silvestris/issues/59) |
-| chaus | Find bar (`editor_find.rs`) | [#77](https://github.com/estyseesghosts/silvestris/issues/77) |
-| chaus | Close / conflict / recovery prompts (`editor_close.rs`, `editor_conflict.rs`, `editor_recovery.rs`) | [#37](https://github.com/estyseesghosts/silvestris/issues/37), [#22](https://github.com/estyseesghosts/silvestris/issues/22), [#23](https://github.com/estyseesghosts/silvestris/issues/23) (policies stay app-owned) |
-| chaus | Menus assembled by hand (`tests/menus.rs`) | [#24](https://github.com/estyseesghosts/silvestris/issues/24) |
-| chaus | Startup-only shortcut bindings | [#66](https://github.com/estyseesghosts/silvestris/issues/66) |
-| chaus | Open/Save | [#29](https://github.com/estyseesghosts/silvestris/issues/29) |
-| chaus | Locally registered Geist Sans house font (`chaus-app/assets/fonts`) | PR [#71](https://github.com/estyseesghosts/silvestris/issues/71) (font overrides), then [#70](https://github.com/estyseesghosts/silvestris/issues/70) |
-| chaus | Ropey editor, Vim engine, highlighting | app-owned by design (may reuse [#58](https://github.com/estyseesghosts/silvestris/issues/58) IME/selection traits) |
-| johjoh | `heading`/`caption`/`group` helpers | [#13](https://github.com/estyseesghosts/silvestris/issues/13) (+ typography roles) |
-| johjoh | Hand-built ROM list rows | [#32](https://github.com/estyseesghosts/silvestris/issues/32) |
-| johjoh | `prompt_for_paths` native dialogs | [#29](https://github.com/estyseesghosts/silvestris/issues/29), [#63](https://github.com/estyseesghosts/silvestris/issues/63) |
-| johjoh | `render_bottom` progress/status strip | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#8](https://github.com/estyseesghosts/silvestris/issues/8) |
-| johjoh | Error advice text | [#23](https://github.com/estyseesghosts/silvestris/issues/23) |
-| johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
+The register lives in [docs/consumers.md](docs/consumers.md#gap-register), next to the pin contract it belongs with. Survey date 2026-11-23. Sandcat rows are inventory only while its adoption is deferred; the register is not a schedule for it.
 
 ## Tracker changes on 2026-11-23 (initial rewrite)
 
