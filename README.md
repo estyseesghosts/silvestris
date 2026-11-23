@@ -55,6 +55,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Consumer pins and integration rules](docs/consumers.md)
 - [Public API changes by commit range](CHANGELOG.md)
 - [Shell composition](docs/shell.md)
+- [Window roles and frame persistence](docs/windows.md)
 - [Sidebar and divider](docs/sidebar.md)
 - [Source lists](docs/source-list.md)
 - [Commands and key contexts](docs/commands.md)

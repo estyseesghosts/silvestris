@@ -40,6 +40,8 @@ pub mod responder;
 
 pub mod shell;
 
+pub mod window_role;
+
 /// Scenario harness for downstream GPUI interaction tests. Font binary and
 /// native registration checks remain separate from this harness.
 #[cfg(any(test, feature = "test-support"))]

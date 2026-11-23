@@ -1,8 +1,10 @@
 # Visual goldens
 
-The visual gate renders eight controls at 100, 125, 150 and 200% in all four
-appearances, compares every pixel against the committed goldens, and reports
-the distance to a 10.6 reference crop for information.
+The visual gate renders eight controls and two window frames at 100, 125, 150
+and 200% in all four appearances, compares every pixel against the committed
+goldens, and reports the distance to a 10.6 reference crop for information.
+The frames are a document window and a fixed About window, so the role-driven
+title-bar buttons are gated too (#20).
 
 Committed:
 

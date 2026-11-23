@@ -138,12 +138,16 @@ def main():
             amplified = result["diff"].point(lambda value: min(255, value * 4))
             amplified.save(diff_dir / relative.name)
             failures.append(key)
-        if args.accept:
+        # Accept only a golden that differs or changed size. Rewriting an
+        # unchanged golden would replace its bytes with a fresh encode and lose
+        # the reason already recorded for it.
+        if args.accept and key in failures:
             golden_path.parent.mkdir(parents=True, exist_ok=True)
             golden_path.write_bytes(candidate_path.read_bytes())
             accepted.append(key)
             row["status"] = "accepted"
             row["detail"] = args.reason
+            failures.remove(key)
 
         parts = relative.parts
         if len(parts) == 3 and parts[0] == "aqua-light" and parts[1] == "100":

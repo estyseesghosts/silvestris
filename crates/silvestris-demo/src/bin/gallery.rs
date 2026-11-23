@@ -17,12 +17,43 @@ use silvestris::menu::PopupMenu;
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
+use silvestris::window_role::{open_role, WindowRole};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
 actions!(
     gallery,
     [AquaLight, AquaDark, GeistLight, GeistDark, FocusNext, FocusPrev]
 );
+
+/// One window opened from the gallery's role row. It draws the role's chrome so
+/// the title-bar buttons and resizability are visible rather than asserted.
+struct RoleWindow {
+    role: WindowRole,
+    title: gpui::SharedString,
+}
+
+impl gpui::Render for RoleWindow {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+        let theme = cx.theme().clone();
+        let label = format!(
+            "{} window. Resizable: {}. Close: {}. Minimize: {}. Zoom: {}.",
+            self.role.label(),
+            self.role.spec().resizable,
+            self.role.spec().close,
+            self.role.spec().minimize,
+            self.role.spec().zoom,
+        );
+        WindowFrame::new(self.title.clone()).role(self.role).child(
+            div()
+                .size_full()
+                .bg(silvestris::convert::hsla(theme.colors.window))
+                .p(px(16.))
+                .text_size(px(13.))
+                .text_color(silvestris::convert::hsla(theme.colors.text))
+                .child(label),
+        )
+    }
+}
 
 struct Gallery {
     menu: Entity<PopupMenu>,
@@ -463,6 +494,41 @@ impl Render for Gallery {
                     .text_color(secondary)
                     .child(format!("Copy handled by: {}", self.routing_status)),
             );
+        let role_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(8.))
+            .children(WindowRole::ALL.into_iter().map(|role| {
+                Button::new(
+                    match role {
+                        WindowRole::Document => "role-document",
+                        WindowRole::Utility => "role-utility",
+                        WindowRole::Panel => "role-panel",
+                        WindowRole::Preferences => "role-preferences",
+                        WindowRole::Dialog => "role-dialog",
+                        WindowRole::Assistant => "role-assistant",
+                        WindowRole::About => "role-about",
+                    },
+                    role.label(),
+                )
+                .size(ControlSize::Small)
+                .on_click(cx.listener(move |_, _, _, cx| {
+                    let bounds = Bounds::centered(None, size(px(460.), px(280.)), cx);
+                    let title: gpui::SharedString = format!("{} window", role.label()).into();
+                    open_role(role, title.clone(), bounds, cx, |_, cx| {
+                        cx.new(|_| RoleWindow { role, title })
+                    })
+                    .expect("open role window");
+                }))
+            }))
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child("each button opens its role"),
+            );
+
         div()
             .size_full()
             .key_context("Gallery")
@@ -517,6 +583,7 @@ impl Render for Gallery {
                             .child(fields)
                             .child(disclosure)
                             .child(routing_row)
+                            .child(role_row)
                             .child(
                                 div()
                                     .flex()
