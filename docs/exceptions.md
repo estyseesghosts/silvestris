@@ -108,3 +108,17 @@ repeated here; they are listed in place next to the token.
   descriptions. Busy progress stops animating while inactive or when GPUI
   reports reduced motion. The gallery exercises these controls under all
   four themes. Native/DPI baselines for the new variants are pending.
+
+## Visual goldens
+
+- `goldens/renders` is produced by the native Windows renderer, not by a
+  software rasterizer. Runs on the same host and driver are byte-identical
+  (grayscale text, bundled fonts, fixed scale, no focus or animation), but a
+  different GPU or driver can change antialiasing. Re-render on the reference
+  host before treating a cross-host difference as a regression; #50 owns
+  platform verification.
+- The 10.6 crop rectangles in `reference/crops.json` name the corpus file and
+  sha256. The gallery capture is a 1x window capture; the Appearance pane
+  capture is 2x. No corpus image is committed.
+- A control without a 10.6 crop reports no perceptual distance. That is a
+  reference gap, not a passing fidelity claim.

@@ -1,0 +1,870 @@
+{
+  "note": "Only hashes, rectangles and triage labels are committed. Crops are derived locally from the hig-09 checkout; no corpus image or crop is redistributed. corpus.subject_guess is a one-pass reading of a contact sheet and is not verified; check the source before using a capture as evidence.",
+  "corpus_root": "hig-09/vm-screenshots",
+  "corpus": {
+    "Screen shot 2026-11-23 at 10.01.56 AM.png": {
+      "index": 0,
+      "sha256": "a57990cbcaecffdb45187c36c4365f2307e717ff5a0cecb4cfe3e6e658d60938",
+      "size": [
+        539,
+        754
+      ],
+      "subject_guess": "Safari Downloads stack",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.02.03 AM.png": {
+      "index": 1,
+      "sha256": "1b0615e520421b20b995993da733169ccb34653808ad878d6074cd34bee7586e",
+      "size": [
+        248,
+        195
+      ],
+      "subject_guess": "Finder cover flow with context menu",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.02.10 AM.png": {
+      "index": 2,
+      "sha256": "b8050101d96179091730a4113a34f78cb6c12e8f4242c88b1a30b18d0071c27a",
+      "size": [
+        622,
+        722
+      ],
+      "subject_guess": "Stacks fan, Downloads",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.13.47 AM.png": {
+      "index": 3,
+      "sha256": "2c589a24d896844137ba794f54c4812ef42a9e2eca5f2cd10a7cbb22edffcdb5",
+      "size": [
+        533,
+        491
+      ],
+      "subject_guess": "TextEdit untitled document",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.14.02 AM.png": {
+      "index": 4,
+      "sha256": "b9af07c711302be560ca956948661b312740ae5ea4f98f139996f7cc14b61ab7",
+      "size": [
+        397,
+        320
+      ],
+      "subject_guess": "Character palette",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.14.17 AM.png": {
+      "index": 5,
+      "sha256": "f384e8d4efe42a022f76a769bb269548323478a5fff2137c37c2d5377ec4195f",
+      "size": [
+        512,
+        485
+      ],
+      "subject_guess": "Stacks fan with context menu",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.14.29 AM.png": {
+      "index": 6,
+      "sha256": "984d8c4a0d0a941ce4072ff5374b797827d5d1ce644d7669e108ac33810b3795",
+      "size": [
+        519,
+        194
+      ],
+      "subject_guess": "About This Mac",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.20.03 AM.png": {
+      "index": 7,
+      "sha256": "a4110681dafb0deffb5ddf981c8c039cf02cca6032103882825282a194123ac4",
+      "size": [
+        723,
+        733
+      ],
+      "subject_guess": "Safari bookmark bar alert",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.22.25 AM.png": {
+      "index": 8,
+      "sha256": "1e2454cecf3d9ba81501b308abd0f7b970b1edb45fc0c47a5be56a5e0d0751ed",
+      "size": [
+        655,
+        712
+      ],
+      "subject_guess": "Safari window",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.22.40 AM.png": {
+      "index": 9,
+      "sha256": "8f5e1c9c95dd01a80a5af989d5be1058c8413a0bb21ae0146ef5acf76ffc9fc7",
+      "size": [
+        674,
+        250
+      ],
+      "subject_guess": "Safari copy progress sheet",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 10.23.44 AM.png": {
+      "index": 10,
+      "sha256": "8d5af03de4b0c20536edf2291c18847f6fa9c2107e110c4aa6265094d18c0c69",
+      "size": [
+        582,
+        422
+      ],
+      "subject_guess": "Safari bookmark bar with context menu",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.55.57 AM.png": {
+      "index": 11,
+      "sha256": "9cae5dc2472d3aa7d246ec2fff41c4ffd53a6035943c380b4efb7f392752a6e7",
+      "size": [
+        347,
+        406
+      ],
+      "subject_guess": "About This Mac",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.56.11 AM.png": {
+      "index": 12,
+      "sha256": "b1b04fa3c543f2ec289c9dad18dfc7b4e97e66f27879c036e47fcbb8a5cf4541",
+      "size": [
+        830,
+        501
+      ],
+      "subject_guess": "Spaces grid",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.56.31 AM.png": {
+      "index": 13,
+      "sha256": "c215e83324b4777bb172b09ecf3b53d9b73865720d94558b98771ce1c199a406",
+      "size": [
+        406,
+        506
+      ],
+      "subject_guess": "Finder Preferences, General",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.56.41 AM.png": {
+      "index": 14,
+      "sha256": "147472fbe914ab11a0a734befa42a1e2f320967589f004b08dd3344ee8e06b8b",
+      "size": [
+        451,
+        327
+      ],
+      "subject_guess": "Finder list view, Computer",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.56.49 AM.png": {
+      "index": 15,
+      "sha256": "9773a8313540442895a0f71485c881c0246d888a1c224b1810ec812bbcad7ef1",
+      "size": [
+        864,
+        484
+      ],
+      "subject_guess": "Finder list view, Documents",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.57.21 AM.png": {
+      "index": 16,
+      "sha256": "f955c6cb4e8b79b07f62ce79b6e4e474f020de41f26723060237f0ca06986cb0",
+      "size": [
+        639,
+        480
+      ],
+      "subject_guess": "Installer welcome, language",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.57.29 AM.png": {
+      "index": 17,
+      "sha256": "7b5915e371ad087b0c95187b293f9694603d0ec3cb96f2633a07559b9ee4a31f",
+      "size": [
+        625,
+        472
+      ],
+      "subject_guess": "Installer welcome",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.57.42 AM.png": {
+      "index": 18,
+      "sha256": "6dc824de3dc74a75e42bf1b8000cba2724fb79a2cb2476ee44e083706bfdebcc",
+      "size": [
+        661,
+        509
+      ],
+      "subject_guess": "Installer welcome",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.57.57 AM.png": {
+      "index": 19,
+      "sha256": "8c0cdc8a5131848a02697e9b4cfce9639061ac565e85096b838db512424e437e",
+      "size": [
+        649,
+        492
+      ],
+      "subject_guess": "Installer account setup",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.58.02 AM.png": {
+      "index": 20,
+      "sha256": "76215a401520ca4c52dfcfece22b04a4329b2c056954b20ed643068d6d3ce123",
+      "size": [
+        646,
+        469
+      ],
+      "subject_guess": "Installer conclusion",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.58.32 AM.png": {
+      "index": 21,
+      "sha256": "a22fd9d3bceb28b790e8a9aaf8aa01732292273e8cef9785f5c36d9dd7a47b6e",
+      "size": [
+        460,
+        184
+      ],
+      "subject_guess": "Installer welcome",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.58.49 AM.png": {
+      "index": 22,
+      "sha256": "2f6fa8a1495b5ddbdba0092a51d7ae87eca2939cdb784c8489d62103b8c8c928",
+      "size": [
+        654,
+        507
+      ],
+      "subject_guess": "Software License Agreement",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.58.57 AM.png": {
+      "index": 23,
+      "sha256": "32db83594e8c11826c12f548cde387de326bb8e904353489d5a877c98ee1d906",
+      "size": [
+        625,
+        423
+      ],
+      "subject_guess": "Installer welcome",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 3.59.39 AM.png": {
+      "index": 24,
+      "sha256": "663de381a3d371fc62b3c456a2593458ccbbca7885730502ae85598dcc4fefcd",
+      "size": [
+        1154,
+        752
+      ],
+      "subject_guess": "Preview document window",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.00.03 AM.png": {
+      "index": 25,
+      "sha256": "dec5bb3da9c47c085f5403b84f6c597b01cea13be604c675eb0b947ddb89d2d0",
+      "size": [
+        494,
+        281
+      ],
+      "subject_guess": "Activity Monitor",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.00.17 AM.png": {
+      "index": 26,
+      "sha256": "b74f9fffdf234751bc91c97b73112b93bcadd9e2d641f1e29ff7d818b49ebb5f",
+      "size": [
+        707,
+        404
+      ],
+      "subject_guess": "About This Mac window",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.01.33 AM.png": {
+      "index": 27,
+      "sha256": "7779d2cacc306007390b9a79d7a236be8b2b43814b6cb9c96f7bcc915d38bcc2",
+      "size": [
+        371,
+        384
+      ],
+      "subject_guess": "Address Book card",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.02.19 AM.png": {
+      "index": 28,
+      "sha256": "8b998bf76782a531344946a38ce43faa884498f3716af640532108648d1fd6ee",
+      "size": [
+        879,
+        542
+      ],
+      "subject_guess": "Safari loading sheet",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.02.47 AM.png": {
+      "index": 29,
+      "sha256": "291a25857efc47ba7461376804e7c907bf14bc3a1684ab931df41041237c7f20",
+      "size": [
+        475,
+        140
+      ],
+      "subject_guess": "Safari list window",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.03.03 AM.png": {
+      "index": 30,
+      "sha256": "f779dbfb6eb144daa092f60eb3b9658ccc0277a50fa8e00e8eb4687faee7c638",
+      "size": [
+        801,
+        467
+      ],
+      "subject_guess": "Safari bookmarks",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.04.01 AM.png": {
+      "index": 31,
+      "sha256": "307c5ec8cdfa202ada34fb19992e7560a3626c9d26d8643021a6a65c7e930854",
+      "size": [
+        805,
+        577
+      ],
+      "subject_guess": "TextEdit document",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.04.34 AM.png": {
+      "index": 32,
+      "sha256": "e23ecdcbc7e05d50744ecbe3865bc55617c263e881208c2f9e46b3ad29157c02",
+      "size": [
+        918,
+        527
+      ],
+      "subject_guess": "Finder Applications, icon view",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.04.43 AM.png": {
+      "index": 33,
+      "sha256": "e8acc81b736ea568de363df4944dd0213a7efc8fe998d2468fc740025040ba3b",
+      "size": [
+        729,
+        503
+      ],
+      "subject_guess": "Finder sidebar, icon view",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.04.54 AM.png": {
+      "index": 34,
+      "sha256": "b73561fc198a1f077f5e17e24d143af1e5fa550a9d628793d73fadc4aad4a338",
+      "size": [
+        717,
+        618
+      ],
+      "subject_guess": "Appearance pane with Colors palette",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.05.01 AM.png": {
+      "index": 35,
+      "sha256": "0646175d7e01a5288fc8e8b95c7a289b3e51b92b1d86ba786750c74e569f2252",
+      "size": [
+        117,
+        108
+      ],
+      "subject_guess": "Spotlight help overlay",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.05.14 AM.png": {
+      "index": 36,
+      "sha256": "6e1af6cbc3bcb16a8eaecc4a0d34d00ba1225d3ad166bff55864c6c551ce8ee0",
+      "size": [
+        719,
+        604
+      ],
+      "subject_guess": "System Preferences, Date & Time",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.05.31 AM.png": {
+      "index": 37,
+      "sha256": "608c54198505786315ca3fcb339cc3756541c3da624dfc7517e3453428b98134",
+      "size": [
+        730,
+        379
+      ],
+      "subject_guess": "System Preferences, Date & Time options",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.05.48 AM.png": {
+      "index": 38,
+      "sha256": "7725dfc669ede17bd1353c10b1c10c5d6c126abb5f476c05d0d44c792bd1c852",
+      "size": [
+        707,
+        577
+      ],
+      "subject_guess": "System Preferences, Appearance",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.06.05 AM.png": {
+      "index": 39,
+      "sha256": "c2b84803e9edf982163c8166924413e260b46211e43b1e7c3f2ad136f4e9711e",
+      "size": [
+        720,
+        378
+      ],
+      "subject_guess": "System Preferences, Desktop & Screen Saver",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.06.34 AM.png": {
+      "index": 40,
+      "sha256": "e6c2c758f669149309592dcdcbe1765a7623eb4eccda3a3452a3958fe7eb9809",
+      "size": [
+        764,
+        730
+      ],
+      "subject_guess": "System Preferences, Display with Colors",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.06.47 AM.png": {
+      "index": 41,
+      "sha256": "57eb27e2477a6ebb43dbf3115cff20c298a668532d7ba65689a4443d4a118911",
+      "size": [
+        702,
+        626
+      ],
+      "subject_guess": "System Preferences, Date & Time clock",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.09.42 AM.png": {
+      "index": 42,
+      "sha256": "6d95eac785bc8c1d4109ae847622ade9f870fc7e1dbf7f57a466c9487c385fcd",
+      "size": [
+        703,
+        388
+      ],
+      "subject_guess": "System Preferences pane (uncertain)",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.10.01 AM.png": {
+      "index": 43,
+      "sha256": "24b5b68ed38be20f834d733da7d20d374b31a7d568d401caa3f4b503949621cf",
+      "size": [
+        700,
+        507
+      ],
+      "subject_guess": "System Preferences pane (uncertain)",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 4.15.47 AM.png": {
+      "index": 44,
+      "sha256": "e90f72715f75d9395561aa7dbce48a315ba4da1741515ef1a6fe7cad40adfbb7",
+      "size": [
+        760,
+        599
+      ],
+      "subject_guess": "Software Update install window",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 9.53.41 AM.png": {
+      "index": 45,
+      "sha256": "6c40384c3cc236c2be70ef4cd28e559ab08851671bdf3e875673687c22690671",
+      "size": [
+        464,
+        211
+      ],
+      "subject_guess": "Permission dialog",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 9.54.45 AM.png": {
+      "index": 46,
+      "sha256": "5bf724ba9f40a2a0f13e56cb47de07c7945bcdbd519fcf7985b1b1038fb1e372",
+      "size": [
+        499,
+        192
+      ],
+      "subject_guess": "Spotlight menu",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 9.55.08 AM.png": {
+      "index": 47,
+      "sha256": "7b3a5376b2642356dabdbf53a3d5faf90fa31d311035c21584fcfe568efb0636",
+      "size": [
+        275,
+        329
+      ],
+      "subject_guess": "Calculator",
+      "verified": false
+    },
+    "Screen shot 2026-11-23 at 9.55.47 AM.png": {
+      "index": 48,
+      "sha256": "b2fcc1009a0917b6bb3e28b43c64d126b100c278d5ad890c759616d3c510e46c",
+      "size": [
+        1161,
+        857
+      ],
+      "subject_guess": "Software Update window",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062232.png": {
+      "index": 49,
+      "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+      "size": [
+        1442,
+        955
+      ],
+      "subject_guess": "Login window",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062237.png": {
+      "index": 50,
+      "sha256": "d9051cfee405aff2263b1ec621beafcdb19c41d0126bdda49b132f038df91796",
+      "size": [
+        66,
+        61
+      ],
+      "subject_guess": "Apple boot spinner",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062250.png": {
+      "index": 51,
+      "sha256": "acdab90e9fa1048110b79d6ce196b418a49b4c842f04fe0a7e3324c0a7bd67fe",
+      "size": [
+        651,
+        530
+      ],
+      "subject_guess": "Install Mac OS X DVD window",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062300.png": {
+      "index": 52,
+      "sha256": "61162b4f8aa17dd72ca449719bac67efe78a6d544286b01a145f1c15aeccc337",
+      "size": [
+        843,
+        630
+      ],
+      "subject_guess": "Install Mac OS X folder icon",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062319.png": {
+      "index": 53,
+      "sha256": "1f2d1ad52c06d2702777249748caf074d2cff82c1fe32e8e5afabf56b7219188",
+      "size": [
+        859,
+        644
+      ],
+      "subject_guess": "License text",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062326.png": {
+      "index": 54,
+      "sha256": "3e51e13b98e898faeee790b6e783f39a51e272eeb8173028d7d7d6f6cdf42bc1",
+      "size": [
+        171,
+        82
+      ],
+      "subject_guess": "Agree button",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062340.png": {
+      "index": 55,
+      "sha256": "b27340fc46911ba38b00b20d27298807cdb85f5ac8d8c4ab4a0949a621dae744",
+      "size": [
+        2558,
+        1599
+      ],
+      "subject_guess": "Installer dark screen",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062409.png": {
+      "index": 56,
+      "sha256": "e2539e02773c9785d25779a05371bfb735e25de491650afc55e70ab8bfa12dab",
+      "size": [
+        780,
+        670
+      ],
+      "subject_guess": "Migration Assistant",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062415.png": {
+      "index": 57,
+      "sha256": "8c20e0b301371ef70f52b453ce7877b428d74cce37aaaa3f3a4012559e293801",
+      "size": [
+        826,
+        302
+      ],
+      "subject_guess": "Installer progress",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062458.png": {
+      "index": 58,
+      "sha256": "88538c9c0bedbf532041b9d70d7420b48bdce8197ff853cea51acc97f8f4c9bc",
+      "size": [
+        316,
+        84
+      ],
+      "subject_guess": "Unmounting disk progress",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062516.png": {
+      "index": 59,
+      "sha256": "c99b376dce7ae724254df0acce6b6f395fa36878dfcb11713a9835e485d7020c",
+      "size": [
+        866,
+        635
+      ],
+      "subject_guess": "Install target disk",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062522.png": {
+      "index": 60,
+      "sha256": "c9995a75c00965aa411e6459ab9f9a8f1cbfbb3f2a9cb4328d9ed225bdee60e0",
+      "size": [
+        840,
+        649
+      ],
+      "subject_guess": "Installing progress",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 062915.png": {
+      "index": 61,
+      "sha256": "7562e52045cce4876387ca940f6c8b0bb4cd08ccfbf7f2c56afc975fb9618384",
+      "size": [
+        400,
+        73
+      ],
+      "subject_guess": "Installing progress",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063026.png": {
+      "index": 62,
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030",
+      "size": [
+        1660,
+        1106
+      ],
+      "subject_guess": "Silvestris Gallery in 10.6",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063128.png": {
+      "index": 63,
+      "sha256": "eaae76bce32e1dbb6e0bbe439e749b3aa9d528eb199716568ee50a643f76b9eb",
+      "size": [
+        350,
+        232
+      ],
+      "subject_guess": "Installer window",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063358.png": {
+      "index": 64,
+      "sha256": "7d7b345e7d568d7aa4a54bf11c73c5ca23751165bb656f49acaa14077cedd5c4",
+      "size": [
+        852,
+        628
+      ],
+      "subject_guess": "Install Successful",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063529.png": {
+      "index": 65,
+      "sha256": "c915d17151e201f3c56d394cf2ee74c27554b22ef583135c3596f7beebf36d08",
+      "size": [
+        924,
+        673
+      ],
+      "subject_guess": "Welcome after install",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063542.png": {
+      "index": 66,
+      "sha256": "45493c106f72d40740b8343b7f74075fd51d1b9525d39851ed5e074eda79106f",
+      "size": [
+        105,
+        157
+      ],
+      "subject_guess": "License agreement choice",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063558.png": {
+      "index": 67,
+      "sha256": "298e0d7242a730aa31609a0d6a997c3c6739acc45260aa57154269274823c5d4",
+      "size": [
+        915,
+        679
+      ],
+      "subject_guess": "Software Update checking",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063714.png": {
+      "index": 68,
+      "sha256": "9948dc95f1ab61b445b397c083d01958126256aceaea54afc4642ce2b671ed19",
+      "size": [
+        897,
+        393
+      ],
+      "subject_guess": "Software Update up to date",
+      "verified": false
+    },
+    "Screenshot 2026-11-23 063718.png": {
+      "index": 69,
+      "sha256": "433f7b8f4fe9f24344925f24f220be405273de2f91e221a05a84f4dc8824898e",
+      "size": [
+        1085,
+        421
+      ],
+      "subject_guess": "Software Update list",
+      "verified": false
+    },
+    "SL/systempreferences-appearance.png": {
+      "index": null,
+      "sha256": "e62818dc6931bf8d1f0ad51e9bdd129b4dc277be22b26b0a97cd5723d443a809",
+      "size": [
+        1404,
+        1156
+      ],
+      "subject_guess": "System Preferences, Appearance pane",
+      "verified": true
+    }
+  },
+  "crops": [
+    {
+      "id": "button.regular",
+      "control": "button",
+      "state": "regular, enabled",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        270,
+        152,
+        148,
+        41
+      ],
+      "size": [
+        148,
+        41
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "checkbox.on",
+      "control": "checkbox",
+      "state": "regular, checked",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        203,
+        366,
+        92,
+        31
+      ],
+      "size": [
+        92,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "radio.selected",
+      "control": "radio",
+      "state": "regular, selected",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        73,
+        513,
+        178,
+        31
+      ],
+      "size": [
+        178,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "popup-button.regular",
+      "control": "popup-button",
+      "state": "regular, enabled, Blue",
+      "capture": "SL/systempreferences-appearance.png",
+      "rect": [
+        572,
+        188,
+        272,
+        43
+      ],
+      "size": [
+        272,
+        43
+      ],
+      "scale": 2.0,
+      "scale_note": "PNG resolution is 144 dpi; the pane is a 2x capture.",
+      "sha256": "e62818dc6931bf8d1f0ad51e9bdd129b4dc277be22b26b0a97cd5723d443a809"
+    },
+    {
+      "id": "segmented.regular",
+      "control": "segmented",
+      "state": "regular, List selected",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        83,
+        442,
+        430,
+        41
+      ],
+      "size": [
+        430,
+        41
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "slider.regular",
+      "control": "slider",
+      "state": "regular, mid value",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        663,
+        528,
+        294,
+        31
+      ],
+      "size": [
+        294,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "text-field.regular",
+      "control": "text-field",
+      "state": "regular, empty with placeholder",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        83,
+        223,
+        258,
+        40
+      ],
+      "size": [
+        258,
+        40
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "source-list.regular",
+      "control": "source-list",
+      "state": "regular, Library header and rows",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        104,
+        738,
+        396,
+        160
+      ],
+      "size": [
+        396,
+        160
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    }
+  ]
+}
