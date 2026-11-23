@@ -1,12 +1,12 @@
 # Visual goldens
 
-The visual gate renders eight controls at 100, 150 and 200% in all four
+The visual gate renders eight controls at 100, 125, 150 and 200% in all four
 appearances, compares the result byte-for-byte with committed goldens, and
 reports the distance to a 10.6 reference crop for information.
 
 Committed:
 
-- `goldens/renders/<appearance>/<100|150|200>/<control>.png` and `layout.json`.
+- `goldens/renders/<appearance>/<100|125|150|200>/<control>.png` and `layout.json`.
 - `goldens/manifest.json`: sha256 per golden.
 - `goldens/reasons.json`: why each golden is accepted.
 - `reference/crops.json`: corpus file, sha256, rectangle, size, state and, where
@@ -59,12 +59,16 @@ The comparison is strict: a pixel fails when any channel differs by more than
 difference image and, for Aqua Light at 100%, the 10.6 crop id and mean channel
 distance.
 
-`--accept` copies the candidate over the golden and requires a reason:
+`--accept` copies the candidate over the golden, adds a candidate that has no
+golden yet (a new control or a new scale), and requires a reason:
 
 ```powershell
 python tools/metrology/gate.py --candidate target/goldens \
   --accept --reason "raise the checkbox tick by one pixel"
 ```
+
+125% is included because it is where half-pixel edges break on controls with
+hairlines (text-field and segmented borders, slider track).
 
 `cargo test -p silvestris --test goldens` reads `manifest.json` and
 `reasons.json`. It fails when a committed golden changed without
