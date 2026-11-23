@@ -157,6 +157,21 @@ def main():
         manifest[key] = sha256(args.goldens / key)
         reasons[key] = args.reason
     if args.accept:
+        # A new scale or a new control produces candidates with no golden. Accept
+        # them too, so the workflow does not need a manual copy.
+        known = {path.relative_to(args.goldens).as_posix() for path in goldens}
+        for candidate_path in sorted(args.candidate.rglob("*.png")):
+            relative = candidate_path.relative_to(args.candidate)
+            key = relative.as_posix()
+            if key in known:
+                continue
+            target = args.goldens / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            Image.open(candidate_path).save(target)
+            manifest[key] = sha256(target)
+            reasons[key] = args.reason
+            rows.append({"key": key, "status": "added", "detail": args.reason, "changed": 0,
+                         "worst": 0, "crop": None, "distance": None})
         MANIFEST.parent.mkdir(parents=True, exist_ok=True)
         MANIFEST.write_text(json.dumps(dict(sorted(manifest.items())), indent=2) + "\n",
                             encoding="utf-8")
