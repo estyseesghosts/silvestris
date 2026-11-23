@@ -116,3 +116,61 @@ action.rs (parameterized actions), keymap/binding.rs (dynamic key loading),
 and div.rs (action responders). Pending #129 work beyond the popup in menus.md includes menubar surfaces,
 submenus, checkmarks, hover/type selection, dismissal/focus restoration,
 native macOS integration and the Windows/Linux menu-bar equivalent.
+
+
+## Rebinding shortcuts
+
+`CommandRegistry::rebind(id, shortcut, cx)` changes one command's shortcut and
+publishes the descriptor. It refuses an unknown command, an unparseable
+shortcut and a chord another command already owns in an overlapping context;
+the old value stays on failure. A reserved HIG Appendix A shortcut is accepted
+with `RebindWarning::Reserved` so a preferences pane can warn instead of
+blocking:
+
+```rust
+use silvestris::command::{apply_bindings, RebindError, RebindWarning};
+
+match registry.update(cx, |registry, cx| {
+    registry.rebind(&id, Some("secondary-k"), cx)
+}) {
+    Ok(warnings) if warnings.contains(&RebindWarning::Reserved) => { /* warn */ }
+    Ok(_) => apply_bindings(&registry, &["Editor && !SilvestrisTextField"], cx)?,
+    Err(RebindError::Conflict { other, .. }) => { /* show the other command */ }
+    Err(_) => { /* invalid */ }
+}
+```
+
+`apply_bindings` rebuilds the GPUI keymap for the given focus contexts: it
+keeps every non-command binding (text fields, theme actions, app bindings),
+removes the registry's `InvokeCommand` bindings and adds the current set. Pass
+the same contexts used at startup. A new chord works on the next keystroke; no
+restart and no stale binding remains.
+
+`set_binding_context(id, context)` records where a command is bound.
+`contexts_overlap` compares the leading context name, so two panes may share a
+chord while two commands in `Editor` cannot. A command with no recorded context
+is treated as overlapping every other (conservative). GPUI predicates are
+general expressions, so this is an approximation, not a proof.
+
+The reserved list is `RESERVED_SHORTCUTS`: Quit, Close, Minimize, Hide, Force
+Quit, Hide Others, the app switcher, Spotlight and the window cycle.
+
+## Shortcut recorder
+
+`controls::ShortcutRecorder` is the field for a preferences pane:
+
+```rust
+ShortcutRecorder::new("toggle-sidebar", "Toggle sidebar")
+    .shortcut(current)
+    .on_record(|chord, window, cx| { /* chord: Option<SharedString> */ })
+```
+
+Click starts recording; the next chord is reported with
+`Keystroke::unparse`, the spelling `rebind` accepts. Escape cancels, Delete or
+Backspace clears, and modifier-only presses are ignored. It does not intercept
+while it is not recording, so a focused text field keeps its keystrokes; the
+gallery uses one for the sidebar command and shows the rebind result.
+
+Native macOS menus read the descriptors when built; an app that keeps a native
+menu must rebuild it after a rebind. This host has no macOS surface to test, so
+that path is documented rather than claimed.

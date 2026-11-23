@@ -9,6 +9,39 @@ use gpui::{
 use silvestris_core::command::{CommandDescriptor, CommandId, CommandSet};
 use std::{collections::BTreeMap, rc::Rc};
 
+/// HIG Appendix A shortcuts the system owns. A user-editable binding that
+/// matches one is accepted but reported, so a preferences pane can warn.
+pub const RESERVED_SHORTCUTS: &[&str] = &[
+    "secondary-q",
+    "secondary-w",
+    "secondary-m",
+    "secondary-h",
+    "secondary-option-escape",
+    "secondary-shift-q",
+    "secondary-tab",
+    "secondary-space",
+    "secondary-`",
+];
+
+/// Why a rebind was refused.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RebindError {
+    Unknown(CommandId),
+    InvalidShortcut(String),
+    /// Another command in an overlapping context already owns the chord.
+    Conflict {
+        other: CommandId,
+        shortcut: String,
+    },
+}
+
+/// A rebind that succeeded but needs the user's attention.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RebindWarning {
+    /// The chord is a reserved system shortcut (HIG Appendix A).
+    Reserved,
+}
+
 #[derive(Clone, Debug, PartialEq, gpui::Action)]
 #[action(namespace = silvestris, no_json)]
 pub struct InvokeCommand {
@@ -21,6 +54,8 @@ type Handler = Rc<dyn Fn(&CommandId, &mut Window, &mut App)>;
 pub struct CommandRegistry {
     descriptors: CommandSet,
     handlers: BTreeMap<CommandId, Handler>,
+    /// Focus context each command is bound in; used for conflict detection.
+    binding_contexts: BTreeMap<CommandId, String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,6 +135,85 @@ impl CommandRegistry {
         Invocation::Dispatched
     }
 
+    /// Record the focus context a command is bound in so `rebind` can tell a
+    /// real conflict from two commands in unrelated contexts.
+    pub fn set_binding_context(&mut self, id: impl Into<CommandId>, context: impl Into<String>) {
+        self.binding_contexts.insert(id.into(), context.into());
+    }
+
+    /// Change a command's shortcut. The caller then calls [`apply_bindings`] to
+    /// replace the GPUI keymap.
+    ///
+    /// A chord that conflicts with another command in an overlapping context,
+    /// or a shortcut that does not parse, is refused and leaves the old value.
+    /// A reserved HIG shortcut is accepted with [`RebindWarning::Reserved`].
+    pub fn rebind(
+        &mut self,
+        id: &CommandId,
+        shortcut: Option<&str>,
+        cx: &mut Context<Self>,
+    ) -> Result<Vec<RebindWarning>, RebindError> {
+        let Some(mut descriptor) = self.descriptors.get(id).cloned() else {
+            return Err(RebindError::Unknown(id.clone()));
+        };
+        let os = cx.platform_info().os;
+        let mut warnings = Vec::new();
+        let mut canonical = None;
+        if let Some(shortcut) = shortcut {
+            let keys = canonicalize(shortcut, os)?;
+            canonical = Some(keys.clone());
+            if RESERVED_SHORTCUTS
+                .iter()
+                .any(|reserved| canonicalize(reserved, os).is_ok_and(|r| r == keys))
+            {
+                warnings.push(RebindWarning::Reserved);
+            }
+            let context = self.binding_contexts.get(id).cloned().unwrap_or_default();
+            for other_descriptor in self.descriptors.iter() {
+                let other = &other_descriptor.id;
+                if other == id {
+                    continue;
+                }
+                let Some(other_keys) = other_descriptor.shortcut.as_deref() else {
+                    continue;
+                };
+                let Ok(other_keys) = canonicalize(other_keys, os) else {
+                    continue;
+                };
+                if other_keys != keys {
+                    continue;
+                }
+                let other_context = self
+                    .binding_contexts
+                    .get(other)
+                    .cloned()
+                    .unwrap_or_default();
+                if contexts_overlap(&context, &other_context) {
+                    return Err(RebindError::Conflict {
+                        other: other.clone(),
+                        shortcut: shortcut.to_string(),
+                    });
+                }
+            }
+        }
+        descriptor.shortcut = match (canonical, shortcut) {
+            (Some(canonical), _) => Some(std::sync::Arc::from(canonical)),
+            (None, Some(shortcut)) => Some(std::sync::Arc::from(shortcut)),
+            (None, None) => None,
+        };
+        self.descriptors.upsert(descriptor);
+        cx.notify();
+        Ok(warnings)
+    }
+
+    /// The current shortcut of one command, as published.
+    #[must_use]
+    pub fn shortcut(&self, id: &CommandId) -> Option<&str> {
+        self.descriptors
+            .get(id)
+            .and_then(|descriptor| descriptor.shortcut.as_deref())
+    }
+
     /// Construct startup bindings in an explicit focus context. Loading resolves
     /// secondary- using GPUI's host OS. Consumer mounts an InvokeCommand handler
     /// on the same scope and observes the registry for rendering invalidation.
@@ -157,6 +271,82 @@ impl CommandRegistry {
         }
         Ok(bindings)
     }
+}
+
+/// Replace the GPUI command bindings from the registry while keeping every
+/// non-command binding (text fields, theme actions, app shortcuts).
+///
+/// Call it after [`CommandRegistry::rebind`]. Each entry in `contexts` rebuilds
+/// one focus context; pass the same contexts used at startup.
+pub fn apply_bindings(
+    registry: &Entity<CommandRegistry>,
+    contexts: &[&str],
+    cx: &mut App,
+) -> Result<(), String> {
+    let mut bindings = Vec::new();
+    {
+        let registry = registry.read(cx);
+        for context in contexts {
+            bindings.extend(registry.bindings(context, cx)?);
+        }
+    }
+    // Collect the non-command bindings before clearing; keep the keymap borrow
+    // out of the mutation below.
+    let kept: Vec<KeyBinding> = {
+        let keymap = cx.key_bindings();
+        let keymap = keymap.borrow();
+        keymap
+            .bindings()
+            .filter(|binding| {
+                binding
+                    .action()
+                    .as_any()
+                    .downcast_ref::<InvokeCommand>()
+                    .is_none()
+            })
+            .cloned()
+            .collect()
+    };
+    cx.clear_key_bindings();
+    cx.bind_keys(kept);
+    cx.bind_keys(bindings);
+    Ok(())
+}
+
+fn canonicalize(shortcut: &str, os: gpui::OperatingSystem) -> Result<String, RebindError> {
+    if shortcut.trim().is_empty() {
+        return Err(RebindError::InvalidShortcut(shortcut.into()));
+    }
+    shortcut
+        .split_whitespace()
+        .map(|chord| {
+            gpui::Keystroke::parse_with_os(chord, os)
+                .map(|key| key.unparse(os))
+                .map_err(|_| RebindError::InvalidShortcut(shortcut.into()))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|chords| chords.join(" "))
+}
+
+/// Whether two focus-context predicates can both be active at once. GPUI
+/// predicates are general expressions; this compares the leading context name,
+/// which is what command binding contexts use in practice. A command with no
+/// recorded context is treated as overlapping every other.
+#[must_use]
+pub fn contexts_overlap(a: &str, b: &str) -> bool {
+    fn base(context: &str) -> String {
+        context
+            .split(['&', '|', '!'])
+            .next()
+            .unwrap_or(context)
+            .trim()
+            .to_ascii_lowercase()
+    }
+    if a.trim().is_empty() || b.trim().is_empty() {
+        return true;
+    }
+    let (a, b) = (base(a), base(b));
+    a == b || a.starts_with(&b) || b.starts_with(&a)
 }
 
 /// A button that reads presentation from the registry and invokes the same ID
@@ -486,5 +676,170 @@ mod tests {
                 );
             })
             .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod rebind_tests {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    use gpui::{div, KeyBinding, TestAppContext, VisualTestContext};
+
+    use super::*;
+    use silvestris_core::command::CommandDescriptor;
+
+    gpui::actions!(rebind_tests, [Other]);
+
+    struct View {
+        registry: Entity<CommandRegistry>,
+        focus: gpui::FocusHandle,
+    }
+
+    impl Render for View {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            let registry = self.registry.clone();
+            div()
+                .size_full()
+                .track_focus(&self.focus)
+                .key_context("RebindTest")
+                .on_action(move |action: &InvokeCommand, window, cx| {
+                    cx.stop_propagation();
+                    CommandRegistry::invoke(&registry, &CommandId::new(&action.id), window, cx);
+                })
+        }
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+    }
+
+    fn registered(app: &mut TestAppContext) -> (Entity<CommandRegistry>, Rc<Cell<usize>>) {
+        app.update(|cx| {
+            let hits = Rc::new(Cell::new(0));
+            let counter = hits.clone();
+            let registry = cx.new(|_| CommandRegistry::default());
+            registry.update(cx, |registry, cx| {
+                registry
+                    .register(
+                        CommandDescriptor::action("file.save", "Save").shortcut("secondary-a"),
+                        move |_, _, _| counter.set(counter.get() + 1),
+                        cx,
+                    )
+                    .unwrap();
+                registry
+                    .register(
+                        CommandDescriptor::action("file.close", "Close").shortcut("secondary-b"),
+                        |_, _, _| {},
+                        cx,
+                    )
+                    .unwrap();
+                registry.set_binding_context("file.save", "RebindTest");
+                registry.set_binding_context("file.close", "RebindTest");
+            });
+            (registry, hits)
+        })
+    }
+
+    #[test]
+    fn a_conflict_in_the_same_context_is_refused_and_the_old_chord_remains() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (registry, _) = registered(&mut app);
+        let save = CommandId::new("file.save");
+        let before = app.update(|cx| registry.read(cx).shortcut(&save).map(str::to_string));
+        let result = registry.update(&mut app, |registry, cx| {
+            registry.rebind(&save, Some("secondary-b"), cx)
+        });
+        assert!(matches!(result, Err(RebindError::Conflict { .. })));
+        let after = app.update(|cx| registry.read(cx).shortcut(&save).map(str::to_string));
+        assert_eq!(before, after);
+    }
+
+    #[test]
+    fn different_contexts_may_share_a_chord_and_reserved_shortcuts_are_flagged() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (registry, _) = registered(&mut app);
+        registry.update(&mut app, |registry, _| {
+            registry.set_binding_context("file.close", "OtherPane");
+        });
+        let save = CommandId::new("file.save");
+        let allowed = registry.update(&mut app, |registry, cx| {
+            registry.rebind(&save, Some("secondary-b"), cx)
+        });
+        assert_eq!(allowed, Ok(Vec::new()));
+
+        let reserved = registry.update(&mut app, |registry, cx| {
+            registry.rebind(&save, Some("secondary-q"), cx)
+        });
+        assert_eq!(reserved, Ok(vec![RebindWarning::Reserved]));
+
+        let invalid = registry.update(&mut app, |registry, cx| {
+            registry.rebind(&save, Some("   "), cx)
+        });
+        assert!(matches!(invalid, Err(RebindError::InvalidShortcut(_))));
+
+        let unknown = registry.update(&mut app, |registry, cx| {
+            registry.rebind(&CommandId::new("nope"), Some("secondary-k"), cx)
+        });
+        assert!(matches!(unknown, Err(RebindError::Unknown(_))));
+    }
+
+    #[test]
+    fn applying_bindings_replaces_the_old_chord_and_keeps_other_bindings() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (registry, hits) = registered(&mut app);
+        let (_view, cx) = app.add_window_view(|window, cx| {
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            View {
+                registry: registry.clone(),
+                focus,
+            }
+        });
+        draw(cx);
+        cx.update(|_, cx| {
+            cx.bind_keys([KeyBinding::new("ctrl-z", Other, None)]);
+            apply_bindings(&registry, &["RebindTest"], cx).expect("apply");
+        });
+        draw(cx);
+
+        cx.simulate_keystrokes("secondary-a");
+        draw(cx);
+        assert_eq!(hits.get(), 1);
+
+        let save = CommandId::new("file.save");
+        registry.update(cx, |registry, cx| {
+            registry
+                .rebind(&save, Some("secondary-k"), cx)
+                .expect("rebind")
+        });
+        cx.update(|_, cx| {
+            apply_bindings(&registry, &["RebindTest"], cx).expect("reapply");
+        });
+        draw(cx);
+
+        cx.simulate_keystrokes("secondary-a");
+        draw(cx);
+        assert_eq!(hits.get(), 1, "the old chord is gone");
+        cx.simulate_keystrokes("secondary-k");
+        draw(cx);
+        assert_eq!(hits.get(), 2, "the new chord dispatches immediately");
+
+        let kept = cx.update(|_, cx| {
+            let keymap = cx.key_bindings();
+            let keymap = keymap.borrow();
+            keymap
+                .bindings()
+                .filter(|binding| binding.action().as_any().downcast_ref::<Other>().is_some())
+                .count()
+        });
+        assert_eq!(kept, 1, "non-command bindings survive the rebuild");
     }
 }
