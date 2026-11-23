@@ -24,6 +24,7 @@ use crate::convert::hsla;
 use crate::paint;
 use crate::sprites::{self, Light};
 use crate::theme::ActiveTheme;
+use crate::window_role::WindowRole;
 
 /// Window options for a Silvestris window with custom chrome.
 pub fn window_options(
@@ -101,6 +102,7 @@ pub struct WindowFrame {
     content: Option<AnyElement>,
     show_title: bool,
     fixed: bool,
+    role: Option<WindowRole>,
 }
 
 impl WindowFrame {
@@ -113,7 +115,16 @@ impl WindowFrame {
             content: None,
             show_title: true,
             fixed: false,
+            role: None,
         }
+    }
+
+    /// Apply a window role (#20): its resizability, title visibility and which
+    /// title-bar buttons are live. open_role already set the platform side;
+    /// this makes the drawn frame agree with it.
+    pub fn role(mut self, role: WindowRole) -> Self {
+        self.role = Some(role);
+        self
     }
 
     /// Unified toolbar under the title row. `height` is
@@ -149,14 +160,19 @@ impl WindowFrame {
     }
 }
 
-fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
+fn traffic_lights(
+    theme: &Theme,
+    active: bool,
+    enabled: [bool; 3],
+    titlebar_height: f32,
+) -> impl IntoElement {
     let m = &theme.metrics;
     let d = px(m.traffic_diameter);
     // Hit boxes span the pitch so the tiny targets are easier to hit without
     // overlapping (handbook 12 "larger accessible hit area (not visually
     // larger) that does not overlap"); the visible sphere stays 14 px.
     let hit_w = px(m.traffic_pitch);
-    let hit_h = px(m.titlebar_height);
+    let hit_h = px(titlebar_height);
     // Whole pixels: layout rounds a half-pixel box origin, which moved the
     // sphere off `traffic_left` (14 px sphere in a 21 px pitch leaves 3.5).
     let pad = ((hit_w - d) / 2.0).floor();
@@ -189,98 +205,105 @@ fn traffic_lights(theme: &Theme, active: bool, zoom: bool) -> impl IntoElement {
         .h(hit_h)
         .flex()
         .flex_row()
-        .children(lights.into_iter().map(move |(light, glyph, area, label)| {
-            // A disabled button keeps the idle sphere and shows no glyph.
-            let enabled = zoom || light != Light::Zoom;
-            let base = if active && enabled {
-                light
-            } else {
-                Light::Idle
-            };
-            div()
-                .id(label)
-                .role(gpui::Role::Button)
-                .aria_label(label)
-                .w(hit_w)
-                .h(hit_h)
-                .relative()
-                .when(!enabled, |el| {
-                    el.aria_label(format!("{label} (unavailable)"))
-                })
-                .when(enabled, |el| el.window_control_area(area))
-                .when(!cfg!(windows) && enabled, |el| {
-                    el.on_click(move |_, window, _| match area {
-                        WindowControlArea::Close => window.remove_window(),
-                        WindowControlArea::Min => window.minimize_window(),
-                        _ => window.zoom_window(),
+        .children(lights.into_iter().enumerate().map(
+            move |(index, (light, glyph, area, label))| {
+                // A disabled button keeps the idle sphere and shows no glyph.
+                let enabled = enabled[index];
+                let base = if active && enabled {
+                    light
+                } else {
+                    Light::Idle
+                };
+                div()
+                    .id(label)
+                    .role(gpui::Role::Button)
+                    .aria_label(label)
+                    .w(hit_w)
+                    .h(hit_h)
+                    .relative()
+                    .when(enabled, |el| {
+                        el.debug_selector(move || format!("traffic-{label}-enabled"))
                     })
-                })
-                .child(
-                    canvas(
-                        |_, _, _| (),
-                        move |bounds, _, window, cx| {
-                            let sphere = Bounds::new(
-                                point(bounds.origin.x + pad, bounds.origin.y + px(m_top(cx))),
-                                size(d, d),
-                            );
-                            // Emboss: the disc repeated one hairline lower in
-                            // `traffic.emboss`, showing as a crescent under the
-                            // sphere (M: traffic.close.column row 18, d8 over c3).
-                            let emboss = cx.theme().traffic.emboss;
-                            if emboss.a > 0 {
-                                let low = sphere + point(px(0.), crate::convert::hairline(window));
-                                window.paint_quad(
-                                    gpui::fill(low, crate::convert::rgba(emboss))
-                                        .corner_radii(d / 2.0),
+                    .when(!enabled, |el| {
+                        el.debug_selector(move || format!("traffic-{label}-disabled"))
+                            .aria_label(format!("{label} (unavailable)"))
+                    })
+                    .when(enabled, |el| el.window_control_area(area))
+                    .when(!cfg!(windows) && enabled, |el| {
+                        el.on_click(move |_, window, _| match area {
+                            WindowControlArea::Close => window.remove_window(),
+                            WindowControlArea::Min => window.minimize_window(),
+                            _ => window.zoom_window(),
+                        })
+                    })
+                    .child(
+                        canvas(
+                            |_, _, _| (),
+                            move |bounds, _, window, cx| {
+                                let sphere = Bounds::new(
+                                    point(bounds.origin.x + pad, bounds.origin.y + px(m_top(cx))),
+                                    size(d, d),
                                 );
-                            }
-                            let image = sprites::traffic(base, Glyph::None, window, cx);
-                            window
-                                .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
-                                .ok();
-                        },
+                                // Emboss: the disc repeated one hairline lower in
+                                // `traffic.emboss`, showing as a crescent under the
+                                // sphere (M: traffic.close.column row 18, d8 over c3).
+                                let emboss = cx.theme().traffic.emboss;
+                                if emboss.a > 0 {
+                                    let low =
+                                        sphere + point(px(0.), crate::convert::hairline(window));
+                                    window.paint_quad(
+                                        gpui::fill(low, crate::convert::rgba(emboss))
+                                            .corner_radii(d / 2.0),
+                                    );
+                                }
+                                let image = sprites::traffic(base, Glyph::None, window, cx);
+                                window
+                                    .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
+                                    .ok();
+                            },
+                        )
+                        .absolute()
+                        .size_full(),
                     )
-                    .absolute()
-                    .size_full(),
-                )
-                // Hovering the group shows colour and glyphs, also in an
-                // inactive window (10.6 behaviour).
-                .when(enabled, |el| {
-                    el.child(
-                        div()
-                            .absolute()
-                            .size_full()
-                            .opacity(0.)
-                            .group_hover("silvestris-traffic-lights", |s| s.opacity(1.))
-                            .child(
-                                canvas(
-                                    |_, _, _| (),
-                                    move |bounds, _, window, cx| {
-                                        let sphere = Bounds::new(
-                                            point(
-                                                bounds.origin.x + pad,
-                                                bounds.origin.y + px(m_top(cx)),
-                                            ),
-                                            size(d, d),
-                                        );
-                                        let image = sprites::traffic(light, glyph, window, cx);
-                                        window
-                                            .paint_image(
-                                                sphere,
-                                                sphere,
-                                                0.0.into(),
-                                                image,
-                                                0,
-                                                false,
-                                            )
-                                            .ok();
-                                    },
-                                )
-                                .size_full(),
-                            ),
-                    )
-                })
-        }))
+                    // Hovering the group shows colour and glyphs, also in an
+                    // inactive window (10.6 behaviour).
+                    .when(enabled, |el| {
+                        el.child(
+                            div()
+                                .absolute()
+                                .size_full()
+                                .opacity(0.)
+                                .group_hover("silvestris-traffic-lights", |s| s.opacity(1.))
+                                .child(
+                                    canvas(
+                                        |_, _, _| (),
+                                        move |bounds, _, window, cx| {
+                                            let sphere = Bounds::new(
+                                                point(
+                                                    bounds.origin.x + pad,
+                                                    bounds.origin.y + px(m_top(cx)),
+                                                ),
+                                                size(d, d),
+                                            );
+                                            let image = sprites::traffic(light, glyph, window, cx);
+                                            window
+                                                .paint_image(
+                                                    sphere,
+                                                    sphere,
+                                                    0.0.into(),
+                                                    image,
+                                                    0,
+                                                    false,
+                                                )
+                                                .ok();
+                                        },
+                                    )
+                                    .size_full(),
+                                ),
+                        )
+                    })
+            },
+        ))
 }
 
 /// Tell the platform about the grip's hit area, only when it changes.
@@ -314,13 +337,21 @@ impl RenderOnce for WindowFrame {
         } else {
             theme.chrome.bottom_inactive
         };
-        let band_height = m.titlebar_height + self.toolbar_height;
+        let spec = self.role.map(WindowRole::spec);
+        let titlebar_height = self
+            .role
+            .map_or(m.titlebar_height, |role| role.titlebar_height(&theme));
+        let band_height = titlebar_height + self.toolbar_height;
         let client = matches!(decorations, Decorations::Client { .. })
             && !cfg!(windows)
             && !cfg!(target_os = "macos");
         let radius = if maximized { 0.0 } else { m.window_radius };
         let draws_lights = !cfg!(target_os = "macos");
-        let fixed = self.fixed;
+        let fixed = self.fixed || spec.is_some_and(|spec| !spec.resizable);
+        let show_title = self.show_title && spec.is_none_or(|spec| spec.shows_title);
+        let (close, minimize, zoom) = spec.map_or((true, true, true), |spec| {
+            (spec.close, spec.minimize, spec.zoom)
+        });
 
         let title_text = |color, dy: f32| {
             div()
@@ -328,7 +359,7 @@ impl RenderOnce for WindowFrame {
                 .left_0()
                 .right_0()
                 .top(px(dy))
-                .h(px(m.titlebar_height))
+                .h(px(titlebar_height))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -338,6 +369,7 @@ impl RenderOnce for WindowFrame {
 
         let band = div()
             .id("silvestris-titlebar")
+            .debug_selector(|| "silvestris-titlebar".into())
             .relative()
             .flex_none()
             .w_full()
@@ -367,7 +399,7 @@ impl RenderOnce for WindowFrame {
             })
             .font_family(theme.type_.ui)
             .text_size(px(theme.type_.size_title))
-            .when(self.show_title, |el| {
+            .when(show_title, |el| {
                 el.when(c.title_engrave.a > 0, |el| {
                     el.child(title_text(c.title_engrave, 1.0))
                 })
@@ -377,7 +409,12 @@ impl RenderOnce for WindowFrame {
                 ))
             })
             .when(draws_lights, |el| {
-                el.child(traffic_lights(&theme, active, !fixed))
+                el.child(traffic_lights(
+                    &theme,
+                    active,
+                    [close, minimize, zoom],
+                    titlebar_height,
+                ))
             })
             .when_some(self.toolbar, |el, toolbar| {
                 el.child(
@@ -385,7 +422,7 @@ impl RenderOnce for WindowFrame {
                         .absolute()
                         .left_0()
                         .right_0()
-                        .top(px(m.titlebar_height))
+                        .top(px(titlebar_height))
                         .h(px(self.toolbar_height))
                         .child(toolbar),
                 )
@@ -582,4 +619,117 @@ fn resize_edge(pos: Point<Pixels>, inset: Pixels, size: Size<Pixels>) -> Option<
         return None;
     };
     Some(edge)
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Context, Render, TestAppContext, VisualTestContext, Window, WindowHandle};
+
+    use super::*;
+
+    struct FrameView {
+        role: WindowRole,
+    }
+
+    impl Render for FrameView {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            WindowFrame::new("Role")
+                .role(self.role)
+                .child(div().size_full())
+        }
+    }
+
+    fn test_app() -> TestAppContext {
+        let app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        app
+    }
+
+    fn draw_frame(role: WindowRole) -> (TestAppContext, WindowHandle<FrameView>) {
+        let mut app = test_app();
+        let window = app.add_window(|_, _| FrameView { role });
+        {
+            let mut cx = VisualTestContext::from_window(*window, &app);
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                window.draw(cx).clear(cx);
+            });
+            cx.run_until_parked();
+        }
+        (app, window)
+    }
+
+    fn titlebar(window: WindowHandle<FrameView>, app: &TestAppContext) -> Bounds<Pixels> {
+        let mut cx = VisualTestContext::from_window(*window, app);
+        cx.debug_bounds("silvestris-titlebar")
+            .expect("titlebar has a debug selector")
+    }
+
+    fn has(window: WindowHandle<FrameView>, app: &TestAppContext, selector: &'static str) -> bool {
+        let mut cx = VisualTestContext::from_window(*window, app);
+        cx.debug_bounds(selector).is_some()
+    }
+
+    #[test]
+    fn a_document_frame_draws_all_three_live_buttons() {
+        let (app, window) = draw_frame(WindowRole::Document);
+        assert!(has(window, &app, "traffic-Close-enabled"));
+        assert!(has(window, &app, "traffic-Minimize-enabled"));
+        assert!(has(window, &app, "traffic-Zoom-enabled"));
+    }
+
+    #[test]
+    fn fixed_roles_draw_only_the_close_button() {
+        for role in [WindowRole::Dialog, WindowRole::Assistant, WindowRole::About] {
+            let (app, window) = draw_frame(role);
+            assert!(
+                has(window, &app, "traffic-Close-enabled"),
+                "{role:?} keeps its close button"
+            );
+            assert!(
+                has(window, &app, "traffic-Minimize-disabled"),
+                "{role:?} disables minimize"
+            );
+            assert!(
+                has(window, &app, "traffic-Zoom-disabled"),
+                "{role:?} disables zoom"
+            );
+        }
+    }
+
+    #[test]
+    fn preferences_keeps_minimize_and_disables_only_zoom() {
+        let (app, window) = draw_frame(WindowRole::Preferences);
+        assert!(has(window, &app, "traffic-Close-enabled"));
+        assert!(has(window, &app, "traffic-Minimize-enabled"));
+        assert!(has(window, &app, "traffic-Zoom-disabled"));
+    }
+
+    #[test]
+    fn a_panel_disables_minimize_and_zoom_without_fixing_its_size() {
+        let (app, window) = draw_frame(WindowRole::Panel);
+        assert!(has(window, &app, "traffic-Close-enabled"));
+        assert!(has(window, &app, "traffic-Minimize-disabled"));
+        assert!(has(window, &app, "traffic-Zoom-disabled"));
+    }
+
+    #[test]
+    fn a_utility_frame_uses_the_smaller_title_band() {
+        let (app, document) = draw_frame(WindowRole::Document);
+        let document_height = f32::from(titlebar(document, &app).size.height);
+        let (utility_app, utility) = draw_frame(WindowRole::Utility);
+        let utility_height = f32::from(titlebar(utility, &utility_app).size.height);
+        assert!(
+            utility_height < document_height,
+            "utility band {utility_height} should be shorter than {document_height}"
+        );
+        assert_eq!(
+            utility_height,
+            WindowRole::Utility.titlebar_height(&app_theme(&app))
+        );
+    }
+
+    fn app_theme(app: &TestAppContext) -> silvestris_core::tokens::Theme {
+        app.update(|cx| (**cx.theme()).clone())
+    }
 }

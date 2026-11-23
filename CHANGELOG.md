@@ -7,7 +7,24 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #20, window roles. Additive:
+
+- `window_role::WindowRole` (`Document`, `Utility`, `Panel`, `Preferences`,
+  `Dialog`, `Assistant`, `About`) with `spec`, `titlebar_height`, `autosave_key`
+  and `ALL`; `RoleSpec`.
+- `window_role::role_options`, `centered_on`, `cascade_from`,
+  `restore_bounds`, `save_frame`, `open_role`, `open_owned_role`;
+  `OwnedWindow`, `FrameStore` and `OwnedWindows`.
+- `WindowFrame::role`, which makes the drawn title bar agree with the role.
+
+Behaviour: a role decides resizability, live title-bar buttons, title
+visibility, parent centring, the frame-autosave key and, for utility windows, a
+16 px title band. Fixed roles draw only the close button. `OwnedWindows` closes
+its children when the application's close policy calls `close_all`; Silvestris
+does not install an `on_window_should_close` handler of its own.
+
 PR #57, responder chain. Additive:
+ Additive:
 
 - `responder::Responder` with `handles`, `state` and `perform`, plus
   `ResponderState` (`enabled`, `checked`, `title`).

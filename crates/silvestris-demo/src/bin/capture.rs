@@ -1,9 +1,9 @@
 //! Deterministic golden renders for the visual gate (#18).
 //!
 //! One process renders one appearance at one scale. It opens a fixed-size
-//! window, draws eight control samples at known logical rectangles, reads the
-//! frame back with `Window::render_to_image`, crops each sample and writes
-//! PNGs. Text uses grayscale antialiasing and the bundled fonts; no control is
+//! window, draws the control samples and two window-frame samples at known
+//! logical rectangles, reads the frame back with `Window::render_to_image`,
+//! crops each sample and writes PNGs. Text uses grayscale antialiasing and the bundled fonts; no control is
 //! focused or animated, so caret blink and the default-button throb cannot
 //! affect the pixels.
 //!
@@ -15,11 +15,13 @@ use std::path::{Path, PathBuf};
 use gpui::{
     div, point, prelude::*, px, size, App, Bounds, Context, Entity, Render, SharedString, Window,
 };
+use silvestris::chrome::WindowFrame;
 use silvestris::controls::{
     Button, Checkbox, ControlSize, PopUpButton, RadioGroup, RadioOption, Segment, SegmentedControl,
     Slider, SourceList, TextField,
 };
 use silvestris::core::source_list::SourceNode;
+use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
 
 const PAD: f32 = 16.;
@@ -32,7 +34,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 8] = [
+const SAMPLES: [Sample; 10] = [
     Sample {
         id: "button",
         width: 160.,
@@ -72,6 +74,16 @@ const SAMPLES: [Sample; 8] = [
         id: "source-list",
         width: 200.,
         height: 160.,
+    },
+    Sample {
+        id: "window-frame",
+        width: 244.,
+        height: 108.,
+    },
+    Sample {
+        id: "window-frame-fixed",
+        width: 244.,
+        height: 108.,
     },
 ];
 
@@ -163,9 +175,23 @@ impl CaptureView {
             "slider" => Slider::new("golden-slider", "Volume", 0.6).into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
+            // The role changes which title-bar buttons are live and, for a
+            // utility window, the band height. The art still comes from tokens.
+            "window-frame" => WindowFrame::new("Document")
+                .role(WindowRole::Document)
+                .child(frame_body())
+                .into_any_element(),
+            "window-frame-fixed" => WindowFrame::new("About")
+                .role(WindowRole::About)
+                .child(frame_body())
+                .into_any_element(),
             other => unreachable!("unknown sample {other}"),
         }
     }
+}
+
+fn frame_body() -> impl IntoElement {
+    div().size_full().p(px(8.)).child("Content")
 }
 
 impl Render for CaptureView {

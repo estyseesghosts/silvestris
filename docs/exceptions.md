@@ -109,6 +109,17 @@ repeated here; they are listed in place next to the token.
   reports reduced motion. The gallery exercises these controls under all
   four themes. Native/DPI baselines for the new variants are pending.
 
+## Windows
+
+- A utility window's title band is 16 logical px. HIG p. 198 shows the smaller
+  title bar but the corpus has no utility-window capture at a known scale, so
+  the height is an estimate. Document, panel, preferences and dialog title bars
+  use the measured `theme.metrics.titlebar_height`.
+- Whether a panel floats above other applications, hides on deactivation or
+  joins the parent's window group is a platform capability, not a role flag.
+  `RoleSpec::hides_on_deactivate` records the intent; #50 owns per-platform
+  verification.
+
 ## Visual goldens
 
 - `goldens/renders` is produced by the native Windows renderer, not by a

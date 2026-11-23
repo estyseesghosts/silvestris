@@ -14,9 +14,9 @@ Status:
 - `measured`: functional, with goldens and a fidelity issue closed against a
   corpus crop. No row is `measured` yet; the M2 fidelity issues are open.
 
-Six rows are `provisional` only because no test covers them although the gallery
-shows them: radio button, combo box, progress indicator, disclosure triangle,
-window frame and the search field. The tracking issue is that test. The other
+Five rows are `provisional` only because no test covers them although the
+gallery shows them: radio button, combo box, progress indicator, disclosure
+triangle and the search field. The tracking issue is that test. The other
 `provisional` rows lack a gallery sample or wait on an API replacement.
 
 Appearances `four` means the control is built for all four (Aqua Light, Aqua Dark,
@@ -106,7 +106,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Window frame | `WindowFrame`, `FrameCapabilities` | provisional | four | — | #20 |
+| Window frame | `WindowFrame`, `WindowRole`, `RoleSpec`, `FrameCapabilities` | functional | four | `window-frame` | #20 |
 | Toolbar | none | missing | — | — | #26 |
 | Bottom bar | none | missing | — | — | #75 |
 | Shell layout | `Shell`, `ShellContent` | functional | four | — | #13 |
