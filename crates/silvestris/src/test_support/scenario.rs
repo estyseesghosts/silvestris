@@ -81,6 +81,12 @@ impl Scenario {
         self.active.expect("scenario has no active window")
     }
 
+    /// The underlying test app, for reading a window root or entity state.
+    #[must_use]
+    pub fn app(&self) -> &TestAppContext {
+        &self.app
+    }
+
     fn cx(&self) -> VisualTestContext {
         VisualTestContext::from_window(self.active_window(), &self.app)
     }

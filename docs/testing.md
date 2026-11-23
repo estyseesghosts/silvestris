@@ -29,6 +29,25 @@ assert!(scenario.close());
 `windows()` reports them in open order. `close` closes the active window and
 activates the most recent remaining one.
 
+## Fixtures
+
+`test_support::fixtures` provides views that a scenario can open directly:
+
+| Fixture | What it provides |
+|---|---|
+| `TextFieldFixture` | Field entity, focus handle, text and `TextFieldEvent` log |
+| `SourceListFixture` | Root-plus-child list, focus handle, selection and `SourceListEvent` log |
+| `DocumentWindowFixture` | Focusable document window with a title |
+| `UtilityPanelFixture` | 220 px focusable utility panel |
+| `TableStubFixture` | 100-row virtual table with `table-row-{n}` selectors |
+| `ConfirmationSheetFixture` | Sheet with accept, cancel and Escape; response log |
+| `PopupMenuFixture` | One-command menu, command hit counter and focus restore |
+| `KeyIsolationFixture` | Shell shortcut bound to `FixtureShell && !SilvestrisTextField`, plus a text field |
+
+`KeyIsolationFixture` is the generic shape of lotus's guest-input isolation:
+the shell shortcut runs when the shell has focus and does not run when the text
+field does.
+
 ## Rules
 
 - Use stable `debug_selector` names. Never derive them from row or element
@@ -54,7 +73,8 @@ gate (#18). Headless dispatch is not a substitute for either.
 
 ## Current coverage
 
-The harness has two tests: focus/click/press/advance/close, and opening,
-activating and closing two windows in order. Fixtures for the text field, table,
-sheet and utility panel, menu helpers, command assertions and record/replay
-remain on #68.
+Ten tests: focus/click/press/advance/close and multi-window order in the driver;
+text-field typing and submit; source-list keyboard navigation; two-document
+focus isolation; utility-panel focus; table-stub rendering; confirmation-sheet
+accept and Escape; popup-menu dispatch and focus restore; shell-shortcut
+isolation from a focused text field. Record/replay remains on #68.

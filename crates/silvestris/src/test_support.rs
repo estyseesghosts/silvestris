@@ -8,6 +8,7 @@
 //! Downstream consumers enable the `test-support` feature. Unit tests compile
 //! the module automatically.
 
+pub mod fixtures;
 pub mod scenario;
 
 /// Install the theme and text-field key bindings for a test app.
