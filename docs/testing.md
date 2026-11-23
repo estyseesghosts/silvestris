@@ -9,7 +9,9 @@ compile the harness automatically.
 
 ## Use
 
-Open a window with a root view that stores its focus handle, then drive it:
+Open a window with a root view that stores its focus handle, then drive it. The
+example assumes a fixture that returns the window handle and the view's
+`FocusHandle`:
 
 ```rust
 let mut scenario = Scenario::new();
