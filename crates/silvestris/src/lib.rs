@@ -31,6 +31,8 @@ pub fn init(preference: ThemePreference, cx: &mut gpui::App) -> anyhow::Result<(
 
 pub mod sidebar;
 
+pub mod binding;
+
 pub mod command;
 
 pub mod menu;
