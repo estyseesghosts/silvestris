@@ -402,6 +402,9 @@ impl ResponderChain {
         window: &mut Window,
         cx: &mut App,
     ) -> Invocation {
+        if !crate::modal::command_allowed(window, id, cx) {
+            return Invocation::Disabled;
+        }
         let Some(entry) = self.resolve(id, window, cx) else {
             return CommandRegistry::invoke(registry, id, window, cx);
         };
@@ -429,6 +432,9 @@ impl ResponderChain {
             if let Some(title) = state.title {
                 descriptor.label = title.to_string();
             }
+        }
+        if !crate::modal::command_allowed(window, id, cx) {
+            descriptor.enabled = false;
         }
         Some(descriptor)
     }

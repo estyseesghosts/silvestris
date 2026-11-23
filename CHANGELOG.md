@@ -7,6 +7,22 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #21, modal sessions. Additive:
+
+- `modal::ModalSession` with `scope`, `phase`, `is_active`, `allows`,
+  `focus_stops`, `with_focus_stops`, `focus_first`, `on_end`, `owner`;
+  `ModalScope`, `ModalResult` and `ModalPhase`.
+- `modal::present`, `active`, `is_modal`, `finish`, `escape_session`,
+  `cycle_focus`, `cancel_owned`, `command_allowed`, `install` and `reset`.
+- `ConfirmationFocus::handles`, so a sheet can declare its Tab stops to a
+  session.
+
+Behaviour: a document session blocks its own window's command chain and leaves
+siblings usable; an application session blocks every window and stacks over a
+sheet; a second document session queues; closing the owner cancels active and
+queued sessions with `Cancelled`; `ResponderChain::dispatch` and `present`
+return disabled for blocked commands.
+
 PR #60, transient surfaces. Additive:
 
 - `transient::TransientLayer` with `push`, `close`, `close_top`, `escape`,
