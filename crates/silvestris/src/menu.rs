@@ -454,19 +454,29 @@ impl PopupMenu {
             .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation());
         for (i, entry) in entries.iter().enumerate() {
             if matches!(entry, MenuEntry::Separator) {
+                let separator = theme.colors.menu_separator;
                 panel = panel.child(
                     div()
                         .flex_none()
                         .h(px(m.menu_separator_height))
                         .relative()
                         .child(
-                            div()
-                                .absolute()
-                                .left(px(1.))
-                                .right(px(1.))
-                                .top(px(m.menu_separator_height / 2.))
-                                .h(px(1.))
-                                .bg(hsla(theme.colors.menu_separator)),
+                            canvas(
+                                |_, _, _| (),
+                                move |bounds, _, window, _| {
+                                    let h = crate::convert::hairline(window);
+                                    let y = bounds.origin.y + (bounds.size.height - h) / 2.0;
+                                    paint::hline(
+                                        window,
+                                        bounds.origin.x + px(1.),
+                                        y,
+                                        bounds.size.width - px(2.),
+                                        separator,
+                                    );
+                                },
+                            )
+                            .absolute()
+                            .inset_0(),
                         ),
                 );
                 continue;

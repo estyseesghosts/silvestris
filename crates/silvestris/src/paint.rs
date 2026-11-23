@@ -26,10 +26,43 @@ pub fn outset(b: Bounds<Pixels>, d: Pixels) -> Bounds<Pixels> {
     inset(b, -d)
 }
 
-/// Round a logical coordinate to the device-pixel grid.
-fn snap(window: &Window, v: Pixels) -> Pixels {
+/// Round a logical coordinate to the nearest device-pixel **edge**. Use it for
+/// the outside of a quad: at 1.25x, 10.1 logical becomes 10.4 and 10.3 becomes
+/// 10.4, so a one-device border starts on a device row instead of straddling
+/// two.
+#[must_use]
+pub fn snap_edge(window: &Window, v: Pixels) -> Pixels {
     let s = window.scale_factor();
     px((v.as_f32() * s).round() / s)
+}
+
+/// Round a logical coordinate to the nearest device-pixel **centre**. Use it
+/// for a stroke centred on a path: a one-device stroke at logical 10.0 spans
+/// two device pixels at 1.25x, while its centre at 10.4 (half a device px from
+/// the edge at 10.0) covers exactly one.
+#[must_use]
+pub fn snap_stroke_center(window: &Window, v: Pixels) -> Pixels {
+    let s = window.scale_factor();
+    px(((v.as_f32() * s - 0.5).round() + 0.5) / s)
+}
+
+/// Snap a quad to the device grid, keeping the origin and the far edge on
+/// device edges. This is the rule every painter applies before it paints.
+#[must_use]
+pub fn snap_bounds(window: &Window, b: Bounds<Pixels>) -> Bounds<Pixels> {
+    let x0 = snap_edge(window, b.origin.x);
+    let y0 = snap_edge(window, b.origin.y);
+    let x1 = snap_edge(window, b.origin.x + b.size.width);
+    let y1 = snap_edge(window, b.origin.y + b.size.height);
+    Bounds::new(
+        point(x0, y0),
+        size((x1 - x0).max(px(0.)), (y1 - y0).max(px(0.))),
+    )
+}
+
+/// Backwards-compatible private name used inside this module.
+fn snap(window: &Window, v: Pixels) -> Pixels {
+    snap_edge(window, v)
 }
 
 fn fill_rounded(window: &mut Window, b: Bounds<Pixels>, r: Pixels, bg: gpui::Background) {
@@ -51,6 +84,7 @@ fn fill_rounded(window: &mut Window, b: Bounds<Pixels>, r: Pixels, bg: gpui::Bac
 /// ends stay round; the upper band is clipped with a content mask, and the
 /// lower band holds `lower.from` above its first stop.
 pub fn bevel(window: &mut Window, bounds: Bounds<Pixels>, radius: f32, b: &Bevel) {
+    let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     let r = px(radius.min(bounds.size.height.as_f32() / 2.0));
     if b.emboss.a > 0 {
@@ -100,6 +134,7 @@ pub fn bevel(window: &mut Window, bounds: Bounds<Pixels>, radius: f32, b: &Bevel
 /// (M: scroller.thumb.row: edge 0751c0, leading 88b4e5..98c3ef, trailing
 /// 5da5e9..a4e0ff).
 pub fn thumb(window: &mut Window, bounds: Bounds<Pixels>, b: &Bevel) {
+    let bounds = snap_bounds(window, bounds);
     use gpui::{linear_color_stop, linear_gradient};
     let h = hairline(window);
     let r = bounds.size.width / 2.0;
@@ -154,6 +189,7 @@ pub fn chrome(
     top_radius: f32,
     separator_on_top: bool,
 ) {
+    let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     let radii = Corners {
         top_left: px(top_radius),
@@ -191,6 +227,7 @@ pub fn chrome(
 /// Text well: side border, darker top row, inner shadow row under it and a
 /// lighter bottom row (M: toolbar.search.column: 848484, d8d8d8 … e1e1e1).
 pub fn field(window: &mut Window, bounds: Bounds<Pixels>, radius: f32, f: &Field, enabled: bool) {
+    let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     let r = px(radius.min(bounds.size.height.as_f32() / 2.0));
     fill_rounded(window, bounds, r, gpui::solid_background(hsla(f.border)));
@@ -221,6 +258,7 @@ pub fn focus_ring(
     color: Rgba8,
     profile: &[(f32, f32)],
 ) {
+    let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     for &(offset, opacity) in profile {
         let ring = outset(bounds, h * offset);
@@ -240,6 +278,7 @@ pub fn focus_ring(
 /// Selection band: gradient body with a one-row line on top
 /// (M: sidebar.selection.active: 5595d2 line over 6ca5dd→1a6ab9).
 pub fn selection(window: &mut Window, bounds: Bounds<Pixels>, s: &Selection) {
+    let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     let device_rows = bounds.size.height.as_f32() * window.scale_factor();
     window.paint_quad(gpui::fill(bounds, rows(s.fill, device_rows)));
@@ -254,8 +293,13 @@ pub fn selection(window: &mut Window, bounds: Bounds<Pixels>, s: &Selection) {
 /// A horizontal line one device row high.
 pub fn hline(window: &mut Window, x: Pixels, y: Pixels, width: Pixels, color: Rgba8) {
     let h = hairline(window);
+    let x0 = snap_edge(window, x);
+    let x1 = snap_edge(window, x + width);
+    if x1 <= x0 {
+        return;
+    }
     window.paint_quad(gpui::fill(
-        Bounds::new(point(x, y), size(width, h)),
+        Bounds::new(point(x0, snap_edge(window, y)), size(x1 - x0, h)),
         hsla(color),
     ));
 }
@@ -263,8 +307,13 @@ pub fn hline(window: &mut Window, x: Pixels, y: Pixels, width: Pixels, color: Rg
 /// A vertical line one device column wide.
 pub fn vline(window: &mut Window, x: Pixels, y: Pixels, height: Pixels, color: Rgba8) {
     let h = hairline(window);
+    let y0 = snap_edge(window, y);
+    let y1 = snap_edge(window, y + height);
+    if y1 <= y0 {
+        return;
+    }
     window.paint_quad(gpui::fill(
-        Bounds::new(point(x, y), size(h, height)),
+        Bounds::new(point(snap_edge(window, x), y0), size(h, y1 - y0)),
         hsla(color),
     ));
 }
@@ -275,6 +324,7 @@ pub fn vline(window: &mut Window, x: Pixels, y: Pixels, height: Pixels, color: R
 /// the bottom row; the shade is the same line one pixel left with one more
 /// pixel at the top, the highlight one pixel right with one fewer.
 pub fn resize_grip(window: &mut Window, corner: Point<Pixels>, g: &GripStyle) {
+    let corner = point(snap_edge(window, corner.x), snap_edge(window, corner.y));
     const LENGTHS: [i32; 3] = [10, 6, 2];
     let one = px(1.0);
     let right = corner.x - one - px(g.inset); // column of the lines' upper ends
@@ -298,5 +348,91 @@ pub fn resize_grip(window: &mut Window, corner: Point<Pixels>, g: &GripStyle) {
         for k in 0..n {
             dot(window, x0 + k, -k, g.line);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{div, prelude::*, Context, Render, TestAppContext, Window, WindowHandle};
+
+    use super::*;
+
+    struct View;
+
+    impl Render for View {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div().size_full()
+        }
+    }
+
+    fn with_scale(scale: f32) -> (TestAppContext, WindowHandle<View>) {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let window = app.add_window(|_, _| View);
+        window
+            .update(&mut app, |_, window, cx| {
+                window.set_scale_factor(scale);
+                let _ = cx;
+            })
+            .unwrap();
+        (app, window)
+    }
+
+    #[test]
+    fn a_hairline_uses_a_whole_number_of_device_pixels() {
+        for scale in [1.0, 1.25, 1.5, 1.75, 2.0] {
+            let (mut app, window) = with_scale(scale);
+            window
+                .update(&mut app, |_, window, _| {
+                    let thickness = hairline(window);
+                    let device = thickness.as_f32() * scale;
+                    let expected = scale.round().max(1.0);
+                    assert!(
+                        (device - expected).abs() < 1e-4,
+                        "scale {scale}: {thickness:?} is {device} device px, expected {expected}"
+                    );
+                    assert_eq!(
+                        device.fract(),
+                        0.0,
+                        "scale {scale}: {device} is not a whole device pixel"
+                    );
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn edges_snap_to_device_edges_and_strokes_to_device_centres() {
+        let (mut app, window) = with_scale(1.25);
+        window
+            .update(&mut app, |_, window, _| {
+                for (from, to) in [(10.0, 10.4), (10.1, 10.4), (10.7, 10.4), (10.8, 11.2)] {
+                    assert_eq!(snap_edge(window, px(from)), px(to), "edge {from} at 1.25");
+                }
+                // A centred one-device stroke must sit on a device centre.
+                for from in [10.0, 10.1, 10.3, 10.7] {
+                    let centre = snap_stroke_center(window, px(from));
+                    let device = centre.as_f32() * 1.25;
+                    assert_eq!(
+                        (device - 0.5).fract(),
+                        0.0,
+                        "stroke centre {from} -> {centre:?} ({device} device)"
+                    );
+                }
+                let bounds = Bounds::new(point(px(10.1), px(20.2)), size(px(100.3), px(20.2)));
+                let snapped = snap_bounds(window, bounds);
+                assert_eq!(snapped.origin.x, px(10.4));
+                assert_eq!(snapped.origin.y, px(20.0));
+                for edge in [
+                    snapped.origin.x,
+                    snapped.origin.y,
+                    snapped.origin.x + snapped.size.width,
+                    snapped.origin.y + snapped.size.height,
+                ] {
+                    let device = edge.as_f32() * 1.25;
+                    assert_eq!(device.fract(), 0.0, "{edge:?} is not a device edge");
+                }
+            })
+            .unwrap();
     }
 }

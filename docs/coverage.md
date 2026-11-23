@@ -128,6 +128,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Focus and responder routing | `ResponderChain`, `Responder`, `ResponderEntry`, `FocusReturn`, `CommandScope` | functional | four | — | #57 |
+| Device-pixel snapping | `paint::snap_edge`, `paint::snap_stroke_center`, `paint::snap_bounds`, `convert::hairline` | functional | four | `segmented` | #12 |
 | Keyboard shortcuts | `CommandRegistry::bindings`, `bindings_where` | functional | four | — | #57, #66 |
 | Preference storage | `silvestris_core::prefs::{Store, Versioned, Migration, Storage}`, `silvestris::prefs::Preferences` | functional | — | — | #62 |
 | Modal sessions | `modal::ModalSession`, `ModalScope`, `ModalResult`; `ConfirmationFocus` | functional | four | — | #21 |
