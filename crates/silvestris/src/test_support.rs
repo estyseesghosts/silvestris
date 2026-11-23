@@ -10,6 +10,7 @@
 
 pub mod fixtures;
 pub mod scenario;
+pub mod script;
 
 /// Install the theme and text-field key bindings for a test app.
 ///

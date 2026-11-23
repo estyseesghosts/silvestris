@@ -48,6 +48,42 @@ activates the most recent remaining one.
 the shell shortcut runs when the shell has focus and does not run when the text
 field does.
 
+## Scripts
+
+`test_support::script::{ScenarioScript, ScriptEnv, Recorder}` turns a sequence
+into text. Bind names to focus handles and selectors, then parse and replay:
+
+```rust
+let mut env = ScriptEnv::new();
+env.bind_focus("field", focus)
+    .bind_selector("field", "fixture-text-field");
+
+let script = ScenarioScript::parse(
+    "focus field\n\
+     type hello\n\
+     press enter\n\
+     expect-focus field\n\
+     expect-selector field\n",
+)
+.expect("parse script");
+script.replay(&mut scenario, &env).expect("replay script");
+```
+
+`Recorder` writes the same format while a test runs:
+
+```rust
+let mut recorder = Recorder::new(&mut scenario);
+recorder.focus("field", &focus);
+recorder.type_text("hello");
+recorder.press("enter");
+let pasteable = recorder.script();
+```
+
+Commands: `activate N`, `focus NAME`, `type TEXT`, `press KEYS`, `click NAME`,
+`advance MS`, `expect-focus NAME`, `expect-no-focus`, `expect-selector NAME`,
+`expect-window-count N`, `expect-title TEXT`. `type` and `expect-title`
+unescape `\n`, `\t` and `\\`. Empty lines and `#` comments are ignored.
+
 ## Rules
 
 - Use stable `debug_selector` names. Never derive them from row or element
@@ -73,8 +109,9 @@ gate (#18). Headless dispatch is not a substitute for either.
 
 ## Current coverage
 
-Ten tests: focus/click/press/advance/close and multi-window order in the driver;
-text-field typing and submit; source-list keyboard navigation; two-document
-focus isolation; utility-panel focus; table-stub rendering; confirmation-sheet
-accept and Escape; popup-menu dispatch and focus restore; shell-shortcut
-isolation from a focused text field. Record/replay remains on #68.
+Twelve tests: focus/click/press/advance/close and multi-window order in the
+driver; text-field typing and submit; source-list keyboard navigation;
+two-document focus isolation; utility-panel focus; table-stub rendering;
+confirmation-sheet accept and Escape; popup-menu dispatch and focus restore;
+shell-shortcut isolation from a focused text field; script record/replay; and
+script error reporting.

@@ -171,13 +171,20 @@ impl Scenario {
 
     /// The bounds of an element with this debug selector.
     ///
+    /// Returns `None` when the selector is not rendered.
+    #[must_use]
+    pub fn try_bounds(&mut self, selector: &'static str) -> Option<Bounds<Pixels>> {
+        self.cx().debug_bounds(selector)
+    }
+
+    /// The bounds of an element with this debug selector.
+    ///
     /// # Panics
     ///
     /// Panics when no rendered element uses the selector.
     #[must_use]
     pub fn bounds(&mut self, selector: &'static str) -> Bounds<Pixels> {
-        self.cx()
-            .debug_bounds(selector)
+        self.try_bounds(selector)
             .unwrap_or_else(|| panic!("no element for selector {selector:?}"))
     }
 

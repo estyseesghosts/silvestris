@@ -70,7 +70,11 @@ impl TextFieldFixture {
 
 impl Render for TextFieldFixture {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().p(px(20.)).child(self.field.clone())
+        div()
+            .debug_selector(|| "fixture-text-field".into())
+            .size_full()
+            .p(px(20.))
+            .child(self.field.clone())
     }
 }
 
