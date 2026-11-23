@@ -8,11 +8,16 @@ tracks the remaining work. The component list follows
 Status:
 
 - `missing`: no Silvestris type; consumers paint it themselves.
-- `provisional`: implemented and tested, but no gallery sample, or an open
-  issue replaces the API.
+- `provisional`: the type exists, but a gallery sample or a test is missing, or
+  an open issue replaces the API.
 - `functional`: a gallery sample and a test exist.
 - `measured`: functional, with goldens and a fidelity issue closed against a
   corpus crop. No row is `measured` yet; the M2 fidelity issues are open.
+
+Six rows are `provisional` only because no test covers them although the gallery
+shows them: radio button, combo box, progress indicator, disclosure triangle,
+window frame and the search field. The tracking issue is that test. The other
+`provisional` rows lack a gallery sample or wait on an API replacement.
 
 Appearances `four` means Aqua Light, Aqua Dark, Geist Light and Geist Dark.
 A golden id names the sample stem under `goldens/renders/<appearance>/<scale>/`.
@@ -23,8 +28,8 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Document window | `chrome::open_window`, `WindowFrame` | functional | four | — | #20 |
-| Application window | `chrome::open_window`, `WindowFrame` | functional | four | — | #20 |
+| Document window | `chrome::open_window` | functional | four | — | #20 |
+| Application window | `chrome::open_window` | functional | four | — | #20 |
 | Panel, inspector | `Shell` inspector, `Sidebar` | functional | four | — | #20, #27 |
 | Dialog, alert | `ConfirmationSheet` | provisional | four | — | #21, #23 |
 | Sheet | none | missing | — | — | #22 |
@@ -52,13 +57,13 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Scope buttons | none | missing | — | — | #46 |
 | Slider | `Slider` | functional | four | `slider` | #7 |
 | Stepper | `Stepper` | provisional | four | — | unfiled |
-| Combo box | `ComboBox` | functional | four | — | unfiled |
+| Combo box | `ComboBox` | provisional | four | — | unfiled |
 | Action menu | none | missing | — | — | #46 |
 | Command pop-down | none | missing | — | — | #46 |
 | Date picker | none | missing | — | — | #42 |
 | Path control | none | missing | — | — | #41 |
 | Colour well, image well | none | missing | — | — | #44 |
-| Radio button | `RadioGroup`, `RadioOption` | functional | four | `radio` | #6 |
+| Radio button | `RadioGroup`, `RadioOption` | provisional | four | `radio` | #6 |
 | Checkbox, mixed state | `Checkbox`, `CheckState` | functional | four | `checkbox` | #19 |
 | Placard | none | missing | — | — | #13 |
 
@@ -66,7 +71,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Progress indicator | `ProgressIndicator` | functional | four | — | #8 |
+| Progress indicator | `ProgressIndicator` | provisional | four | `progress` | #8 |
 | Capacity, rating, relevance | none | missing | — | — | #45 |
 | Notice, status line | `Notice` | provisional | four | — | unfiled |
 
@@ -77,7 +82,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Static text | styled text in composition | missing | — | — | unfiled |
 | Text input field | `TextField`, `TextFieldEvent` | functional | four | `text-field` | #58 |
 | Token field | none | missing | — | — | #43 |
-| Search field | `TextField` search variant | functional | four | — | #77 |
+| Search field | `TextField` search variant | provisional | four | — | #77 |
 | Scrolling list | `controls::table::virtual_table` | provisional | four | — | #32 |
 | Scroller | `Scrollbar` | provisional | four | — | #40 |
 
@@ -85,7 +90,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Disclosure triangle | `Disclosure` | functional | four | — | #5 |
+| Disclosure triangle | `Disclosure` | provisional | four | `disclosure` | #5 |
 | Disclosure button | none | missing | — | — | #5 |
 | List view | `virtual_table` | provisional | four | — | #32 |
 | Outline view | none | missing | — | — | #33 |
@@ -99,7 +104,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Window frame | `WindowFrame`, `FrameCapabilities` | functional | four | — | #20 |
+| Window frame | `WindowFrame`, `FrameCapabilities` | provisional | four | — | #20 |
 | Toolbar | none | missing | — | — | #26 |
 | Bottom bar | none | missing | — | — | #75 |
 | Shell layout | `Shell`, `ShellContent` | functional | four | — | #13 |
@@ -133,5 +138,5 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 `crates/silvestris/src/controls/` has no row here. Add the row with the same
 commit that adds the control. A row is `functional` only when the gallery
 shows the control and a test covers its behaviour. A control that exists but
-is absent from the gallery stays `provisional`, which is a reminder rather than
-a claim of completeness.
+is absent from the gallery, or has no test, stays `provisional`, which is a
+reminder rather than a claim of completeness.
