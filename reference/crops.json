@@ -715,6 +715,25 @@
   },
   "crops": [
     {
+      "id": "button.default",
+      "control": "button",
+      "state": "regular, default, enabled",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        82,
+        152,
+        167,
+        42
+      ],
+      "size": [
+        167,
+        42
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
       "id": "button.regular",
       "control": "button",
       "state": "regular, enabled",
@@ -753,19 +772,19 @@
       "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
     },
     {
-      "id": "radio.selected",
-      "control": "radio",
-      "state": "regular, selected",
+      "id": "disclosure.collapsed",
+      "control": "disclosure",
+      "state": "collapsed, right-pointing",
       "capture": "Screenshot 2026-11-23 063026.png",
       "rect": [
-        73,
-        513,
-        178,
-        31
+        92,
+        784,
+        18,
+        24
       ],
       "size": [
-        178,
-        31
+        18,
+        24
       ],
       "scale": null,
       "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
@@ -789,6 +808,44 @@
       "scale": 2.0,
       "scale_note": "PNG resolution is 144 dpi; the pane is a 2x capture.",
       "sha256": "e62818dc6931bf8d1f0ad51e9bdd129b4dc277be22b26b0a97cd5723d443a809"
+    },
+    {
+      "id": "progress.determinate",
+      "control": "progress",
+      "state": "determinate, about one third",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        682,
+        575,
+        281,
+        26
+      ],
+      "size": [
+        281,
+        26
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "radio.selected",
+      "control": "radio",
+      "state": "regular, selected",
+      "capture": "Screenshot 2026-11-23 063026.png",
+      "rect": [
+        73,
+        513,
+        178,
+        31
+      ],
+      "size": [
+        178,
+        31
+      ],
+      "scale": null,
+      "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
+      "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
     },
     {
       "id": "segmented.regular",

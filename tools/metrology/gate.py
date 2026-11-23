@@ -96,7 +96,13 @@ def main():
     manifest = load_json(MANIFEST, {})
     reasons = load_json(REASONS, {})
     crop_data = load_json(args.crops, {"crops": []}) if args.crops.exists() else {"crops": []}
-    by_control = {crop["control"]: crop for crop in crop_data.get("crops", [])}
+    # A control can have more than one crop (default and regular, for example).
+    # Report the regular state against the regular golden.
+    by_control = {}
+    for crop in crop_data.get("crops", []):
+        control = crop["control"]
+        if control not in by_control or crop["id"].endswith(".regular"):
+            by_control[control] = crop
 
     args.report.mkdir(parents=True, exist_ok=True)
     failures = []
