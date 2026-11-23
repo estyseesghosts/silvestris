@@ -4,6 +4,8 @@ Silvestris is the GUI layer for lotus, sandcat, chaus and johjoh, and for any fu
 
 Work is chosen by three inputs: what consumers are drawing themselves today (the gap register), what the Mac OS X 10.6 reference corpus in hig-09 shows, and what the HIG (2009) specifies. Three reference apps (a Finder-style file manager, the Installer/Setup Assistant, and System Preferences) are the acceptance tests: if one needs a private widget, Silvestris is missing a component.
 
+Adoption status: lotus, chaus and johjoh are active consumers. Sandcat currently builds against an uncommitted Silvestris checkout; it is not a gating consumer, and its adoption is deferred until Silvestris's own foundations land. Sandcat rows in the gap register are demand evidence, not a schedule.
+
 Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Consumer rules: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)).
 
 ## Layers
@@ -17,14 +19,14 @@ Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). C
 
 ## M0 · Ground truth
 
-Clean tree, pinned consumers, visual and interaction regression gates, coverage matrix.
+Clean tree, consumer pin contract, visual and interaction regression gates, coverage matrix.
 
 | # | Issue | Pri | Layer | Depends on |
 |---|---|---|---|---|
 | [#18](https://github.com/estyseesghosts/silvestris/issues/18) | Visual regression gate: accepted 10.6 reference crops, Silvestris goldens and a diff tool | P0 | quality | – |
 | [#68](https://github.com/estyseesghosts/silvestris/issues/68) | Interaction scenario harness: scripted focus, keyboard, menu and window lifecycle tests | P0 | quality | – |
-| [#73](https://github.com/estyseesghosts/silvestris/issues/73) | Triage the uncommitted working tree: separate rustfmt churn, review TextArea, land or discard | P0 | quality | – |
-| [#74](https://github.com/estyseesghosts/silvestris/issues/74) | Upstream consumer-carried patches and define the consumer pinning contract | P0 | quality | [#73](https://github.com/estyseesghosts/silvestris/issues/73) |
+| [#73](https://github.com/estyseesghosts/silvestris/issues/73) | Triage the uncommitted working tree: format to the style guides, keep real hunks, discard the TextArea prototype | P0 | quality | – |
+| [#74](https://github.com/estyseesghosts/silvestris/issues/74) | Upstream lotus's vendored Silvestris patches and define the consumer pinning contract | P0 | quality | [#73](https://github.com/estyseesghosts/silvestris/issues/73) |
 | [#52](https://github.com/estyseesghosts/silvestris/issues/52) | Coverage matrix, consumer gap register and public API guide | P1 | quality | – |
 
 ## M1 · Foundations
@@ -149,7 +151,8 @@ macOS/Linux parity, host services, locale, text services, packaging.
 
 An issue is done only when all of these hold (skip a line only when it cannot apply, and say why in the closing comment):
 
-1. `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings` and
+1. `cargo fmt --all -- --check` with the repository `rustfmt.toml` (style guides: 100 columns, lowercase hex
+   literals, macro matchers), `cargo clippy --workspace --all-targets --locked -- -D warnings` and
    `cargo test --workspace --locked` pass.
 2. Behaviour has tests: unit tests for pure logic, scenario tests ([#68](https://github.com/estyseesghosts/silvestris/issues/68)) for focus, keyboard, menus, modality and windows.
 3. Visual work has Silvestris goldens ([#18](https://github.com/estyseesghosts/silvestris/issues/18)) at 100/150/200% (plus 125% for hairline-heavy controls) in all four
@@ -180,7 +183,7 @@ issues), `P1` (needed by a reference app or consumer soon), `P2` (completeness a
 
 ## Consumer gap register
 
-Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that replaces it; adoption happens in the consumer's repository once the Silvestris issue lands.
+Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that replaces it; adoption happens in the consumer's repository once the Silvestris issue lands. Sandcat rows are inventory only while its adoption is deferred.
 
 | Consumer | Bespoke today | Replaced by |
 |---|---|---|
@@ -200,7 +203,7 @@ Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that 
 | lotus | Vendored Silvestris patches ([lotus#141](https://github.com/estyseesghosts/lotus/issues/141) inspector, [lotus#74](https://github.com/estyseesghosts/lotus/issues/74) focus deferral, [lotus#58](https://github.com/estyseesghosts/lotus/issues/58) Settings bounds) | [#74](https://github.com/estyseesghosts/silvestris/issues/74) |
 | lotus | PICA texture/preview rendering, debugger domain panels | app-owned (domain views composed from Silvestris tables/splits) |
 | sandcat | `apps/desktop/src/scrollbar.rs` Aqua scroller over `ListState` | [#40](https://github.com/estyseesghosts/silvestris/issues/40) |
-| sandcat | Composer on provisional `TextArea` (uncommitted in Silvestris) | [#73](https://github.com/estyseesghosts/silvestris/issues/73), [#58](https://github.com/estyseesghosts/silvestris/issues/58) |
+| sandcat | Composer on the discarded `TextArea` prototype | [#58](https://github.com/estyseesghosts/silvestris/issues/58) (new multiline API); sandcat re-adopts after the foundations land |
 | sandcat | `body_segments` / code-block rendering in transcript | [#38](https://github.com/estyseesghosts/silvestris/issues/38) |
 | sandcat | `status_label`/`status_color` session badges, `project_tone` | [#4](https://github.com/estyseesghosts/silvestris/issues/4), [#48](https://github.com/estyseesghosts/silvestris/issues/48) |
 | sandcat | First-run / server pairing setup state | [#30](https://github.com/estyseesghosts/silvestris/issues/30) |
@@ -222,7 +225,7 @@ Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that 
 | johjoh | Error advice text | [#23](https://github.com/estyseesghosts/silvestris/issues/23) |
 | johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
 
-## Tracker changes on 2026-11-23
+## Tracker changes on 2026-11-23 (initial rewrite)
 
 - All issues rewritten to the anatomy above; bracketed title prefixes replaced by labels and milestones.
 - New: [#72](https://github.com/estyseesghosts/silvestris/issues/72) (this roadmap), [#73](https://github.com/estyseesghosts/silvestris/issues/73) (triage the uncommitted tree), [#74](https://github.com/estyseesghosts/silvestris/issues/74) (upstream consumer patches, pinning contract), [#75](https://github.com/estyseesghosts/silvestris/issues/75) (bottom bar), [#76](https://github.com/estyseesghosts/silvestris/issues/76) (search menu / command palette), [#77](https://github.com/estyseesghosts/silvestris/issues/77) (find bar and search field).
@@ -230,3 +233,10 @@ Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that 
 - Open PR [#71](https://github.com/estyseesghosts/silvestris/issues/71) (consumer font-family overrides) is the extension-point pattern this roadmap wants: review it against the definition of done and [#70](https://github.com/estyseesghosts/silvestris/issues/70), then land it before consumers bundle fonts themselves.
 - Closed: [#67](https://github.com/estyseesghosts/silvestris/issues/67) (composition patterns), folded into [#52](https://github.com/estyseesghosts/silvestris/issues/52) (guide) and [#61](https://github.com/estyseesghosts/silvestris/issues/61) (controllers).
 - The original issue bodies are preserved in the first comment of each issue.
+
+## Roadmap adjustment, 2026-11-23
+
+- Sandcat is not a gating consumer. Its path dependency on a dirty checkout and its adoption are deferred until Silvestris's own foundations land; no provisional API is kept for it, and M0 does not wait on it.
+- Rust formatting follows `style-guides/rust-style-guide.md`: a `rustfmt.toml` with `max_width = 100`, `hex_literal_case = "Lower"` and `format_macro_matchers = true`. The format-only commit is [#73](https://github.com/estyseesghosts/silvestris/issues/73)'s first step.
+- The uncommitted `TextArea` prototype is discarded, not landed in any form. [#58](https://github.com/estyseesghosts/silvestris/issues/58) owns the multiline text API; [#73](https://github.com/estyseesghosts/silvestris/issues/73) attaches its duplication inventory as #58's checklist.
+- [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.
