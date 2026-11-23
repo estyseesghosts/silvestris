@@ -35,12 +35,7 @@ pub mod preferences;
 
 pub mod shell;
 
-/// Mock-platform setup for downstream GPUI interaction tests. Font binary and
+/// Scenario harness for downstream GPUI interaction tests. Font binary and
 /// native registration checks remain separate from this harness.
-#[cfg(feature = "test-support")]
-pub mod test_support {
-    pub fn initialize(preference: crate::ThemePreference, cx: &mut gpui::App) {
-        crate::theme::install(preference, cx);
-        crate::controls::text_field::bind_keys(cx);
-    }
-}
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
