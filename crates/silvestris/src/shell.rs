@@ -177,14 +177,29 @@ impl RenderOnce for Shell {
                     .is_some_and(|p| p.presentation != Presentation::Closed);
                 let is_open = plan.presentation != Presentation::Closed;
                 if is_open && !was_open {
-                    state.return_focus = window.focused(cx);
-                    window.focus(&state.inspector_focus, cx);
-                } else if was_open && !is_open && state.inspector_focus.contains_focused(window, cx)
-                {
-                    if let Some(target) = state.return_focus.take() {
-                        window.focus(&target, cx);
-                    } else {
-                        window.blur(cx);
+                    let previous = window.focused(cx);
+                    state.return_focus = previous.clone();
+                    let inspector = state.inspector_focus.clone();
+                    // The toolbar may already have reported focus to AccessKit during
+                    // this frame's prepaint. Transfer focus after the frame is built.
+                    window.defer(cx, move |window, cx| {
+                        if window.focused(cx) == previous {
+                            window.focus(&inspector, cx);
+                        }
+                    });
+                } else if was_open && !is_open {
+                    let target = state.return_focus.take();
+                    if state.inspector_focus.contains_focused(window, cx) {
+                        let previous = window.focused(cx);
+                        window.defer(cx, move |window, cx| {
+                            if window.focused(cx) == previous {
+                                if let Some(target) = target {
+                                    window.focus(&target, cx);
+                                } else {
+                                    window.blur(cx);
+                                }
+                            }
+                        });
                     }
                 }
                 state.previous = Some(plan);
@@ -356,6 +371,15 @@ impl RenderOnce for Shell {
                         .on_mouse_move(|_, _, cx| cx.stop_propagation())
                         .on_scroll(|_, _, cx| cx.stop_propagation())
                         .on_key_down(move |event, w, cx| {
+                            // GPUI delivers text input after key propagation. A focused
+                            // TextField needs printable keys to reach its input handler.
+                            if event.keystroke.key_char.is_some()
+                                && w.context_stack().iter().any(|context| {
+                                    context.contains(crate::controls::text_field::KEY_CONTEXT)
+                                })
+                            {
+                                return;
+                            }
                             if inspector_key.as_ref().is_some_and(|f| f(event, w, cx)) {
                                 cx.stop_propagation();
                                 return;
@@ -537,7 +561,9 @@ impl RenderOnce for Shell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::{point, size, Context, Modifiers, Render, TestAppContext, VisualTestContext};
+    use gpui::{
+        point, size, Context, Focusable, Modifiers, Render, TestAppContext, VisualTestContext,
+    };
     struct Harness {
         sidebar: SidebarPreference,
         inspector: InspectorPreference,
@@ -882,5 +908,225 @@ mod tests {
         cx.simulate_keystrokes("home");
         draw(cx);
         cx.update(|_, cx| assert_eq!(h.read(cx).inspector.width, 300.));
+    }
+
+    struct FocusHarness {
+        inspector: InspectorPreference,
+        doc: FocusHandle,
+        toolbar: FocusHandle,
+        defer_toolbar: bool,
+        doc_focused_at_prepaint: Rc<std::cell::Cell<Option<bool>>>,
+    }
+    impl Render for FocusHarness {
+        fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            if self.defer_toolbar {
+                self.defer_toolbar = false;
+                let toolbar = self.toolbar.clone();
+                // A frame can report focus to another view after the Shell has
+                // asked for the inspector. The deferred transfer must not win.
+                window.defer(cx, move |window, cx| window.focus(&toolbar, cx));
+            }
+            div()
+                .size_full()
+                .p(px(24.))
+                .track_focus(&self.doc)
+                .child(
+                    Shell::new(
+                        "focus-shell",
+                        SidebarPreference {
+                            expanded: true,
+                            width: 264.,
+                        },
+                        self.inspector,
+                        div().child("Sources"),
+                        div().child("S"),
+                        div().size_full().child("Guest workspace"),
+                    )
+                    .inspector("Details", div().child("Inspector properties"))
+                    .on_inspector_change(cx.listener(|h, pref, _, cx| {
+                        h.inspector = *pref;
+                        cx.notify();
+                    })),
+                )
+                .child({
+                    let focused = self.doc_focused_at_prepaint.clone();
+                    let doc = self.doc.clone();
+                    gpui::canvas(
+                        move |_, window, _| {
+                            if focused.get().is_none() {
+                                focused.set(Some(doc.is_focused(window)));
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .size_full()
+                })
+        }
+    }
+    fn focused(cx: &mut VisualTestContext, handle: &FocusHandle) -> bool {
+        cx.update(|window, _| handle.is_focused(window))
+    }
+    #[test]
+    fn deferred_inspector_focus_does_not_override_a_toolbar() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|window, cx| {
+            let doc = cx.focus_handle();
+            window.focus(&doc, cx);
+            FocusHarness {
+                inspector: CLOSED,
+                doc,
+                toolbar: cx.focus_handle(),
+                defer_toolbar: false,
+                doc_focused_at_prepaint: Rc::new(std::cell::Cell::new(None)),
+            }
+        });
+        cx.simulate_resize(size(px(1200.), px(650.)));
+        draw(cx);
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.inspector = InspectorPreference {
+                    visible: true,
+                    pinned: false,
+                    ..CLOSED
+                };
+                h.defer_toolbar = true;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        draw(cx);
+        cx.update(|window, cx| {
+            let h = h.read(cx);
+            assert!(
+                h.toolbar.is_focused(window),
+                "a focus change from the frame must not be overridden by the inspector"
+            );
+            assert!(!h.doc.is_focused(window));
+        });
+    }
+    #[test]
+    fn inspector_focus_moves_after_the_frame_and_returns_on_close() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|window, cx| {
+            let doc = cx.focus_handle();
+            window.focus(&doc, cx);
+            FocusHarness {
+                inspector: CLOSED,
+                doc,
+                toolbar: cx.focus_handle(),
+                defer_toolbar: false,
+                doc_focused_at_prepaint: Rc::new(std::cell::Cell::new(None)),
+            }
+        });
+        cx.simulate_resize(size(px(1200.), px(650.)));
+        draw(cx);
+        let doc = cx.update(|_, cx| h.read(cx).doc.clone());
+        let toolbar = cx.update(|_, cx| h.read(cx).toolbar.clone());
+        let prepaint = cx.update(|_, cx| h.read(cx).doc_focused_at_prepaint.clone());
+        cx.update(|_, cx| {
+            prepaint.set(None);
+            h.update(cx, |h, cx| {
+                h.inspector = InspectorPreference {
+                    visible: true,
+                    pinned: false,
+                    ..CLOSED
+                };
+                cx.notify();
+            })
+        });
+        assert_eq!(
+            prepaint.get(),
+            Some(true),
+            "focus must not move until after the frame that opened the inspector"
+        );
+        draw(cx);
+        assert!(!focused(cx, &doc), "opening the inspector moves focus");
+        assert!(!focused(cx, &toolbar));
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.inspector = CLOSED;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        draw(cx);
+        assert!(
+            focused(cx, &doc),
+            "closing the inspector returns focus to the previous handle"
+        );
+    }
+
+    struct KeyHarness {
+        field: gpui::Entity<crate::controls::TextField>,
+        hits: Rc<std::cell::Cell<usize>>,
+    }
+    impl Render for KeyHarness {
+        fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            let hits = self.hits.clone();
+            div().size_full().p(px(24.)).child(
+                Shell::new(
+                    "key-shell",
+                    SidebarPreference {
+                        expanded: true,
+                        width: 264.,
+                    },
+                    InspectorPreference {
+                        visible: true,
+                        pinned: false,
+                        ..CLOSED
+                    },
+                    div().child("Sources"),
+                    div().child("S"),
+                    div().size_full().child("Guest workspace"),
+                )
+                .inspector("Details", div().child(self.field.clone()))
+                .on_inspector_key_down(move |_, _, _| {
+                    hits.set(hits.get() + 1);
+                    true
+                }),
+            )
+        }
+    }
+    #[test]
+    fn printable_keys_reach_a_focused_text_field_through_the_shell() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|window, cx| {
+            let field = cx.new(|cx| crate::controls::TextField::new(window, cx));
+            KeyHarness {
+                field,
+                hits: Rc::new(std::cell::Cell::new(0)),
+            }
+        });
+        cx.simulate_resize(size(px(1200.), px(650.)));
+        draw(cx);
+        let focus = cx.update(|_, cx| h.read(cx).field.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&focus, cx));
+        draw(cx);
+
+        cx.simulate_keystrokes("a");
+        draw(cx);
+        cx.update(|_, cx| {
+            let h = h.read(cx);
+            assert_eq!(h.field.read(cx).text(), "a");
+            assert_eq!(
+                h.hits.get(),
+                0,
+                "the shell key handler must not see printable keys while a field has focus"
+            );
+        });
+
+        cx.simulate_keystrokes("escape");
+        draw(cx);
+        cx.update(|_, cx| {
+            assert_eq!(
+                h.read(cx).hits.get(),
+                1,
+                "non-printable keys still reach the shell key handler"
+            );
+        });
     }
 }

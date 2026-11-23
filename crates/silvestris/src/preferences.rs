@@ -450,6 +450,7 @@ pub struct TabView {
     selected: Option<SharedString>,
     on_select: Option<SelectFn>,
     on_overflow: Option<OverflowFn>,
+    scroll: Option<gpui::ScrollHandle>,
     content: Vec<AnyElement>,
 }
 type OverflowFn = Rc<dyn Fn(gpui::Size<Pixels>, &mut Window, &mut App)>;
@@ -461,8 +462,14 @@ impl TabView {
             selected: None,
             on_select: None,
             on_overflow: None,
+            scroll: None,
             content: Vec::new(),
         }
+    }
+    /// Use a caller-owned scroll position to reveal content within this pane.
+    pub fn scroll_handle(mut self, scroll: gpui::ScrollHandle) -> Self {
+        self.scroll = Some(scroll);
+        self
     }
     /// Reports each frame how much wider and taller (positive) or narrower
     /// and shorter (negative) the view needs to be: height for the content,
@@ -539,14 +546,16 @@ impl RenderOnce for TabView {
                     .bg(hsla(c.group_border_top)),
             )
             .child({
-                let scroll = window
-                    .use_keyed_state(
-                        ElementId::Name(format!("{}-scroll", self.id).into()),
-                        cx,
-                        |_, _| gpui::ScrollHandle::new(),
-                    )
-                    .read(cx)
-                    .clone();
+                let scroll = self.scroll.unwrap_or_else(|| {
+                    window
+                        .use_keyed_state(
+                            ElementId::Name(format!("{}-scroll", self.id).into()),
+                            cx,
+                            |_, _| gpui::ScrollHandle::new(),
+                        )
+                        .read(cx)
+                        .clone()
+                });
                 let measured = content_height.clone();
                 let measured_viewport = viewport.clone();
                 div()

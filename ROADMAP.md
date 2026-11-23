@@ -6,7 +6,7 @@ Work is chosen by three inputs: what consumers are drawing themselves today (the
 
 Adoption status: lotus, chaus and johjoh are active consumers. Sandcat currently builds against an uncommitted Silvestris checkout; it is not a gating consumer, and its adoption is deferred until Silvestris's own foundations land. Sandcat rows in the gap register are demand evidence, not a schedule.
 
-Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Consumer rules: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)).
+Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Consumer rules and pins: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)). Public API changes per commit range: `CHANGELOG.md`.
 
 ## Layers
 
