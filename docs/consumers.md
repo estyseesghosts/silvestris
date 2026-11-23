@@ -164,3 +164,9 @@ lotus compiles against the candidate; it does not prove the old vendor copy was
 byte-identical to a commit (compare trees for that). Git-pinned consumers are
 checked from a temporary worktree with a Cargo `[patch]` entry pointing at the
 candidate, so the consumer's own working tree and lockfile are not modified.
+
+Last run, 2026-11-23, against `10747da` and later: lotus, chaus and johjoh all
+reported `ok` and each compiled `silvestris` from the candidate path. Lotus ran
+with `-SkipSubmodules` against a checkout whose `vendor/azahar` is empty, which
+is enough for `cargo check -p lotus-desktop`; building the emulator binaries
+needs that submodule. Lotus has not yet re-pinned to the upstreamed revision.
