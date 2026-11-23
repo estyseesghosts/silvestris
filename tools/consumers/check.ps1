@@ -99,7 +99,13 @@ silvestris = { path = "$patch" }
 "@ | Set-Content -Encoding utf8 $config
             $lock = @()
         }
-        $arguments = @("check", "--manifest-path", (Join-Path $worktree "Cargo.toml"), "-p", $spec.Package) + $lock
+        $arguments = @("check", "--manifest-path", (Join-Path $worktree "Cargo.toml"), "-p", $spec.Package)
+        if (-not $spec.Vendored) {
+            # Cargo discovers config from the working directory, not from
+            # --manifest-path, so pass the patch file explicitly.
+            $arguments += @("--config", $config)
+        }
+        $arguments += $lock
         & cargo @arguments
         if ($LASTEXITCODE -ne 0) {
             throw "cargo check failed for $name"
