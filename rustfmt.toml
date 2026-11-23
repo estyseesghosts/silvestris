@@ -1,0 +1,4 @@
+max_width = 100
+
+# `hex_literal_case` and `format_macro_matchers` are unstable on the pinned
+# stable toolchain, so the style guide permits omitting them here.
