@@ -8,12 +8,13 @@ use gpui::{
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, ProgressIndicator,
-    RadioGroup, RadioOption, Segment, SegmentedControl, Slider, SourceList, SourceListEvent,
-    TextField, TextFieldEvent,
+    Button, ButtonStyle, CheckState, Checkbox, ConfirmationFocus, ConfirmationSheet, ControlSize,
+    Disclosure, ProgressIndicator, RadioGroup, RadioOption, Segment, SegmentedControl, Slider,
+    SourceList, SourceListEvent, TextField, TextFieldEvent,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
+use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
@@ -78,6 +79,13 @@ struct Gallery {
     routing_status: gpui::SharedString,
     transient: Entity<TransientLayer>,
     transient_status: gpui::SharedString,
+    modal: Option<ModalDemo>,
+}
+
+#[derive(Clone)]
+struct ModalDemo {
+    session: Entity<ModalSession>,
+    focus: ConfirmationFocus,
 }
 
 impl Responder for Gallery {
@@ -348,6 +356,7 @@ impl Gallery {
             routing_status: "none".into(),
             transient,
             transient_status: "none".into(),
+            modal: None,
         }
     }
 
@@ -525,6 +534,31 @@ impl Render for Gallery {
                     })),
             )
             .child(
+                Button::new("open-modal-sheet", "Open modal sheet")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|g, _, window, cx| {
+                        let focus = ConfirmationFocus::new(cx);
+                        let stops = focus.handles().to_vec();
+                        let session = cx.new(|_| {
+                            ModalSession::new(ModalScope::Document)
+                                .with_focus_stops(stops)
+                                .on_end(|_| {})
+                        });
+                        g.modal = Some(ModalDemo {
+                            session: session.clone(),
+                            focus,
+                        });
+                        modal::present(session.clone(), window, cx);
+                        cx.observe(&session, |gallery, session, cx| {
+                            if session.read(cx).is_ended() {
+                                gallery.modal = None;
+                                cx.notify();
+                            }
+                        })
+                        .detach();
+                    })),
+            )
+            .child(
                 div()
                     .text_size(small_text)
                     .text_color(secondary)
@@ -571,6 +605,35 @@ impl Render for Gallery {
                     .text_color(secondary)
                     .child("each button opens its role"),
             );
+
+        let modal_sheet = self.modal.as_ref().and_then(|demo| {
+            if !demo.session.read(cx).is_active() {
+                return None;
+            }
+            let session = demo.session.clone();
+            Some(
+                ConfirmationSheet::new(
+                    "Apply changes?",
+                    "This sheet is a document-modal session. Save is blocked in this window; \
+                     the button and Escape end it.",
+                    "Apply",
+                    demo.focus.clone(),
+                    move |accept, window, cx| {
+                        modal::finish(
+                            session.clone(),
+                            if accept {
+                                ModalResult::Accepted
+                            } else {
+                                ModalResult::Rejected
+                            },
+                            window,
+                            cx,
+                        );
+                    },
+                )
+                .into_any_element(),
+            )
+        });
 
         div()
             .size_full()
@@ -930,6 +993,7 @@ impl Render for Gallery {
                     ),
             )
             .child(gpui::deferred(self.menu.clone()).priority(1))
+            .children(modal_sheet)
     }
 }
 

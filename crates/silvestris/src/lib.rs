@@ -25,6 +25,7 @@ pub fn init(preference: ThemePreference, cx: &mut gpui::App) -> anyhow::Result<(
     fonts::register(cx)?;
     theme::install(preference, cx);
     controls::text_field::bind_keys(cx);
+    modal::install(cx);
     Ok(())
 }
 
@@ -33,6 +34,8 @@ pub mod sidebar;
 pub mod command;
 
 pub mod menu;
+
+pub mod modal;
 
 pub mod preferences;
 

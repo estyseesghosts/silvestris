@@ -21,6 +21,13 @@ impl ConfirmationFocus {
     pub fn focus_cancel(&self, window: &mut Window, cx: &mut App) {
         window.focus(&self.cancel, cx);
     }
+
+    /// The sheet's focus stops in Tab order. A modal session (#21) uses them
+    /// to keep Tab inside the sheet.
+    #[must_use]
+    pub fn handles(&self) -> [FocusHandle; 2] {
+        [self.cancel.clone(), self.accept.clone()]
+    }
 }
 
 type Respond = Rc<dyn Fn(bool, &mut Window, &mut App)>;
