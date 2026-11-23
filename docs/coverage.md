@@ -1,7 +1,7 @@
 # Coverage matrix
 
 Every HIG component the corpus names, the Silvestris type that provides it,
-its status, the appearances it renders in, its golden id and the issue that
+its status, the appearances it is built for, its golden id and the issue that
 tracks the remaining work. The component list follows
 `hig-09/notes/component-inventory.md`.
 
