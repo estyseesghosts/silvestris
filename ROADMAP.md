@@ -238,5 +238,5 @@ Survey of 2026-11-23. Each consumer-side bespoke element maps to the issue that 
 
 - Sandcat is not a gating consumer. Its path dependency on a dirty checkout and its adoption are deferred until Silvestris's own foundations land; no provisional API is kept for it, and M0 does not wait on it.
 - Rust formatting follows `style-guides/rust-style-guide.md`: a `rustfmt.toml` with `max_width = 100`, `hex_literal_case = "Lower"` and `format_macro_matchers = true`. The format-only commit is [#73](https://github.com/estyseesghosts/silvestris/issues/73)'s first step.
-- The uncommitted `TextArea` prototype is discarded, not landed in any form. [#58](https://github.com/estyseesghosts/silvestris/issues/58) owns the multiline text API; [#73](https://github.com/estyseesghosts/silvestris/issues/73) attaches its duplication inventory as #58's checklist.
+- The uncommitted `TextArea` prototype is discarded, not landed as-is. [#58](https://github.com/estyseesghosts/silvestris/issues/58) owns the multiline text API; [#73](https://github.com/estyseesghosts/silvestris/issues/73) attaches its duplication inventory as #58's checklist.
 - [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.
