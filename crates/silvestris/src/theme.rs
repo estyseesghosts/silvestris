@@ -5,10 +5,11 @@
 //! selections survive a switch (handbook 15 "A switch between Aqua
 //! Light/Dark must not reset the underlying focus handle").
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use gpui::{App, Global, WindowAppearance};
-use silvestris_core::{Appearance, Theme, ThemeId, ThemePreference};
+use silvestris_core::{Appearance, FontOverrides, Theme, ThemeId, ThemePreference};
 
 pub struct ThemeState {
     preference: ThemePreference,
@@ -16,6 +17,10 @@ pub struct ThemeState {
     theme: Arc<Theme>,
     /// Bumped on every change; caches key on it.
     revision: u64,
+    /// Family substitutions applied to every theme.
+    global_fonts: FontOverrides,
+    /// Family substitutions for one theme, taking precedence over `global_fonts`.
+    theme_fonts: HashMap<ThemeId, FontOverrides>,
 }
 
 impl Global for ThemeState {}
@@ -34,8 +39,14 @@ pub(crate) fn install(preference: ThemePreference, cx: &mut App) {
     cx.set_global(ThemeState {
         preference,
         system,
-        theme: Arc::new(silvestris_core::theme(id)),
+        theme: Arc::new(silvestris_core::theme_with_font_overrides(
+            id,
+            FontOverrides::default(),
+            FontOverrides::default(),
+        )),
         revision: 0,
+        global_fonts: FontOverrides::default(),
+        theme_fonts: HashMap::new(),
     });
 }
 
@@ -64,10 +75,74 @@ fn apply(cx: &mut App, preference: ThemePreference, system: Appearance) {
     state.preference = preference;
     state.system = system;
     if state.theme.id != id {
-        state.theme = Arc::new(silvestris_core::theme(id));
-        state.revision += 1;
+        rebuild_theme(state, id);
         cx.refresh_windows();
     }
+}
+
+fn rebuild_theme(state: &mut ThemeState, id: ThemeId) {
+    let specific = state.theme_fonts.get(&id).copied().unwrap_or_default();
+    state.theme = Arc::new(silvestris_core::theme_with_font_overrides(
+        id,
+        state.global_fonts,
+        specific,
+    ));
+    state.revision = state.revision.wrapping_add(1);
+}
+
+/// Replace the UI and/or monospace family for every theme.
+///
+/// This is a consumer integration point: an application can adopt its house
+/// font without forking a theme. Sizes, colours and metrics are untouched, and
+/// a per-theme override set with [`set_font_overrides`] still wins.
+pub fn set_global_font_overrides(overrides: FontOverrides, cx: &mut App) {
+    let current = cx.global::<ThemeState>().theme.id;
+    {
+        let state = cx.global_mut::<ThemeState>();
+        state.global_fonts = overrides;
+        rebuild_theme(state, current);
+    }
+    cx.refresh_windows();
+}
+
+/// Replace the UI and/or monospace family for one theme.
+///
+/// The override survives appearance switches and is reapplied whenever that
+/// theme becomes active. It takes precedence over the global override.
+pub fn set_font_overrides(id: ThemeId, overrides: FontOverrides, cx: &mut App) {
+    let current = cx.global::<ThemeState>().theme.id;
+    {
+        let state = cx.global_mut::<ThemeState>();
+        state.theme_fonts.insert(id, overrides);
+        if id == current {
+            rebuild_theme(state, current);
+        }
+    }
+    if id == current {
+        cx.refresh_windows();
+    }
+}
+
+/// Remove every global and per-theme font override.
+pub fn clear_font_overrides(cx: &mut App) {
+    let current = cx.global::<ThemeState>().theme.id;
+    {
+        let state = cx.global_mut::<ThemeState>();
+        state.global_fonts = FontOverrides::default();
+        state.theme_fonts.clear();
+        rebuild_theme(state, current);
+    }
+    cx.refresh_windows();
+}
+
+/// The overrides currently registered for a theme, for diagnostics and tests.
+#[must_use]
+pub fn font_overrides(cx: &App, id: ThemeId) -> (FontOverrides, FontOverrides) {
+    let state = cx.global::<ThemeState>();
+    (
+        state.global_fonts,
+        state.theme_fonts.get(&id).copied().unwrap_or_default(),
+    )
 }
 
 /// Change the user's theme choice; all windows repaint.

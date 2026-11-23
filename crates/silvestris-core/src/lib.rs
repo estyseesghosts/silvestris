@@ -17,7 +17,7 @@ pub mod tokens;
 
 pub use color::{Gradient, Rgba8};
 pub use theme::{Appearance, ThemeFamily, ThemeId, ThemePreference};
-pub use tokens::Theme;
+pub use tokens::{FontOverrides, Theme};
 
 /// Family names registered by silvestris-fonts (checked against
 /// `TextSystem::all_font_names` at startup by the GPUI crate).
@@ -36,6 +36,22 @@ pub fn theme(id: ThemeId) -> Theme {
         (ThemeFamily::Geist, Appearance::Light) => geist::geist_light(),
         (ThemeFamily::Geist, Appearance::Dark) => geist::geist_dark(),
     }
+}
+
+/// Resolve a theme, then apply a global override and a theme-specific one.
+///
+/// The theme-specific value wins so an app can set one house font everywhere
+/// and still give a single theme a different face.
+#[must_use]
+pub fn theme_with_font_overrides(
+    id: ThemeId,
+    global: FontOverrides,
+    specific: FontOverrides,
+) -> Theme {
+    let mut theme = theme(id);
+    theme.apply_font_overrides(global);
+    theme.apply_font_overrides(specific);
+    theme
 }
 
 #[cfg(test)]
