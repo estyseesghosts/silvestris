@@ -159,7 +159,8 @@ pwsh tools/consumers/check.ps1 -Candidate . -Consumer lotus,chaus,johjoh
 
 It skips a consumer whose checkout is absent, always skips sandcat, and fails
 on a build error. Lotus is checked from a temporary worktree whose
-`vendor/silvestris` is replaced by the candidate tree, which proves the vendor
-copy is byte-equivalent to an upstream commit. Git-pinned consumers are checked
-from a temporary worktree with a Cargo `[patch]` entry pointing at the
+`vendor/silvestris` is replaced by the candidate tree, so the build proves
+lotus compiles against the candidate; it does not prove the old vendor copy was
+byte-identical to a commit (compare trees for that). Git-pinned consumers are
+checked from a temporary worktree with a Cargo `[patch]` entry pointing at the
 candidate, so the consumer's own working tree and lockfile are not modified.
