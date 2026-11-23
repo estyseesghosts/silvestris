@@ -55,11 +55,13 @@ $results = [System.Collections.Generic.List[string]]::new()
 $failed = $false
 
 function Copy-Candidate([string]$Destination) {
-    $Destination = New-Item -ItemType Directory -Force -Path $Destination
+    # Do not reassign $Destination: the [string] constraint coerces the
+    # DirectoryInfo from New-Item back to a string, and .FullName is then null.
+    $target = New-Item -ItemType Directory -Force -Path $Destination
     Get-ChildItem -Force $Candidate | Where-Object {
         $_.Name -notin @(".git", "target")
     } | ForEach-Object {
-        Copy-Item -Recurse -Force $_.FullName (Join-Path $Destination.FullName $_.Name)
+        Copy-Item -Recurse -Force $_.FullName (Join-Path $target.FullName $_.Name)
     }
 }
 
