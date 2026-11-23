@@ -9,10 +9,21 @@ repository.workspace = true
 publish = false
 description = "Component catalog and an independent workstation consumer for Silvestris."
 
+[features]
+# Golden renders need GPUI's test-support APIs: Window::set_scale_factor and
+# the platform render_to_image readback. Normal builds do not enable them.
+capture = ["gpui_platform/test-support"]
+
+[[bin]]
+name = "capture"
+path = "src/bin/capture.rs"
+required-features = ["capture"]
+
 [dependencies]
 silvestris = { workspace = true }
 gpui = { workspace = true }
 gpui_platform = { workspace = true }
+image = { workspace = true, features = ["png"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

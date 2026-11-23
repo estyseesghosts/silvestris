@@ -25,6 +25,7 @@ unicode-segmentation = "1.13"
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 # DWM corner preference for the custom-chrome window (handbook 06).

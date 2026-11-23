@@ -2222,6 +2222,7 @@ dependencies = [
  "gpui_linux",
  "gpui_macos",
  "gpui_web",
+ "gpui_wgpu",
  "gpui_windows",
 ]
 
@@ -2285,6 +2286,7 @@ dependencies = [
  "etagere",
  "gpui",
  "gpui_util",
+ "image",
  "itertools 0.14.0",
  "js-sys",
  "log",
@@ -4896,6 +4898,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "serde_json",
+ "sha2",
  "silvestris-core",
  "silvestris-fonts",
  "smallvec",
@@ -4917,6 +4920,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "image",
  "serde",
  "serde_json",
  "silvestris",
