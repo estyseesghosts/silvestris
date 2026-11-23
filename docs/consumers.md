@@ -37,9 +37,9 @@ Pins verified on 2026-11-23. Full commit ids, not abbreviations, belong in
 | johjoh | `d1db8f0c6cbe80e80fb1dfebbb5c78990d2b9265` | git revision | none |
 | sandcat | uncommitted checkout | path dependency | deferred |
 
-Lotus's three generic patches are now upstream. Re-pin lotus to the commit that
-contains `docs/consumers.md`, regenerate `vendor/silvestris` from that commit
-and delete the local patch list. The Settings bounds restore stays in lotus: it
+Lotus's three generic patches are now upstream in `4df116b` (PR #81). Re-pin
+lotus to that revision or later, regenerate `vendor/silvestris` from it and
+delete the local patch list. The Settings bounds restore stays in lotus: it
 decides which bounds to persist for which window role.
 
 Sandcat builds against a path dependency into an uncommitted checkout. Its

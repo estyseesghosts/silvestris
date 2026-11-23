@@ -19,7 +19,9 @@ shows them: radio button, combo box, progress indicator, disclosure triangle,
 window frame and the search field. The tracking issue is that test. The other
 `provisional` rows lack a gallery sample or wait on an API replacement.
 
-Appearances `four` means Aqua Light, Aqua Dark, Geist Light and Geist Dark.
+Appearances `four` means the control is built for all four (Aqua Light, Aqua Dark,
+Geist Light, Geist Dark). It is a design statement, not evidence: rendering
+evidence is the golden id or a test that iterates appearances.
 A golden id names the sample stem under `goldens/renders/<appearance>/<scale>/`.
 The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 [docs/goldens.md](goldens.md). `—` means no committed golden.
