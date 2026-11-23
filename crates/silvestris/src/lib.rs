@@ -39,6 +39,8 @@ pub mod modal;
 
 pub mod preferences;
 
+pub mod prefs;
+
 pub mod responder;
 
 pub mod transient;
