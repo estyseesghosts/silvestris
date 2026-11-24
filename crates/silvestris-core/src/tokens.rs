@@ -130,11 +130,18 @@ pub struct Colors {
     pub sidebar: Rgba8,
     pub sidebar_inactive: Rgba8,
     pub sidebar_heading: Rgba8,
+    /// Secondary source list (Mail's mailbox list, Address Book groups).
+    pub source_secondary: Rgba8,
+    pub source_secondary_heading: Rgba8,
     pub row_alternate: Rgba8,
     pub group_fill: Rgba8,
     pub group_border: Rgba8,
     /// Top edge of a group/tab-view box, darker than its sides in Aqua.
     pub group_border_top: Rgba8,
+    /// Recessed content well (HIG pp. 361-363; M: groupbox.fill/left).
+    pub well_fill: Rgba8,
+    pub well_border: Rgba8,
+    pub well_shadow: Rgba8,
     /// Rule between preferences-overview category bands.
     pub band_rule: Rgba8,
     pub menu: Rgba8,
@@ -142,6 +149,8 @@ pub struct Colors {
     pub menu_text_disabled: Rgba8,
     pub menu_separator: Rgba8,
     pub menu_separator_highlight: Rgba8,
+    /// Outer hairline around a floating menu.
+    pub menu_border: Rgba8,
     pub tooltip: Rgba8,
     pub tooltip_border: Rgba8,
     pub tooltip_text: Rgba8,
@@ -238,6 +247,56 @@ pub struct Scroller {
     pub arrow: Rgba8,
 }
 
+/// A pop-up button: the body and the trailing arrow cap are separate
+/// materials in 10.6 (M: popup-button.regular body rows and cap columns).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PopUp {
+    pub body: BevelStates,
+    pub cap: BevelStates,
+    /// Hairline at the body/cap seam.
+    pub divider: Rgba8,
+    /// Paired up/down arrow ink.
+    pub arrow: Rgba8,
+}
+
+/// A radio button's circular bezel and inner dot. The dot is a separate colour
+/// because the selected bezel's body is blue (M: radio.selected).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Radio {
+    pub states: BevelStates,
+    pub dot: Rgba8,
+}
+
+/// Slider materials. 10.6 pairs a shallow inset track with either a round
+/// thumb (view body) or a pointed shield thumb (Dock/Finder settings).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Slider {
+    pub track: Bevel,
+    pub track_disabled: Bevel,
+    pub round: BevelStates,
+    pub pointed: BevelStates,
+    pub tick: Rgba8,
+}
+
+/// Progress materials: the well, the determinate fill, the barber-pole stripe
+/// pair and the asynchronous spinner's two tones.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Progress {
+    pub track: Bevel,
+    pub fill: Bevel,
+    pub barber_light: Rgba8,
+    pub barber_dark: Rgba8,
+    pub spinner: Rgba8,
+    pub spinner_dim: Rgba8,
+}
+
+/// Help (question-mark) button ring and glyph (M: appearance help button).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Help {
+    pub states: BevelStates,
+    pub glyph: Rgba8,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Controls {
     pub push: BevelStates,
@@ -246,17 +305,24 @@ pub struct Controls {
     /// Rectangular toolbar/bottom-bar control (NSTexturedRoundedBezelStyle).
     pub textured: BevelStates,
     pub gradient: BevelStates,
+    /// Circular textured control for toolbars (HIG p. 261).
+    pub round: BevelStates,
+    /// Inset/recessed rectangular control (HIG pp. 257-261).
+    pub recessed: BevelStates,
     /// Capsule tab/segment (tab views, preference pane switches).
     pub segment: BevelStates,
     pub checkbox: BevelStates,
+    pub radio: Radio,
     pub field: Field,
     pub search: Field,
     pub scroller: Scroller,
     pub table_header: Bevel,
-    pub progress_track: Bevel,
-    pub progress_fill: Bevel,
-    pub slider_track: Bevel,
-    pub slider_knob: Bevel,
+    pub popup: PopUp,
+    /// The capsule/textured pop-up used inside unified toolbars (#2).
+    pub popup_textured: PopUp,
+    pub progress: Progress,
+    pub slider: Slider,
+    pub help: Help,
 }
 
 /// Selection band: a line on top of a gradient.
@@ -270,7 +336,12 @@ pub struct Selection {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Lists {
     pub source_active: Selection,
+    /// Active window, list not focused (M: Finder/Open sidebar selection).
+    pub source_unfocused: Selection,
     pub source_inactive: Selection,
+    /// Secondary source lists (Mail, Address Book).
+    pub source_secondary_active: Selection,
+    pub source_secondary_inactive: Selection,
     pub table_active: Selection,
     pub table_inactive: Selection,
     pub menu: Selection,
@@ -376,6 +447,9 @@ pub struct Metrics {
     pub push_small_height: f32,
     pub push_mini_height: f32,
     pub push_radius: f32,
+    /// Arrow-cap width of a pop-up, per control size (M: popup-button.regular
+    /// cap is 21 logical px at height 21).
+    pub popup_cap: [f32; 3],
     /// Horizontal space from the bezel border to the label ink, per
     /// control size (regular, small, mini). Width = label + 2 * padding.
     pub push_padding: [f32; 3],
@@ -398,6 +472,13 @@ pub struct Metrics {
     pub checkbox_mini_size: f32,
     pub checkbox_label_gap: f32,
     pub checkbox_radius: f32,
+    /// Radio bezel diameter per size (M: radio.selected is 14 logical).
+    pub radio_size: [f32; 3],
+    /// Selected dot diameter as a fraction of the bezel (M: radio.selected).
+    pub radio_dot_fraction: f32,
+    pub radio_label_gap: f32,
+    /// Vertical pitch between radio rows minus the control height.
+    pub radio_row_gap: f32,
     pub source_row_height: f32,
     pub source_indent: f32,
     pub table_row_height: f32,
@@ -412,7 +493,29 @@ pub struct Metrics {
     /// and opacity multiplies `Colors::focus_ring`.
     pub focus_ring: &'static [(f32, f32)],
     pub disclosure_size: f32,
+    /// Drawn triangle size inside the 13 px hit box (M: disclosure.collapsed).
+    pub disclosure_width: f32,
+    pub disclosure_height: f32,
     pub slider_height: f32,
+    /// Track thickness per size (M: Dock size slider is 5 logical).
+    pub slider_track_height: [f32; 3],
+    /// Thumb width and height per size. The pointed thumb is taller than the
+    /// round one because its point hangs below the track (M: Dock size slider).
+    pub slider_thumb_width: [f32; 3],
+    pub slider_thumb_height: [f32; 3],
+    /// Tick stroke height, its gap under the track, and the label gap.
+    pub slider_tick_height: f32,
+    pub slider_tick_gap: f32,
+    pub slider_tick_label_gap: f32,
+    /// Progress bar height per size (M: installer bar is 16 logical).
+    pub progress_height: [f32; 3],
+    /// Asynchronous spinner diameter per size.
+    pub spinner_size: [f32; 3],
+    /// Menu elevation: offset (x, y) and blur radius in logical pixels.
+    pub menu_shadow_offset: [f32; 2],
+    pub menu_shadow_blur: f32,
+    /// Recessed-well border and inner-shadow thickness.
+    pub well_inset: f32,
     pub splitter_hot_zone: f32,
     pub control_spacing: f32,
     pub tab_label_margin: f32,

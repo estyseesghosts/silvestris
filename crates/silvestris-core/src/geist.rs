@@ -71,6 +71,8 @@ fn metrics() -> Metrics {
         push_small_height: 24.0,
         push_mini_height: 20.0,
         push_radius: 6.0,
+        // designed: cap scales with the 28 px Geist control height.
+        popup_cap: [18.0, 16.0, 14.0],
         // designed: 12/10/8 px, 4 px grid.
         push_padding: [12.0, 10.0, 8.0],
         // designed: flex centring.
@@ -90,6 +92,10 @@ fn metrics() -> Metrics {
         checkbox_mini_size: 12.0,
         checkbox_label_gap: 6.0,
         checkbox_radius: 4.0,
+        radio_size: [16.0, 14.0, 12.0],
+        radio_dot_fraction: 0.3,
+        radio_label_gap: 8.0,
+        radio_row_gap: 4.0,
         source_row_height: 28.0,
         source_indent: 14.0,
         table_row_height: 24.0,
@@ -102,7 +108,20 @@ fn metrics() -> Metrics {
         // designed: 2 px solid accent ring just outside the edge.
         focus_ring: &[(2.0, 1.0), (1.0, 1.0)],
         disclosure_size: 13.0,
+        disclosure_width: 4.5,
+        disclosure_height: 6.0,
         slider_height: 20.0,
+        slider_track_height: [6.0, 5.0, 4.0],
+        slider_thumb_width: [18.0, 16.0, 14.0],
+        slider_thumb_height: [20.0, 18.0, 16.0],
+        slider_tick_height: 4.0,
+        slider_tick_gap: 4.0,
+        slider_tick_label_gap: 6.0,
+        progress_height: [16.0, 12.0, 10.0],
+        spinner_size: [16.0, 14.0, 12.0],
+        menu_shadow_offset: [0.0, 4.0],
+        menu_shadow_blur: 16.0,
+        well_inset: 1.0,
         splitter_hot_zone: 3.0,
         control_spacing: 8.0,
         tab_label_margin: 12.0,
@@ -165,6 +184,67 @@ pub fn geist_dark() -> Theme {
         caret: c(0xededed),
         selection: c(0x0b3a5c),
     };
+    // designed: Geist is flat; the pop-up keeps the same neutral body and a
+    // blue accent cap so the affordance stays legible.
+    let popup = PopUp {
+        body: BevelStates {
+            normal,
+            pressed,
+            disabled,
+            selected: normal,
+        },
+        cap: BevelStates {
+            normal: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+            pressed: flat(c(0x0070f3), c(0x0b3a5c), c(0xededed)),
+            disabled,
+            selected: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+        },
+        divider: c(0x0b3a5c),
+        arrow: c(0xededed),
+    };
+    let radio = Radio {
+        states: BevelStates {
+            normal: flat(c(0x454545), c(0x0a0a0a), c(0xededed)),
+            pressed,
+            disabled,
+            selected: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+        },
+        dot: c(0x0a0a0a),
+    };
+    let slider = Slider {
+        track: flat(c(0x2e2e2e), c(0x292929), c(0xededed)),
+        track_disabled: flat(c(0x2e2e2e), c(0x1a1a1a), c(0x878787)),
+        round: BevelStates {
+            normal: flat(c(0x454545), c(0xededed), c(0x000000)),
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        pointed: BevelStates {
+            normal: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        tick: c(0x878787),
+    };
+    let progress = Progress {
+        track: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xededed)),
+        fill: flat(c(0x0095ff), c(0x0095ff), c(0xededed)),
+        barber_light: c(0x3a3a3a),
+        barber_dark: c(0x4f9df0),
+        spinner: c(0xd0d0d0),
+        spinner_dim: c(0xffffff).alpha(40),
+    };
+    let help = Help {
+        states: BevelStates {
+            normal,
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        glyph: c(0xededed),
+    };
     Theme {
         id: ThemeId::GEIST_DARK,
         provenance: Provenance::Inherited,
@@ -192,16 +272,22 @@ pub fn geist_dark() -> Theme {
             sidebar: c(0x1a1a1a),
             sidebar_inactive: c(0x1a1a1a),
             sidebar_heading: c(0x878787),
+            source_secondary: c(0x111111),
+            source_secondary_heading: c(0x878787),
             row_alternate: c(0x111111),
             group_fill: c(0x1a1a1a),
             group_border: c(0x2e2e2e),
             group_border_top: c(0x2e2e2e),
+            well_fill: c(0x111111),
+            well_border: c(0x2e2e2e),
+            well_shadow: c(0x0a0a0a),
             band_rule: c(0x2e2e2e),
             menu: c(0x1a1a1a),
             menu_text: c(0xededed),
             menu_text_disabled: c(0x878787),
             menu_separator: c(0x2e2e2e),
             menu_separator_highlight: T,
+            menu_border: c(0x2e2e2e),
             tooltip: c(0x292929),
             tooltip_border: c(0x454545),
             tooltip_text: c(0xededed),
@@ -235,6 +321,18 @@ pub fn geist_dark() -> Theme {
                 disabled,
                 selected: pressed,
             },
+            round: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
+            recessed: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
             segment: BevelStates {
                 normal,
                 pressed,
@@ -247,6 +345,7 @@ pub fn geist_dark() -> Theme {
                 disabled,
                 selected: flat(c(0xededed), c(0xededed), c(0x000000)),
             },
+            radio,
             field,
             search: field,
             scroller: Scroller {
@@ -257,14 +356,18 @@ pub fn geist_dark() -> Theme {
                 arrow: c(0x878787),
             },
             table_header: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xa1a1a1)),
-            progress_track: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xededed)),
-            progress_fill: flat(c(0x0095ff), c(0x0095ff), c(0xededed)),
-            slider_track: flat(c(0x2e2e2e), c(0x292929), c(0xededed)),
-            slider_knob: flat(c(0x454545), c(0xededed), c(0x000000)),
+            popup,
+            popup_textured: popup,
+            progress,
+            slider,
+            help,
         },
         lists: Lists {
             source_active: selection(c(0x292929), c(0xededed)),
             source_inactive: selection(c(0x1f1f1f), c(0xa1a1a1)),
+            source_unfocused: selection(c(0x232323), c(0xededed)),
+            source_secondary_active: selection(c(0x292929), c(0xededed)),
+            source_secondary_inactive: selection(c(0x1f1f1f), c(0xa1a1a1)),
             table_active: selection(c(0x0b3a5c), c(0xededed)),
             table_inactive: selection(c(0x292929), c(0xededed)),
             menu: selection(c(0x292929), c(0xededed)),
@@ -301,6 +404,65 @@ pub fn geist_light() -> Theme {
         caret: c(0x171717),
         selection: c(0xcce3fd),
     };
+    let popup = PopUp {
+        body: BevelStates {
+            normal,
+            pressed,
+            disabled,
+            selected: normal,
+        },
+        cap: BevelStates {
+            normal: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
+            pressed: flat(c(0x005bb5), c(0xe6f1fe), c(0x171717)),
+            disabled,
+            selected: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
+        },
+        divider: c(0xc9c9c9),
+        arrow: c(0x171717),
+    };
+    let radio = Radio {
+        states: BevelStates {
+            normal: flat(c(0xc9c9c9), c(0xffffff), c(0x171717)),
+            pressed,
+            disabled,
+            selected: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
+        },
+        dot: c(0x171717),
+    };
+    let slider = Slider {
+        track: flat(c(0xe6e6e6), c(0xebebeb), c(0x171717)),
+        track_disabled: flat(c(0xebebeb), c(0xfafafa), c(0x8f8f8f)),
+        round: BevelStates {
+            normal: flat(c(0xc9c9c9), c(0xffffff), c(0x171717)),
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        pointed: BevelStates {
+            normal: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        tick: c(0x8f8f8f),
+    };
+    let progress = Progress {
+        track: flat(c(0xe6e6e6), c(0xf2f2f2), c(0x171717)),
+        fill: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
+        barber_light: c(0xf2f2f2),
+        barber_dark: c(0x0070f3),
+        spinner: c(0x666666),
+        spinner_dim: c(0xc9c9c9),
+    };
+    let help = Help {
+        states: BevelStates {
+            normal,
+            pressed,
+            disabled,
+            selected: pressed,
+        },
+        glyph: c(0x171717),
+    };
     Theme {
         id: ThemeId::GEIST_LIGHT,
         provenance: Provenance::Designed,
@@ -328,16 +490,22 @@ pub fn geist_light() -> Theme {
             sidebar: c(0xfafafa),
             sidebar_inactive: c(0xfafafa),
             sidebar_heading: c(0x666666),
+            source_secondary: c(0xfafafa),
+            source_secondary_heading: c(0x666666),
             row_alternate: c(0xfafafa),
             group_fill: c(0xffffff),
             group_border: c(0xe6e6e6),
             group_border_top: c(0xe6e6e6),
+            well_fill: c(0xfafafa),
+            well_border: c(0xe6e6e6),
+            well_shadow: c(0xc9c9c9),
             band_rule: c(0xebebeb),
             menu: c(0xffffff),
             menu_text: c(0x171717),
             menu_text_disabled: c(0x8f8f8f),
             menu_separator: c(0xebebeb),
             menu_separator_highlight: T,
+            menu_border: c(0xc9c9c9),
             tooltip: c(0x171717),
             tooltip_border: c(0x171717),
             tooltip_text: c(0xfafafa),
@@ -371,6 +539,18 @@ pub fn geist_light() -> Theme {
                 disabled,
                 selected: pressed,
             },
+            round: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
+            recessed: BevelStates {
+                normal,
+                pressed,
+                disabled,
+                selected: pressed,
+            },
             segment: BevelStates {
                 normal,
                 pressed,
@@ -383,6 +563,7 @@ pub fn geist_light() -> Theme {
                 disabled,
                 selected: flat(c(0x171717), c(0x171717), c(0xffffff)),
             },
+            radio,
             field,
             search: field,
             scroller: Scroller {
@@ -393,14 +574,18 @@ pub fn geist_light() -> Theme {
                 arrow: c(0x8f8f8f),
             },
             table_header: flat(c(0xebebeb), c(0xfafafa), c(0x666666)),
-            progress_track: flat(c(0xe6e6e6), c(0xf2f2f2), c(0x171717)),
-            progress_fill: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
-            slider_track: flat(c(0xe6e6e6), c(0xebebeb), c(0x171717)),
-            slider_knob: flat(c(0xc9c9c9), c(0xffffff), c(0x171717)),
+            popup,
+            popup_textured: popup,
+            progress,
+            slider,
+            help,
         },
         lists: Lists {
             source_active: selection(c(0xebebeb), c(0x171717)),
             source_inactive: selection(c(0xf2f2f2), c(0x666666)),
+            source_unfocused: selection(c(0xe6e6e6), c(0x171717)),
+            source_secondary_active: selection(c(0xebebeb), c(0x171717)),
+            source_secondary_inactive: selection(c(0xf2f2f2), c(0x666666)),
             table_active: selection(c(0xe6f1fe), c(0x171717)),
             table_inactive: selection(c(0xf2f2f2), c(0x171717)),
             menu: selection(c(0xf2f2f2), c(0x171717)),

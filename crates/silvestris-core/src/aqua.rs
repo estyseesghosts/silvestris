@@ -64,6 +64,9 @@ fn metrics() -> Metrics {
         push_mini_height: 15.0,
         // Capsule ends; painters clamp to half the height.
         push_radius: 11.0,
+        // M: popup-button.regular: cap is 21 logical wide at 21 high. Small and
+        // mini scale with the button height (designed; no 10.6 capture).
+        popup_cap: [21.0, 18.0, 15.0],
         // M: button.push.widths: Force Quit (regular) has 16/17 px from border to ink.
         // designed: small and mini scale that by the label sizes (11/13, 9/13 pt,
         // HIG p. 268); the Copy panel's small buttons are equal-width (HIG PDF p. 359)
@@ -96,6 +99,14 @@ fn metrics() -> Metrics {
         checkbox_mini_size: 10.0,
         checkbox_label_gap: 6.0,
         checkbox_radius: 2.0,
+        // M: radio.selected: 14 logical bezel; small/mini scale by label size
+        // (designed, not captured).
+        radio_size: [14.0, 12.0, 10.0],
+        // M: radio.selected: the dark dot is about 6 of 28 physical pixels.
+        radio_dot_fraction: 0.24,
+        radio_label_gap: 6.0,
+        // M: Appearance pane radio rows sit 17 logical apart at 14 high.
+        radio_row_gap: 3.0,
         // M: sidebar.row_pitch and sidebar.selection.active (20 rows incl. top line).
         source_row_height: 20.0,
         // designed: one disclosure width; Finder's own indent is not measured.
@@ -118,7 +129,30 @@ fn metrics() -> Metrics {
         focus_ring: &[(2.0, 0.67), (1.0, 1.0), (0.0, 0.66), (-1.0, 0.34)],
         // HIG p. 341-343: disclosure triangle 13x13; slider 19 regular; splitter hot zone 2 px.
         disclosure_size: 13.0,
+        // M: disclosure.collapsed: 9x12 physical px -> 4.5x6 logical.
+        disclosure_width: 4.5,
+        disclosure_height: 6.0,
         slider_height: 19.0,
+        // M: Dock size slider: 10 physical px track -> 5 logical.
+        slider_track_height: [5.0, 4.0, 3.0],
+        // M: Dock pointed thumb 15x18 logical; gallery round thumb 14x14.
+        // Small/mini scale by the label sizes (designed).
+        slider_thumb_width: [15.0, 13.0, 11.0],
+        slider_thumb_height: [18.0, 15.0, 13.0],
+        // M: Dock slider tick 4 logical high, 3 under the track, labels 4 below.
+        slider_tick_height: 4.0,
+        slider_tick_gap: 3.0,
+        slider_tick_label_gap: 4.0,
+        // M: installer/Software Update bars are 16 logical high.
+        progress_height: [16.0, 12.0, 10.0],
+        // designed: spinner sizes scale with the bar.
+        spinner_size: [16.0, 13.0, 11.0],
+        // M: menu.body: soft shadow directly under the panel, radius roughly
+        // one item height. Offset and blur are a designed fit to the capture.
+        menu_shadow_offset: [0.0, 2.0],
+        menu_shadow_blur: 12.0,
+        // M: groupbox.top/left: 1 px border plus a 1 px inner shadow row.
+        well_inset: 1.0,
         splitter_hot_zone: 2.0,
         // HIG p. 261: 8 px between toolbar controls.
         control_spacing: 8.0,
@@ -336,6 +370,163 @@ pub fn aqua_light() -> Theme {
         emboss: BLACK.alpha(40),
         text: c(0x1c2d3d),
     };
+    // M: popup-button.regular body and cap rows at 2x. The body is a neutral
+    // gloss with a taller top border than a push button; the cap is blue with
+    // a dark blue top border and the same grey bottom border.
+    let popup_body = Bevel {
+        border: g(0x868686, 0x616161),
+        upper: g(0xfbfbfb, 0xdfdfdf),
+        lower: g(0xe0e0e0, 0xffffff),
+        split: 9.0 / 19.0,
+        emboss: BLACK.alpha(48),
+        text: BLACK,
+    };
+    let popup_cap = Bevel {
+        border: g(0x1d1e89, 0x3862b3),
+        upper: g(0xdde5f3, 0xadcaec),
+        lower: g(0x85b2e4, 0xdafefe),
+        split: 8.0 / 19.0,
+        emboss: BLACK.alpha(48),
+        text: BLACK,
+    };
+    // M: popup.disabled body and cap; the cap keeps the same neutral material
+    // and its arrows are grey (M: popup.disabled.right).
+    let popup_disabled = Bevel {
+        border: g(0xb5b5b5, 0xa2a2a2),
+        upper: g(0xf2f2f2, 0xe5e5e5),
+        lower: g(0xdedede, 0xf2f2f2),
+        split: 9.0 / 19.0,
+        emboss: BLACK.alpha(26),
+        text: c(0x9a9a9a),
+    };
+    // designed: no 10.6 capture of a pressed pop-up; the pressed body darkens
+    // the normal gloss, and the cap reuses the measured selected segment blue.
+    let popup_body_pressed = Bevel {
+        upper: g(0xe7e7e7, 0xc8c8c8),
+        lower: g(0xc8c8c8, 0xededed),
+        ..popup_body
+    };
+    let popup_cap_pressed = Bevel {
+        border: g(0x2a3080, 0x4a4a4a),
+        upper: g(0xc3d9ef, 0x8db8e0),
+        lower: g(0x5c9bd6, 0xa6dcf6),
+        split: 8.0 / 19.0,
+        emboss: BLACK.alpha(48),
+        text: BLACK,
+    };
+    // designed: 10.6's toolbar pop-up is a capsule of the textured toolbar
+    // material, so body and cap share it with a seam.
+    let popup_textured = PopUp {
+        body: BevelStates {
+            normal: textured_normal,
+            pressed: textured_selected,
+            disabled: textured_disabled,
+            selected: textured_normal,
+        },
+        cap: BevelStates {
+            normal: textured_normal,
+            pressed: textured_selected,
+            disabled: textured_disabled,
+            selected: textured_normal,
+        },
+        divider: c(0x4d4d4d),
+        arrow: c(0x2b2b2b),
+    };
+    // M: radio.selected and the unselected Appearance rows. The selected ring
+    // is dark blue over a blue gloss, with a near-black dot; the unselected
+    // ring is grey over white.
+    let radio_normal = Bevel {
+        border: g(0x858585, 0x5d5d5d),
+        upper: g(0xffffff, 0xe9e9e9),
+        lower: g(0xe9e9e9, 0xffffff),
+        split: 6.0 / 12.0,
+        emboss: BLACK.alpha(40),
+        text: BLACK,
+    };
+    let radio_selected = Bevel {
+        border: g(0x172a8a, 0x5d5d5d),
+        upper: g(0xdde5f3, 0x86b2e4),
+        lower: g(0x86b2e4, 0xdafefe),
+        split: 6.0 / 12.0,
+        emboss: BLACK.alpha(40),
+        text: c(0x212d3b),
+    };
+    let radio_pressed = Bevel {
+        // designed: pressed radio not captured; one step darker.
+        upper: g(0xdedede, 0xc9c9c9),
+        lower: g(0xc9c9c9, 0xdedede),
+        ..radio_normal
+    };
+    // M: Dock size slider track: top border 68605d, fill 939190..b1b1b1.
+    let slider_track = Bevel::plain(
+        g(0x68605d, 0xa49e9d),
+        g(0x939190, 0xb1b1b1),
+        WHITE.alpha(40),
+        BLACK,
+    );
+    // M: disabled Magnification track and thumb in the same Dock capture.
+    let slider_track_disabled = Bevel::plain(
+        g(0xb9b9b9, 0xd2d2d2),
+        g(0xd7d7d7, 0xefefef),
+        WHITE.alpha(24),
+        c(0x9a9a9a),
+    );
+    // M: gallery slider round thumb: border 5e5e5e, fbfbfb..e7e7e7 then
+    // ececec..fdfdfd. The pointed thumb reuses the measured pop-up cap blue
+    // (M: Dock size slider 695d9a / d4e3f7 .. c2e8fd).
+    let slider_round = Bevel {
+        border: g(0x5e5e5e, 0x696969),
+        upper: g(0xfbfbfb, 0xe7e7e7),
+        lower: g(0xececec, 0xfdfdfd),
+        split: 10.0 / 22.0,
+        emboss: BLACK.alpha(60),
+        text: BLACK,
+    };
+    let slider_pointed = Bevel {
+        border: g(0x695d9a, 0x7a7a7a),
+        upper: g(0xd4e3f7, 0x8bb8ec),
+        lower: g(0x93bff0, 0xc2e8fd),
+        split: 10.0 / 20.0,
+        emboss: BLACK.alpha(48),
+        text: BLACK,
+    };
+    // M: progress.determinate track rows d2..f3 with an a5 bottom border, and
+    // the blue fill cap 383f94 / dcebf9..7bb8eb / 91caf0..c0effb.
+    let progress_track = Bevel::plain(
+        g(0xd2d2d2, 0xa4a4a4),
+        g(0xd7d7d7, 0xf3f3f3),
+        WHITE.alpha(48),
+        BLACK,
+    );
+    let progress_fill = Bevel {
+        border: g(0x383f94, 0x5c5d62),
+        upper: g(0xdcebf9, 0x7bb8eb),
+        lower: g(0x91caf0, 0xc0effb),
+        split: 6.0 / 13.0,
+        emboss: Rgba8::TRANSPARENT,
+        text: BLACK,
+    };
+    let help_button = Help {
+        // M: the Appearance pane's help tag: purple ring and violet gloss.
+        states: BevelStates {
+            normal: Bevel {
+                border: g(0x5d3a6b, 0x8b5a9b),
+                upper: g(0xf4e9fd, 0xe1d3fa),
+                lower: g(0xd2c3ed, 0xf0e4fd),
+                split: 0.5,
+                emboss: BLACK.alpha(28),
+                text: c(0x5b3a6b),
+            },
+            pressed: Bevel {
+                upper: g(0xe1d3fa, 0xcdbbeb),
+                lower: g(0xbdabdd, 0xe1d3fa),
+                ..radio_pressed
+            },
+            disabled: push_disabled,
+            selected: radio_selected,
+        },
+        glyph: c(0x5b3a6b),
+    };
     let field = Field {
         // M: toolbar.search.column: 84 top, d8 inner shadow, white, e1 bottom.
         border_top: c(0x848484),
@@ -382,16 +573,27 @@ pub fn aqua_light() -> Theme {
             sidebar: c(0xdee4ea),          // M: sidebar.background
             sidebar_inactive: c(0xececec), // M: 10.6.8 capture, inactive Utilities sidebar
             sidebar_heading: c(0x738193),  // M: sidebar.header.text glyph core
+            // M: Mail mailbox list (SL/mail-inbox.png): #dfe4e9 surface,
+            // #738193 upper-case headings.
+            source_secondary: c(0xdfe4e9),
+            source_secondary_heading: c(0x738193),
             row_alternate: c(0xedf3fe),    // M: table.header_and_rows
             group_fill: c(0xe6e6e6),       // M: groupbox.fill
             group_border: c(0xc8c8c8),     // M: groupbox.left
             group_border_top: c(0xababab), // M: groupbox.top
-            band_rule: c(0xd8d8d8),        // M: prefs.overview.bands
-            menu: c(0xf2f2f2),             // M: menu.body
+            // M: groupbox.fill/left/top: a recessed well uses the same fill and
+            // a 1 px inner top shadow one step darker than the border.
+            well_fill: c(0xe6e6e6),
+            well_border: c(0xc8c8c8),
+            well_shadow: c(0xd2d2d2),
+            band_rule: c(0xd8d8d8), // M: prefs.overview.bands
+            menu: c(0xf2f2f2),      // M: menu.body
             menu_text: BLACK,
             menu_text_disabled: c(0xa3a3a3),
             menu_separator: c(0xd7d7d8), // M: menu.body separator row
             menu_separator_highlight: c(0xf4f4f5),
+            // M: menu.body outer row: a light grey hairline over content.
+            menu_border: c(0xa8a8a8),
             tooltip: c(0xffffc6), // designed: help tags not captured
             tooltip_border: c(0xb5b5a0),
             tooltip_text: BLACK,
@@ -455,6 +657,26 @@ pub fn aqua_light() -> Theme {
                 disabled: textured_disabled,
                 selected: textured_selected,
             },
+            // M: capsule toolbar controls are the textured material with a
+            // circular silhouette (HIG p. 261); pressed/disabled are shared.
+            round: BevelStates {
+                normal: textured_normal,
+                pressed: textured_selected,
+                disabled: textured_disabled,
+                selected: textured_selected,
+            },
+            // designed: recessed control shares the measured tool-well material.
+            recessed: BevelStates {
+                normal: Bevel::plain(
+                    g(0x9a9a9a, 0xc6c6c6),
+                    g(0xd8d8d8, 0xf4f4f4),
+                    BLACK.alpha(30),
+                    BLACK,
+                ),
+                pressed: textured_selected,
+                disabled: push_disabled,
+                selected: textured_selected,
+            },
             segment: BevelStates {
                 normal: segment_normal,
                 pressed: segment_pressed,
@@ -466,6 +688,15 @@ pub fn aqua_light() -> Theme {
                 pressed: checkbox_pressed,
                 disabled: checkbox_disabled,
                 selected: checkbox_on,
+            },
+            radio: Radio {
+                states: BevelStates {
+                    normal: radio_normal,
+                    pressed: radio_pressed,
+                    disabled: checkbox_disabled,
+                    selected: radio_selected,
+                },
+                dot: c(0x212d3b),
             },
             field,
             search,
@@ -503,21 +734,57 @@ pub fn aqua_light() -> Theme {
                 emboss: Rgba8::TRANSPARENT,
                 text: BLACK,
             },
-            // designed (pending capture): track reuses the scroller well, fill the Aqua blue segment.
-            progress_track: Bevel::plain(
-                g(0x8c8c8c, 0xa6a6a6),
-                g(0xd0d0d0, 0xf6f6f6),
-                WHITE.alpha(60),
-                BLACK,
-            ),
-            progress_fill: segment_selected,
-            slider_track: Bevel::plain(
-                g(0x6f6f6f, 0x9a9a9a),
-                g(0xb8b8b8, 0xe8e8e8),
-                WHITE.alpha(60),
-                BLACK,
-            ),
-            slider_knob: push_normal,
+            popup: PopUp {
+                body: BevelStates {
+                    normal: popup_body,
+                    pressed: popup_body_pressed,
+                    disabled: popup_disabled,
+                    selected: popup_body,
+                },
+                cap: BevelStates {
+                    normal: popup_cap,
+                    pressed: popup_cap_pressed,
+                    disabled: popup_disabled,
+                    selected: popup_cap,
+                },
+                divider: c(0x66a0e2),
+                arrow: BLACK,
+            },
+            popup_textured,
+            progress: Progress {
+                track: progress_track,
+                fill: progress_fill,
+                // M: installer barber pole: 8 px period, #1784de blue against
+                // #e5e5e5 light, 45 degrees.
+                barber_light: c(0xe5e5e5),
+                barber_dark: c(0x1784de),
+                spinner: c(0x4c4c4c),
+                spinner_dim: BLACK.alpha(40),
+            },
+            slider: Slider {
+                track: slider_track,
+                track_disabled: slider_track_disabled,
+                round: BevelStates {
+                    normal: slider_round,
+                    pressed: segment_pressed,
+                    disabled: Bevel {
+                        text: c(0x9a9a9a),
+                        ..slider_round
+                    },
+                    selected: slider_round,
+                },
+                pointed: BevelStates {
+                    normal: slider_pointed,
+                    pressed: popup_cap_pressed,
+                    disabled: Bevel {
+                        text: c(0x9a9a9a),
+                        ..slider_pointed
+                    },
+                    selected: slider_pointed,
+                },
+                tick: c(0x8a8a8a),
+            },
+            help: help_button,
         },
         lists: Lists {
             // M: sidebar.selection.active: line 5595d2, 6ca5dd..1a6ab9; labels white.
@@ -530,6 +797,25 @@ pub fn aqua_light() -> Theme {
             source_inactive: Selection {
                 line: c(0x979797),
                 fill: g(0xb4b4b4, 0x8a8a8a),
+                text: WHITE,
+            },
+            // M: Finder/Open sidebar selection in an active but unfocused
+            // window (Screen shot 4.15.47): abbad5 line, b3bed6..8196b9.
+            source_unfocused: Selection {
+                line: c(0xabbad5),
+                fill: g(0xb3bed6, 0x8196b9),
+                text: WHITE,
+            },
+            // M: Mail mailbox selection gradient matches the primary list's
+            // focused band; secondary lists only differ in their background.
+            source_secondary_active: Selection {
+                line: c(0x5595d2),
+                fill: g(0x6ca5dd, 0x1a6ab9),
+                text: WHITE,
+            },
+            source_secondary_inactive: Selection {
+                line: c(0xabbad5),
+                fill: g(0xb3bed6, 0x8196b9),
                 text: WHITE,
             },
             // Force Quit: flat 3b77da.
@@ -645,6 +931,109 @@ pub fn aqua_dark() -> Theme {
         emboss: WHITE.alpha(18),
         text: WHITE,
     };
+    let radio_normal = Bevel {
+        border: g(0x0e0e0e, 0x1a1a1a),
+        upper: g(0x6a6a6a, 0x575757),
+        lower: g(0x474747, 0x606060),
+        split: 6.0 / 12.0,
+        emboss: WHITE.alpha(18),
+        text: WHITE,
+    };
+    let radio_selected = Bevel {
+        border: g(0x0b2a6b, 0x0e1420),
+        upper: g(0x86b6ee, 0x4f8ad8),
+        lower: g(0x2b6cc9, 0x5fa9ef),
+        split: 6.0 / 12.0,
+        emboss: WHITE.alpha(18),
+        text: c(0x101820),
+    };
+    // designed: Dark Aqua keeps the 10.6 layer order; the cap stays blue and
+    // the body graphite.
+    let popup_body = Bevel {
+        border: g(0x0a0a0a, 0x1a1a1a),
+        upper: g(0x6a6a6a, 0x4f4f4f),
+        lower: g(0x484848, 0x626262),
+        split: 9.0 / 19.0,
+        emboss: WHITE.alpha(18),
+        text: c(0xeeeeee),
+    };
+    let popup_cap = Bevel {
+        border: g(0x0b2a6b, 0x0e1420),
+        upper: g(0x7fb0ea, 0x4a86d6),
+        lower: g(0x2a68c8, 0x5aa6ee),
+        split: 8.0 / 19.0,
+        emboss: WHITE.alpha(22),
+        text: WHITE,
+    };
+    let popup_disabled = Bevel {
+        border: g(0x262626, 0x2a2a2a),
+        upper: g(0x464646, 0x404040),
+        lower: g(0x3a3a3a, 0x424242),
+        split: 9.0 / 19.0,
+        emboss: WHITE.alpha(10),
+        text: c(0x7a7a7a),
+    };
+    let popup_textured = PopUp {
+        body: BevelStates {
+            normal: textured_normal,
+            pressed: textured_selected,
+            disabled: Bevel::plain(
+                g(0x1c1c1c, 0x1c1c1c),
+                g(0x464646, 0x363636),
+                WHITE.alpha(10),
+                c(0x777777),
+            ),
+            selected: textured_normal,
+        },
+        cap: BevelStates {
+            normal: textured_normal,
+            pressed: textured_selected,
+            disabled: Bevel::plain(
+                g(0x1c1c1c, 0x1c1c1c),
+                g(0x464646, 0x363636),
+                WHITE.alpha(10),
+                c(0x777777),
+            ),
+            selected: textured_normal,
+        },
+        divider: c(0x0a0a0a),
+        arrow: c(0xe6e6e6),
+    };
+    let slider_track = Bevel::plain(
+        g(0x0c0c0c, 0x2a2a2a),
+        g(0x202020, 0x343434),
+        WHITE.alpha(18),
+        WHITE,
+    );
+    let slider_round = Bevel {
+        border: g(0x0e0e0e, 0x1a1a1a),
+        upper: g(0x6a6a6a, 0x575757),
+        lower: g(0x4a4a4a, 0x606060),
+        split: 10.0 / 22.0,
+        emboss: WHITE.alpha(18),
+        text: WHITE,
+    };
+    let slider_pointed = popup_cap;
+    let help_button = Help {
+        states: BevelStates {
+            normal: Bevel {
+                border: g(0x2a1430, 0x4a2a52),
+                upper: g(0x8a6a9a, 0x6a4a7a),
+                lower: g(0x5a3a68, 0x7a5a88),
+                split: 0.5,
+                emboss: WHITE.alpha(18),
+                text: c(0xf0e4fd),
+            },
+            pressed: Bevel {
+                upper: g(0x6a4a7a, 0x5a3a68),
+                lower: g(0x4a2a52, 0x6a4a7a),
+                ..radio_normal
+            },
+            disabled: push_disabled,
+            selected: radio_selected,
+        },
+        glyph: c(0xf0e4fd),
+    };
     Theme {
         id: ThemeId::AQUA_DARK,
         provenance: Provenance::Designed,
@@ -673,16 +1062,22 @@ pub fn aqua_dark() -> Theme {
             sidebar: c(0x2a3038),
             sidebar_inactive: c(0x2b2b2b),
             sidebar_heading: c(0x8d9aab),
+            source_secondary: c(0x23282e),
+            source_secondary_heading: c(0x8d9aab),
             row_alternate: c(0x252b34),
             group_fill: c(0x333333),
             group_border: c(0x474747),
             group_border_top: c(0x262626), // designed: dark mirror of the Aqua top edge
-            band_rule: c(0x2a2a2a),        // designed
+            well_fill: c(0x333333),
+            well_border: c(0x474747),
+            well_shadow: c(0x202020),
+            band_rule: c(0x2a2a2a), // designed
             menu: c(0x2c2c2e),
             menu_text: c(0xeeeeee),
             menu_text_disabled: c(0x777777),
             menu_separator: c(0x1a1a1a),
             menu_separator_highlight: c(0x3c3c3e),
+            menu_border: c(0x0a0a0a),
             tooltip: c(0x3a3a30),
             tooltip_border: c(0x5a5a48),
             tooltip_text: c(0xf0f0e0),
@@ -744,6 +1139,28 @@ pub fn aqua_dark() -> Theme {
                 ),
                 selected: textured_selected,
             },
+            round: BevelStates {
+                normal: textured_normal,
+                pressed: textured_selected,
+                disabled: Bevel::plain(
+                    g(0x1c1c1c, 0x1c1c1c),
+                    g(0x464646, 0x363636),
+                    WHITE.alpha(10),
+                    c(0x777777),
+                ),
+                selected: textured_selected,
+            },
+            recessed: BevelStates {
+                normal: Bevel::plain(
+                    g(0x0a0a0a, 0x2a2a2a),
+                    g(0x1e1e1e, 0x343434),
+                    WHITE.alpha(12),
+                    WHITE,
+                ),
+                pressed: textured_selected,
+                disabled: push_disabled,
+                selected: textured_selected,
+            },
             segment: BevelStates {
                 normal: Bevel {
                     split: 8.0 / 19.0,
@@ -777,6 +1194,22 @@ pub fn aqua_dark() -> Theme {
                     text: WHITE,
                 },
             },
+            radio: Radio {
+                states: BevelStates {
+                    normal: radio_normal,
+                    pressed: Bevel {
+                        upper: g(0x4a4a4a, 0x404040),
+                        lower: g(0x363636, 0x444444),
+                        ..radio_normal
+                    },
+                    disabled: Bevel {
+                        text: c(0x777777),
+                        ..push_disabled
+                    },
+                    selected: radio_selected,
+                },
+                dot: c(0x101820),
+            },
             field,
             search: field,
             scroller: Scroller {
@@ -808,20 +1241,77 @@ pub fn aqua_dark() -> Theme {
                 emboss: Rgba8::TRANSPARENT,
                 text: c(0xe6e6e6),
             },
-            progress_track: Bevel::plain(
-                g(0x0c0c0c, 0x161616),
-                g(0x1e1e1e, 0x2e2e2e),
-                WHITE.alpha(18),
-                WHITE,
-            ),
-            progress_fill: segment_selected,
-            slider_track: Bevel::plain(
-                g(0x0c0c0c, 0x161616),
-                g(0x202020, 0x343434),
-                WHITE.alpha(18),
-                WHITE,
-            ),
-            slider_knob: push_normal,
+            popup: PopUp {
+                body: BevelStates {
+                    normal: popup_body,
+                    pressed: Bevel {
+                        upper: g(0x575757, 0x3f3f3f),
+                        lower: g(0x383838, 0x4e4e4e),
+                        ..popup_body
+                    },
+                    disabled: popup_disabled,
+                    selected: popup_body,
+                },
+                cap: BevelStates {
+                    normal: popup_cap,
+                    pressed: Bevel {
+                        upper: g(0x5f90cf, 0x3a70bd),
+                        lower: g(0x1f55a8, 0x4686cc),
+                        ..popup_cap
+                    },
+                    disabled: popup_disabled,
+                    selected: popup_cap,
+                },
+                divider: c(0x0b2a6b),
+                arrow: WHITE,
+            },
+            popup_textured,
+            progress: Progress {
+                track: Bevel::plain(
+                    g(0x0c0c0c, 0x161616),
+                    g(0x1e1e1e, 0x2e2e2e),
+                    WHITE.alpha(18),
+                    WHITE,
+                ),
+                fill: segment_selected,
+                barber_light: c(0x3a3a3a),
+                barber_dark: c(0x4f9df0),
+                spinner: c(0xd0d0d0),
+                spinner_dim: WHITE.alpha(40),
+            },
+            slider: Slider {
+                track: slider_track,
+                track_disabled: Bevel::plain(
+                    g(0x161616, 0x1a1a1a),
+                    g(0x202020, 0x2a2a2a),
+                    WHITE.alpha(10),
+                    c(0x777777),
+                ),
+                round: BevelStates {
+                    normal: slider_round,
+                    pressed: segment_selected,
+                    disabled: Bevel {
+                        text: c(0x777777),
+                        ..slider_round
+                    },
+                    selected: slider_round,
+                },
+                pointed: BevelStates {
+                    normal: slider_pointed,
+                    pressed: Bevel {
+                        upper: g(0x5f90cf, 0x3a70bd),
+                        lower: g(0x1f55a8, 0x4686cc),
+                        ..slider_pointed
+                    },
+                    disabled: Bevel {
+                        text: c(0x777777),
+                        ..slider_pointed
+                    },
+                    selected: slider_pointed,
+                },
+                tick: c(0xb8b8b8),
+            },
+            help: help_button,
         },
         lists: Lists {
             source_active: Selection {
@@ -832,6 +1322,21 @@ pub fn aqua_dark() -> Theme {
             source_inactive: Selection {
                 line: c(0x5c5c5c),
                 fill: g(0x555555, 0x3c3c3c),
+                text: WHITE,
+            },
+            source_unfocused: Selection {
+                line: c(0x4a4a4a),
+                fill: g(0x525252, 0x3a3a3a),
+                text: WHITE,
+            },
+            source_secondary_active: Selection {
+                line: c(0x4a86d0),
+                fill: g(0x4c8ad0, 0x174f96),
+                text: WHITE,
+            },
+            source_secondary_inactive: Selection {
+                line: c(0x3c3c3c),
+                fill: g(0x444444, 0x2f2f2f),
                 text: WHITE,
             },
             table_active: Selection {
