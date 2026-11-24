@@ -1,12 +1,17 @@
 # Visual goldens
 
-The visual gate renders eight controls and two window frames at 100, 125, 150,
-175 and 200% in all four appearances, compares every pixel against the
+The visual gate renders the M2 control set and three window frames at 100, 125,
+150, 175 and 200% in all four appearances, compares every pixel against the
 committed goldens, and reports the distance to a 10.6 reference crop for
-information. 175% exists for the device-pixel snapping rule (#12); see
-[docs/snapping.md](snapping.md).
-The frames are a document window and a fixed About window, so the role-driven
-title-bar buttons are gated too (#20).
+information. The control set covers push buttons (all styles and sizes),
+checkboxes (on/off/mixed/small/mini/disabled), radios, rounded and textured
+pop-ups, segmented controls (text/icon/textured/small), sliders (round,
+pointed, vertical, disabled), progress (bar, barber pole, spinner, ring),
+disclosures (collapsed/expanded/button), group box, well, separator and both
+source-list styles. 175% exists for the device-pixel snapping rule (#12); see
+[docs/snapping.md](snapping.md). The frames are a document window and a fixed
+About window plus the edited document, so the role-driven title-bar buttons are
+gated too (#20).
 
 Committed:
 

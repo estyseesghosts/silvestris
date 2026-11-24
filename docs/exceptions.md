@@ -57,6 +57,41 @@ repeated here; they are listed in place next to the token.
   pressed bevel in the post-10.6 capture "Screenshot 2026-11-19 020811.png",
   mean error 3.0 / 2.5 / 1.4 (R / G / B). Dark Aqua's pressed bevel is
   designed.
+- Pop-up pressed states: no 10.6 capture shows a held pop-up. The pressed body
+  darkens the measured normal gloss and the pressed cap reuses the measured
+  selected-segment blue. Disabled pop-ups are measured (`popup.disabled`).
+- Pop-up small and mini cap widths scale from the measured 21 px regular cap
+  by control height; no 10.6 small/mini pop-up is in the corpus.
+- Radio small and mini bezel sizes (12/10 px) and their labels are designed;
+  the regular 14 px bezel, dot fraction and row pitch are measured
+  (`radio.selected`, Appearance pane).
+- Slider small and mini track/thumb sizes are designed; the regular 5 px
+  track and 15 x 18 px pointed thumb are measured from the Dock capture.
+  Tick labels use the small system font; their exact baseline is designed.
+- Progress small/mini heights, spinner sizes, and the barber-pole animation
+  period are designed. The regular 16 px bar, determinate fill and the 8 px
+  45-degree stripe pair are measured from the installer and Software Update
+  captures.
+- Menu shadow offset (0/2 px) and 12 px blur are a designed fit to the 10.6
+  menu captures; the menu body, selection and separator are measured.
+- The default-button throb period (1.1 s) and 10% gloss lift are estimated
+  from two still frames; no 10.6 video timing was available. The throb stops
+  for inactive windows, reduced motion, a held press and focus on another
+  control.
+- Help-button gloss is measured from the Appearance pane help tag only at the
+  ring/glyph level; pressed and disabled help states are designed.
+- Disclosure pressed and animated rotation are designed; the collapsed
+  silhouette, size and colour are measured (`disclosure.collapsed`). The
+  13 px hit box is the HIG value, not a drawn-pixel measurement.
+- Recessed controls, textured pop-ups, round text buttons and group-box
+  padding follow the measured layer order and the HIG; where no 10.6 crop
+  exists the material is designed from the nearest measured token.
+- Dark Aqua is an invented appearance (10.6 shipped no dark mode). It keeps
+  Aqua Light geometry, layer order and hue identities; every surface, mixed
+  state and focus ring is designed and named `designed:` in `aqua.rs`.
+  Geist Light and Dark are designed on the Geist role scale. They are not
+  recoloured Aqua and are not claimed as historical.
+
 
 ## Text fields
 
@@ -85,10 +120,11 @@ repeated here; they are listed in place next to the token.
 
 ## Disclosure triangle
 
-- Issue #128: 13 px bounds, initially right-pointing, down when expanded:
+- Issue #5/#128: 13 px bounds, initially right-pointing, down when expanded:
   hig-09/03-aqua-interface/controls.md, "Disclosure triangles" (HIG pp. 329-331).
-- The inset triangle silhouette and secondary-text colour are estimates, not
-  measured 10.6 artwork. The same geometry is used for all four themes.
+- The collapsed 4.5 x 6 px silhouette and secondary-text colour are measured
+  from `disclosure.collapsed`; the expanded shape is the same silhouette
+  rotated 90 degrees. Pressed ink and rotation timing are designed.
 - Modern keyboard extension: Tab focus, Enter/Space toggle, Left collapse,
   Right expand; expansion callbacks stop propagation so enclosing rows do not
   select. Disabled controls share the GPUI accessibility limitation above.
@@ -104,10 +140,11 @@ repeated here; they are listed in place next to the token.
   with the same square geometry.
 - Search reuses text entry and IME handling with the search material,
   a capsule bezel and clear action (HIG p. 325).
-- Radio, slider and progress geometry is estimated from their HIG
-  descriptions. Busy progress stops animating while inactive or when GPUI
-  reports reduced motion. The gallery exercises these controls under all
-  four themes. Native/DPI baselines for the new variants are pending.
+- Radio, slider and progress now use their own measured Aqua materials and
+  geometry tokens (see above); the remaining size and animation estimates are
+  listed under Estimated values. Busy progress stops animating while inactive
+  or when GPUI reports reduced motion. The gallery exercises these controls
+  under all four themes.
 
 ## Windows
 

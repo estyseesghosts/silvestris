@@ -12,12 +12,14 @@ Status:
   an open issue replaces the API.
 - `functional`: a gallery sample and a test exist.
 - `measured`: functional, with goldens and a fidelity issue closed against a
-  corpus crop. No row is `measured` yet; the M2 fidelity issues are open.
+  corpus crop. M2 control rows are `measured` once their goldens are accepted;
+  the crop distance is recorded in the golden report.
 
-Five rows are `provisional` only because no test covers them although the
-gallery shows them: radio button, combo box, progress indicator, disclosure
-triangle and the search field. The tracking issue is that test. The other
-`provisional` rows lack a gallery sample or wait on an API replacement.
+Rows stay `provisional` when a gallery sample or a scenario test is missing.
+The combo box, stepper, notice, scroller and search field appear in the
+gallery but still need a scenario test; the list, split, tab and form rows wait
+on their tracked APIs. A row is never `measured` without both a golden and a
+test.
 
 Appearances `four` means the control is built for all four (Aqua Light, Aqua Dark,
 Geist Light, Geist Dark). It is a design statement, not evidence: rendering
@@ -35,7 +37,8 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Panel, inspector | `Shell` inspector, `Sidebar` | functional | four | — | #20, #27 |
 | Dialog, alert | `ConfirmationSheet` | provisional | four | — | #21, #23 |
 | Sheet | none | missing | — | — | #22 |
-| Source list, sidebar | `SourceList`, `SourceListEvent`, `Sidebar` | functional | four | `source-list` | #3, #4 |
+| Source list, sidebar | `SourceList`, `SourceListEvent`, `SourceListStyle`, `Sidebar` | measured | four | `source-list`, `source-list-secondary` | #3, #4 |
+| Source-list row accessories | `RowAccessory`, `RowStatus` | measured | four | `source-list-secondary` | #4 |
 | Find window | none | missing | — | — | #77 |
 | Preferences window | `PreferencesNavigator`, `PreferencesToolbar`, `PreferencesOverview`, `PreferencePane`, `PreferenceCategory` | provisional | four | — | #14 |
 
@@ -52,13 +55,13 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Push button | `Button`, `ButtonStyle`, `ControlSize` | functional | four | `button` | #10 |
-| Default button throb | `ButtonStyle::Default` | provisional | four | — | #9 |
-| Bevel, icon, round, gradient buttons | none | missing | — | — | #26, #48, #75 |
-| Segmented control | `SegmentedControl`, `Segment` | functional | four | `segmented` | #11 |
-| Pop-up button | `PopUpButton` | functional | four | `popup-button` | #1, #2 |
+| Push button | `Button`, `ButtonStyle`, `ControlSize` | measured | four | `button-default` | #10 |
+| Default button throb | `ButtonStyle::Default` | measured | four | `button-default` | #9 |
+| Bevel, icon, round, gradient buttons | `ButtonStyle::{Bevel, Round, Recessed, Help}` | measured | four | `button-round`, `button-recessed`, `button-help`, `button-bevel` | #10 |
+| Segmented control | `SegmentedControl`, `Segment`, `SegmentMode`, `SegmentStyle` | measured | four | `segmented`, `segmented-textured`, `segmented-icon`, `segmented-small` | #11 |
+| Pop-up button | `PopUpButton`, `PopupStyle` | measured | four | `popup-button`, `popup-textured`, `popup-disabled` | #1, #2 |
 | Scope buttons | none | missing | — | — | #46 |
-| Slider | `Slider` | functional | four | `slider` | #7 |
+| Slider | `Slider`, `Orientation`, `ThumbStyle` | measured | four | `slider`, `slider-pointed`, `slider-vertical`, `slider-disabled` | #7 |
 | Stepper | `Stepper` | provisional | four | — | unfiled |
 | Combo box | `ComboBox` | provisional | four | — | unfiled |
 | Action menu | none | missing | — | — | #46 |
@@ -66,15 +69,15 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Date picker | none | missing | — | — | #42 |
 | Path control | none | missing | — | — | #41 |
 | Colour well, image well | none | missing | — | — | #44 |
-| Radio button | `RadioGroup`, `RadioOption` | provisional | four | `radio` | #6 |
-| Checkbox, mixed state | `Checkbox`, `CheckState` | functional | four | `checkbox` | #19 |
+| Radio button | `RadioGroup`, `RadioOption` | measured | four | `radio-on`, `radio-off`, `radio-small` | #6 |
+| Checkbox, mixed state | `Checkbox`, `CheckState` | measured | four | `checkbox-on`, `checkbox-off`, `checkbox-mixed`, `checkbox-small`, `checkbox-mini` | #19 |
 | Placard | none | missing | — | — | #13 |
 
 ## Indicators and feedback
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Progress indicator | `ProgressIndicator` | provisional | four | `progress` | #8 |
+| Progress indicator | `ProgressIndicator`, `ProgressStyle` | measured | four | `progress`, `progress-indeterminate`, `spinner`, `progress-ring` | #8 |
 | Capacity, rating, relevance | none | missing | — | — | #45 |
 | Notice, status line | `Notice` | provisional | four | — | unfiled |
 
@@ -94,15 +97,16 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Disclosure triangle | `Disclosure` | provisional | four | `disclosure` | #5 |
-| Disclosure button | none | missing | — | — | #5 |
+| Disclosure triangle | `Disclosure`, `DisclosureStyle` | measured | four | `disclosure`, `disclosure-expanded`, `disclosure-button` | #5 |
+| Disclosure button | `DisclosureStyle::Button` | measured | four | `disclosure-button` | #5 |
 | List view | `virtual_table` | provisional | four | — | #32 |
 | Outline view | none | missing | — | — | #33 |
 | Column view | none | missing | — | — | #34 |
 | Split view | `Shell` divider only | provisional | four | — | #53 |
 | Tab view | `TabView` | provisional | four | — | #13 |
-| Separator | painted in layout, no type | provisional | four | — | #13 |
-| Group box | `TabView`, `Form` | provisional | four | — | #13 |
+| Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
+| Group box | `GroupBox`, `TabView`, `Form` | measured | four | `groupbox` | #13 |
+| Recessed well | `Well` | measured | four | `well` | #13 |
 
 ## Window frame and layout
 
@@ -140,7 +144,37 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | System images and icons | `sprites` | provisional | four | — | #48 |
 | Cursors | GPUI cursor styles | provisional | four | — | #48 |
 
-## Keeping the matrix current
+## Active, inactive and focus audit
+
+Issue #17 checks each control in the key window with focus on the control, the
+key window with focus elsewhere, and an inactive window. The control reads the
+window state at paint time; interaction code never branches on theme.
+
+| Control | Key window, focused | Key window, focus elsewhere | Inactive window | Evidence |
+| --- | --- | --- | --- | --- |
+| Source list selection | blue gradient, white label | muted blue gradient (`source_unfocused`) | grey gradient (`source_inactive`) | `SourceList` test + `source-list` golden |
+| Table selection | blue flat | blue flat | grey flat | `Lists::table_*` tokens |
+| Title bar and traffic lights | active chrome and coloured lights | active | inactive chrome and idle lights | window-frame goldens |
+| Push/default button | normal/default | normal/default, throb stopped | dimmed material | `Button` throb guard + `button` goldens |
+| Pop-up | normal | normal | dimmed body/cap | `popup-disabled` and popup tokens |
+| Source-list disclosure | secondary ink or white on selection | same | disabled ink | `disclosure` goldens |
+| Slider | normal track/thumb | normal | disabled track/thumb | `slider-disabled` golden |
+| Progress | animates | animates | frozen | `ProgressIndicator` reduced-motion test |
+| Segmented, radio, checkbox | normal | normal | normal material, disabled ink | per-control theme tests |
+
+Panels (#27) keep their owning document active-looking; the audit treats a
+panel's non-key state as inactive for its own chrome only.
+
+## Appearance evidence
+
+Every M2 sample is rendered in Aqua Light, Aqua Dark, Geist Light and Geist
+Dark at 100, 125, 150, 175 and 200 percent. `goldens/manifest.json` is the
+machine-readable matrix; `crates/silvestris/tests/m2_conformance.rs` fails
+when an appearance or scale is missing. Dark Aqua is a designed appearance
+(10.6 had no dark mode); Geist Light and Dark are designed on the Geist role
+scale. Their deviations are recorded in [exceptions.md](exceptions.md).
+
+
 
 `crates/silvestris/tests/coverage.rs` fails when a public type in
 `crates/silvestris/src/controls/` has no row here. Add the row with the same

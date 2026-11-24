@@ -4,9 +4,10 @@ Implements the generic tree and virtualized row portion of #128/#130.
 The persistent rail and resize splitter are in sidebar.md; the Lotus adapter remains separate work.
 
 Reference: aqua-gpui handbook 09, section C, and handbook 13; selection and
-sidebar tokens cite measurements.json (10.6 Finder). Disclosure direction and
-13 px bounds follow hig-09/03-aqua-interface/controls.md, HIG pp. 329-331.
-Triangle inset geometry is estimated; docs/exceptions.md records the variance.
+sidebar tokens cite measurements.json (10.6 Finder, Mail and Open panel).
+Disclosure direction and 13 px bounds follow hig-09/03-aqua-interface/controls.md,
+HIG pp. 329-331; the drawn 4.5 x 6 px triangle is measured from
+`disclosure.collapsed`.
 
 SourceNode has stable string ID, label, disabled state, section flag, optional
 icon role and badge, and children.
@@ -37,8 +38,10 @@ an archive item. Event text distinguishes selection from disclosure.
 - Rendering: cached immutable row snapshots shared across repaints;
   GPUI uniform_list creates elements for the visible range. Navigation
   reveals the selected row. No image/atlas allocation is added.
-- Four variants use sidebar, source_active/source_inactive and typography
-  tokens. Active selection requires window activity and tree focus.
+- Selection has three states: focused blue gradient, key-window-unfocused
+  muted blue gradient, and inactive-window grey. `SourceListStyle::Primary`
+  is the Finder blue-grey sidebar; `SourceListStyle::Secondary` is the
+  document-integrated list used by Mail and Address Book.
   No per-theme behavioral branch exists.
 - Text editing, IME, clipboard, command dispatch, context menus,
   final coloured icon artwork, drag/reorder, custom scrollbar and footer
@@ -59,11 +62,11 @@ outside this harness. They verify event dispatch, hitboxes, focus and layout,
 not native input delivery or pixel accuracy. Key activation tests send both
 key-down and key-up, matching div.rs's focus-generation check.
 
-Workspace builds and Clippy check GPUI integration. Real mouse/keyboard, inactive/focus repaint,
-screen reader and four-theme visual/DPI checks remain pending: desktop
-automation's native pipe was unavailable on 2026-11-19. No golden images
-have been accepted. The existing gallery executable was locked; a separately
-named gallery-source-list executable was linked for later inspection.
+Workspace builds and Clippy check GPUI integration. Source-list goldens for
+both styles are committed in all four appearances at 100/125/150/175/200%
+(`source-list`, `source-list-secondary`). Real mouse/keyboard, native
+inactive/focus repaint, screen-reader delivery and DPI review remain separate
+platform work (#50).
 
 Pinned GPUI: 6b720973027999bae402df23d469026f4cced988,
 uniform_list.rs and div.rs. No new artwork or font files are distributed.
@@ -98,6 +101,14 @@ application drag/context handlers; preserve its height for uniform_list and
 retain its child so framework focus/selection/disclosure stays authoritative.
 The application controls each accessory's availability. Use weak entity
 captures to avoid ownership cycles.
+
+`set_row_accessories` is the standard model beside the renderer hook. It
+returns `RowAccessory` values: `Badge(count)`, `Eject`, `Spinner`,
+`StatusDot(RowStatus)`, `Hover(..)` and `Button { .. }`. Badges and dots are
+presentation only; action buttons stop row selection and drag, are tab stops,
+and activate on Enter/Space. `Hover` reveals its inner accessory only while the
+row group is hovered, for optional affordances such as an eject control. The
+gallery and the secondary golden show a badge, status dot, spinner and eject.
 
 Tests verify nonselectable containers can expand, identical replacements
 share snapshots, accessory clicks do not select another row, context handlers

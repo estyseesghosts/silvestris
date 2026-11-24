@@ -39,8 +39,11 @@ Materials come from the active theme's menu/selection tokens and metrics.
 Aqua Light's tokens cite measurements.json menu.body and menu.selection;
 the checkmark/submenu glyphs are font glyphs, not copied Apple artwork.
 The 160 px minimum width, 20 px check gutter, 16 px submenu gutter, 8 px gap,
-4 px window margin, shadow_lg and immediate submenu opening are estimates or
-modern extensions pending visual/native review.
+4 px window margin and immediate submenu opening are estimates or modern
+extensions pending visual/native review. Menu elevation is now a token
+(`Colors::menu_border`, `Metrics::menu_shadow_offset/blur`) painted as a
+`BoxShadow`; the offset and blur are a designed fit to the 10.6 menu captures,
+not a `shadow_lg` default.
 
 GPUI interaction tests cover pointer activation and live disabled-state
 rejection in all four themes, outside-click shielding, keyboard submenu

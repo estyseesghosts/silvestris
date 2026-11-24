@@ -19,10 +19,13 @@ unverified. See [exceptions](exceptions.md).
 Sources: hig-09/specs/checkbox.md (CMP-03), HIG pp. 283–286; handbook 09/15;
 core/aqua.rs `checkbox_*` and reference/measurements.json `checkbox.off`,
 `checkbox.on`, `checkbox.off.disabled`. Regular Aqua bounds/materials use those
-measurements. Small/mini bounds (12/10 logical px), the 6 px label gap and vector
-check/dash outlines are estimates. Geist sizes (16/14/12) and Dark Aqua artwork
-are designed. Mixed→On, label clicks and Enter activation are recreation choices.
-No theme branches exist in the interaction or painter.
+measurements; the regular tick and dash silhouettes are calibrated to
+`checkbox.on` and `checkbox.mixed` at 2x (left arm from 10%/52%, elbow at
+40%/84%, long arm overshooting the top-right at 94%/6%). Small/mini bounds
+(12/10 logical px), the 6 px label gap and their scaled glyphs are estimates.
+Geist sizes (16/14/12) and Dark Aqua artwork are designed. Mixed→On, label
+clicks and Enter activation are recreation choices. No theme branches exist in
+the interaction or painter.
 
 The gallery includes independently selectable regular/small/mini examples and
 a disabled checked example. Mock-platform tests cover label clicks, Space/Enter,

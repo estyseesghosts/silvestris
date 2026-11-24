@@ -33,14 +33,15 @@ Estimates: 5 px grid inset, heading and label line offsets, box corner
 radius, content padding, Aqua Dark and Geist band/edge colours.
 
 Related controls: `controls::PopUpButton` (HIG pp. 279-281; current item
-over the button, keyboard open/choose/dismiss; enabled cap colour is an
-estimate since only the disabled pop-up is measured) and `controls::Stepper`
-(HIG p. 301; sizes are estimates). `TextFieldEvent::EndedEditing` lets a
+over the button, keyboard open/choose/dismiss; `PopupStyle::Rounded` and
+`PopupStyle::Textured`; body/cap measured from `popup-button.regular`, see
+[exceptions.md](exceptions.md) for the states without a 10.6 crop) and
+`controls::Stepper` (HIG p. 301; sizes are estimates). `TextFieldEvent::EndedEditing` lets a
 form commit a field's value when focus leaves it as well as on Return.
 
 Not implemented: per-pane window height animation, search with spotlight
-highlighting of matching icons, the round help button, and a captured
-reference for the enabled pop-up, stepper and dark-mode panes.
+highlighting of matching icons, and a captured reference for the stepper and
+dark-mode panes.
 
 
 ## Preference storage
