@@ -13,6 +13,7 @@ pub mod native;
 pub mod paint;
 pub mod sprites;
 pub mod text;
+pub mod text_client;
 
 pub mod theme;
 

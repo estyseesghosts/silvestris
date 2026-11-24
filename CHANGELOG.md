@@ -16,6 +16,15 @@ M1 audit fixes. Behaviour changes a consumer must check:
 - Undo or redo during an IME composition now cancels the composition before
   applying the step. Before, the unrecorded marked text stayed in the buffer
   and shifted the recorded ranges, so the step edited the wrong bytes (#39).
+- Added `text_client` with `TextClient`, `impl_text_input_handler!`,
+  `restart_blink`, `stop_blink`, `observe_activation` and `select_range`.
+  `TextField` and `TextArea` now share one `EntityInputHandler` (#58).
+- Changed `text::CaretBlink`: `restart()` now returns the new epoch, `stop()`
+  takes no argument, and `tick(epoch)` toggles. It was unused before.
+- Behaviour: the caret no longer blinks in an inactive window; it is drawn
+  steady and no timer runs until the window is active again (#58).
+- Behaviour: Undo after an IME commit restores the text from before composing,
+  not the raw composition (#58).
 
 ## After 216de9b
 

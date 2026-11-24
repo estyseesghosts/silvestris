@@ -5,10 +5,10 @@
 //! head, grapheme/word/line boundaries, UTF-8↔UTF-16 mapping for the platform
 //! input handler, marked text for IME composition, and a masked policy.
 //!
-//! The engine deliberately has no GPUI types. The view owns layout, painting,
-//! focus, timers and the `EntityInputHandler` trait; this module owns what is
-//! edited and where the caret is, so the same conformance tests run against
-//! every client.
+//! The engine deliberately has no GPUI types. `text_client` is the one GPUI
+//! adapter (input handler, selection notifications, caret timer); the view
+//! owns layout, painting and focus; this module owns what is edited and where
+//! the caret is, so the same conformance tests run against every client.
 //!
 //! `Buffer` is a trait so a consumer can back the session with a rope. The
 //! crate ships `StringBuffer`; chaus keeps its Ropey editor and may implement
@@ -153,6 +153,10 @@ pub struct EditSession<B: Buffer = StringBuffer> {
     buffer: B,
     selection: Selection,
     marked: Option<Range<usize>>,
+    /// What the composition replaced when it began (the selection, often
+    /// empty). Committing the composition records this as the removed text, so
+    /// undo restores what was there before composing, not the raw input.
+    composition_origin: Option<String>,
     masked: bool,
 }
 
@@ -181,6 +185,7 @@ impl<B: Buffer> EditSession<B> {
             buffer,
             selection: Selection::default(),
             marked: None,
+            composition_origin: None,
             masked: false,
         }
     }
@@ -231,6 +236,7 @@ impl<B: Buffer> EditSession<B> {
         self.masked = masked;
         if masked {
             self.marked = None;
+            self.composition_origin = None;
         }
     }
 
@@ -240,6 +246,7 @@ impl<B: Buffer> EditSession<B> {
         self.buffer.replace(0..self.buffer.len(), &text);
         self.selection = Selection::caret(self.buffer.len());
         self.marked = None;
+        self.composition_origin = None;
     }
 
     pub fn set_selection(&mut self, selection: Selection) {
@@ -306,12 +313,22 @@ impl<B: Buffer> EditSession<B> {
         if start == end && text.is_empty() {
             return None;
         }
-        let removed = self.buffer.text()[start..end].to_string();
+        let mut removed = self.buffer.text()[start..end].to_string();
+        if composing && self.marked.is_none() && self.composition_origin.is_none() {
+            self.composition_origin = Some(removed.clone());
+        } else if !composing && self.marked == Some(start..end) {
+            // Committing the composition: the step replaces what was there
+            // before composing began.
+            if let Some(origin) = self.composition_origin.take() {
+                removed = origin;
+            }
+        }
         self.buffer.replace(start..end, text);
         let head = start + text.len();
         self.selection = Selection::caret(head);
         if !composing {
             self.marked = None;
+            self.composition_origin = None;
         } else {
             self.marked = Some(head..head);
         }
@@ -505,11 +522,15 @@ impl<B: Buffer> EditSession<B> {
     /// Set the composition range. The platform passes a UTF-16 range; the
     /// caller converts it with `range_from_utf16` first.
     pub fn set_marked(&mut self, range: Option<Range<usize>>) {
+        if range.is_none() {
+            self.composition_origin = None;
+        }
         self.marked = range;
     }
 
     pub fn clear_marked(&mut self) {
         self.marked = None;
+        self.composition_origin = None;
     }
 
     /// Replace the marked range as part of an IME composition. The caret goes
@@ -527,6 +548,7 @@ impl<B: Buffer> EditSession<B> {
     /// Commit any marked text; the composition range becomes ordinary text.
     pub fn unmark(&mut self) {
         self.marked = None;
+        self.composition_origin = None;
     }
 
     // --- display ----------------------------------------------------------
@@ -593,8 +615,9 @@ pub fn floor_boundary(text: &str, offset: usize) -> usize {
     text.len()
 }
 
-/// Caret blink state. The view owns the timer; this only tracks whether the
-/// caret is visible and which focus epoch restarted it.
+/// Caret blink state. `text_client::restart_blink` owns the timer; this only
+/// tracks whether the caret is drawn and which restart the running timer
+/// belongs to, so a stale timer stops instead of double-toggling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CaretBlink {
     pub on: bool,
@@ -608,14 +631,26 @@ impl Default for CaretBlink {
 }
 
 impl CaretBlink {
-    pub fn restart(&mut self, epoch: u64) {
+    /// Show the caret and invalidate any running timer. Returns the epoch the
+    /// new timer must carry.
+    pub fn restart(&mut self) -> u64 {
         self.on = true;
-        self.epoch = epoch;
+        self.epoch += 1;
+        self.epoch
     }
 
-    pub fn stop(&mut self, epoch: u64) {
-        self.on = false;
-        self.epoch = epoch;
+    /// Invalidate any running timer (blur, window deactivation).
+    pub fn stop(&mut self) {
+        self.epoch += 1;
+    }
+
+    /// One timer tick. False when `epoch` is stale and the timer should end.
+    pub fn tick(&mut self, epoch: u64) -> bool {
+        if epoch != self.epoch {
+            return false;
+        }
+        self.on = !self.on;
+        true
     }
 }
 

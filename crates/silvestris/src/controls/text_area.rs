@@ -15,10 +15,10 @@ use std::ops::Range;
 
 use gpui::{
     canvas, div, point, prelude::*, px, size, App, Bounds, ClipboardItem, Context, CursorStyle,
-    Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle,
-    Focusable, GlobalElementId, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, PaintQuad, Pixels, Point, SharedString, Style, Subscription, TextRun,
-    UTF16Selection, UnderlineStyle, Window, WrappedLine,
+    Element, ElementId, ElementInputHandler, Entity, EventEmitter, FocusHandle, Focusable,
+    GlobalElementId, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
+    PaintQuad, Pixels, Point, SharedString, Style, Subscription, TextRun, UnderlineStyle, Window,
+    WrappedLine,
 };
 
 use super::text_field::{
@@ -28,7 +28,8 @@ use super::text_field::{
 };
 use crate::convert::hsla;
 use crate::paint;
-use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
+use crate::text::{CaretBlink, Change, ClipboardPolicy, EditSession};
+use crate::text_client::TextClient;
 use crate::theme::ActiveTheme;
 use crate::undo::{TextHistory, TextHost, UndoManager};
 
@@ -51,8 +52,7 @@ pub struct TextArea {
     max_rows: usize,
     scroll_y: Pixels,
     selecting: bool,
-    caret_on: bool,
-    blink_epoch: u64,
+    caret: CaretBlink,
     last_lines: Vec<WrappedLine>,
     last_starts: Vec<usize>,
     last_tops: Vec<Pixels>,
@@ -75,11 +75,12 @@ impl TextArea {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle().tab_stop(true);
         let subscriptions = vec![
+            crate::text_client::observe_activation(window, cx),
             cx.on_focus(&focus, window, |area, window, cx| {
                 area.restart_blink(window, cx)
             }),
             cx.on_blur(&focus, window, |area, _, cx| {
-                area.blink_epoch += 1;
+                area.caret.stop();
                 area.selecting = false;
                 cx.emit(TextAreaEvent::EndedEditing);
                 cx.notify();
@@ -95,8 +96,7 @@ impl TextArea {
             max_rows: 10,
             scroll_y: px(0.),
             selecting: false,
-            caret_on: true,
-            blink_epoch: 0,
+            caret: CaretBlink::default(),
             last_lines: Vec::new(),
             last_starts: Vec::new(),
             last_tops: Vec::new(),
@@ -171,7 +171,7 @@ impl TextArea {
         }
         self.disabled = disabled;
         if disabled {
-            self.blink_epoch += 1;
+            self.caret.stop();
         } else {
             self.restart_blink(window, cx);
         }
@@ -186,30 +186,7 @@ impl TextArea {
     }
 
     fn restart_blink(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.caret_on = true;
-        self.blink_epoch += 1;
-        cx.notify();
-        let Some(interval) = crate::native::caret_blink() else {
-            return;
-        };
-        let epoch = self.blink_epoch;
-        cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor().timer(interval).await;
-            let keep = this
-                .update(cx, |this, cx| {
-                    if this.blink_epoch != epoch {
-                        return false;
-                    }
-                    this.caret_on = !this.caret_on;
-                    cx.notify();
-                    true
-                })
-                .unwrap_or(false);
-            if !keep {
-                break;
-            }
-        })
-        .detach();
+        crate::text_client::restart_blink(self, window, cx);
     }
 
     // --- movement ---------------------------------------------------------
@@ -229,9 +206,7 @@ impl TextArea {
     }
 
     fn select_range(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
-        self.session.select_range(range);
-        window.notify_text_selection_changed(&self.focus);
-        self.restart_blink(window, cx);
+        crate::text_client::select_range(self, range, window, cx);
     }
 
     /// Line, local byte index, x and y within the wrapped layout for `offset`.
@@ -582,122 +557,35 @@ impl TextHost for TextArea {
     }
 }
 
-impl EntityInputHandler for TextArea {
-    fn text_for_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        actual_range: &mut Option<Range<usize>>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<String> {
-        let range = self.session.range_from_utf16(&range_utf16);
-        actual_range.replace(self.session.range_to_utf16(&range));
-        Some(self.session.text()[range].to_string())
+crate::impl_text_input_handler!(TextArea);
+
+impl TextClient for TextArea {
+    fn session(&self) -> &EditSession {
+        &self.session
     }
 
-    fn selected_text_range(
-        &mut self,
-        _: bool,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<UTF16Selection> {
-        Some(UTF16Selection {
-            range: self.session.range_to_utf16(&self.session.selected_range()),
-            reversed: self.session.selection().is_reversed(),
-        })
+    fn session_mut(&mut self) -> &mut EditSession {
+        &mut self.session
     }
 
-    fn set_selected_text_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let range = self.session.range_from_utf16(&range_utf16);
-        self.select_range(range, window, cx);
+    fn text_focus(&self) -> &FocusHandle {
+        &self.focus
     }
 
-    fn text_length_utf16(&mut self, _: &mut Window, _: &mut Context<Self>) -> Option<usize> {
-        Some(self.session.text().encode_utf16().count())
+    fn caret(&mut self) -> &mut CaretBlink {
+        &mut self.caret
     }
 
-    fn marked_text_range(&self, _: &mut Window, _: &mut Context<Self>) -> Option<Range<usize>> {
-        self.session
-            .marked_range()
-            .map(|r| self.session.range_to_utf16(&r))
+    fn is_disabled(&self) -> bool {
+        self.disabled
     }
 
-    fn unmark_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.session.clear_marked();
-        window.notify_text_input_changed(&self.focus);
-        cx.notify();
+    fn did_change(&mut self, change: &Change, cx: &mut Context<Self>) {
+        self.record_change(Some(change.clone()), cx);
+        cx.emit(TextAreaEvent::Changed);
     }
 
-    fn replace_text_in_range(
-        &mut self,
-        range_utf16: Option<Range<usize>>,
-        new_text: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.disabled {
-            return;
-        }
-        let range = range_utf16
-            .as_ref()
-            .map(|r| self.session.range_from_utf16(r))
-            .or(self.session.marked_range())
-            .unwrap_or(self.session.selected_range());
-        let change = self.session.replace_range(range, new_text, false);
-        self.after_edit(change, window, cx);
-    }
-
-    fn replace_and_mark_text_in_range(
-        &mut self,
-        range_utf16: Option<Range<usize>>,
-        new_text: &str,
-        new_selected_range_utf16: Option<Range<usize>>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.disabled {
-            return;
-        }
-        let range = range_utf16
-            .as_ref()
-            .map(|r| self.session.range_from_utf16(r))
-            .or(self.session.marked_range())
-            .unwrap_or(self.session.selected_range());
-        let change = self.session.replace_range(range.clone(), new_text, true);
-        if change.is_none() {
-            return;
-        }
-        if new_text.is_empty() {
-            self.session.clear_marked();
-        } else {
-            self.session
-                .set_marked(Some(range.start..range.start + new_text.len()));
-        }
-        if let Some(selected) = new_selected_range_utf16 {
-            let start16 = self.session.offset_to_utf16(range.start);
-            let len16 = new_text.encode_utf16().count();
-            let selected = self.session.range_from_utf16(
-                &(start16 + selected.start.min(len16)..start16 + selected.end.min(len16)),
-            );
-            self.session
-                .set_selection(Selection::new(selected.start, selected.end));
-        }
-        self.after_edit(change, window, cx);
-    }
-
-    fn bounds_for_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        _element_bounds: Bounds<Pixels>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<Bounds<Pixels>> {
-        let range = self.session.range_from_utf16(&range_utf16);
+    fn range_bounds(&self, range: Range<usize>) -> Option<Bounds<Pixels>> {
         let (line, _, x, y) = self.visual_position(range.start)?;
         let (_, _, x1, y1) = self.visual_position(range.end).unwrap_or((line, 0, x, y));
         let origin = self.last_origin?;
@@ -710,17 +598,11 @@ impl EntityInputHandler for TextArea {
         ))
     }
 
-    fn character_index_for_point(
-        &mut self,
-        p: Point<Pixels>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<usize> {
-        let bounds = self.last_bounds?;
-        if !bounds.contains(&p) {
+    fn offset_at(&self, p: Point<Pixels>) -> Option<usize> {
+        if !self.last_bounds?.contains(&p) {
             return None;
         }
-        Some(self.session.offset_to_utf16(self.index_for_position(p)))
+        Some(self.index_for_position(p))
     }
 }
 
@@ -997,7 +879,7 @@ impl Element for AreaElement {
         }
         let caret = (focused
             && area.session.selection().is_empty()
-            && area.caret_on
+            && area.caret.on
             && window.is_window_active())
         .then(|| {
             gpui::fill(

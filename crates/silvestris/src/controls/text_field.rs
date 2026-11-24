@@ -26,15 +26,14 @@ use gpui::{
     CursorStyle, Element, ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter,
     FocusHandle, Focusable, GlobalElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString, Style,
-    Subscription, TextRun, UTF16Selection, UnderlineStyle, Window,
+    Subscription, TextRun, UnderlineStyle, Window,
 };
-
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::ControlSize;
 use crate::convert::hsla;
 use crate::paint;
-use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
+use crate::text::{CaretBlink, Change, ClipboardPolicy, EditSession};
+use crate::text_client::TextClient;
 use crate::theme::ActiveTheme;
 use crate::undo::{TextHistory, TextHost, UndoManager};
 
@@ -157,9 +156,6 @@ pub enum TextFieldEvent {
     EndedEditing,
 }
 
-/// Bullet used for masked text (U+2022).
-const BULLET: &str = "\u{2022}";
-
 pub struct TextField {
     focus: FocusHandle,
     session: EditSession,
@@ -176,8 +172,7 @@ pub struct TextField {
     last_origin: Option<Point<Pixels>>,
     last_bounds: Option<Bounds<Pixels>>,
     selecting: bool,
-    caret_on: bool,
-    blink_epoch: u64,
+    caret: CaretBlink,
     history: TextHistory,
     _subscriptions: Vec<Subscription>,
 }
@@ -194,11 +189,12 @@ impl TextField {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle().tab_stop(true);
         let subscriptions = vec![
+            crate::text_client::observe_activation(window, cx),
             cx.on_focus(&focus, window, |this, window, cx| {
                 this.restart_blink(window, cx)
             }),
             cx.on_blur(&focus, window, |this, _, cx| {
-                this.blink_epoch += 1;
+                this.caret.stop();
                 this.selecting = false;
                 cx.emit(TextFieldEvent::EndedEditing);
                 cx.notify();
@@ -218,8 +214,7 @@ impl TextField {
             last_origin: None,
             last_bounds: None,
             selecting: false,
-            caret_on: true,
-            blink_epoch: 0,
+            caret: CaretBlink::default(),
             history: TextHistory::new(cx),
             _subscriptions: subscriptions,
         }
@@ -338,30 +333,7 @@ impl TextField {
     // --- caret blink -------------------------------------------------------
 
     fn restart_blink(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.caret_on = true;
-        self.blink_epoch += 1;
-        cx.notify();
-        let Some(interval) = crate::native::caret_blink() else {
-            return;
-        };
-        let epoch = self.blink_epoch;
-        cx.spawn_in(window, async move |this, cx| loop {
-            cx.background_executor().timer(interval).await;
-            let keep = this
-                .update(cx, |this, cx| {
-                    if this.blink_epoch != epoch {
-                        return false;
-                    }
-                    this.caret_on = !this.caret_on;
-                    cx.notify();
-                    true
-                })
-                .unwrap_or(false);
-            if !keep {
-                break;
-            }
-        })
-        .detach();
+        crate::text_client::restart_blink(self, window, cx);
     }
 
     // --- offsets -----------------------------------------------------------
@@ -402,18 +374,6 @@ impl TextField {
         self.session.display_text()
     }
 
-    fn offset_to_utf16(&self, offset: usize) -> usize {
-        self.session.offset_to_utf16(offset)
-    }
-
-    fn range_to_utf16(&self, range: &Range<usize>) -> Range<usize> {
-        self.session.range_to_utf16(range)
-    }
-
-    fn range_from_utf16(&self, range: &Range<usize>) -> Range<usize> {
-        self.session.range_from_utf16(range)
-    }
-
     fn index_for_position(&self, position: Point<Pixels>) -> usize {
         let (Some(origin), Some(line)) = (self.last_origin, self.last_layout.as_ref()) else {
             return 0;
@@ -444,9 +404,7 @@ impl TextField {
     }
 
     fn select_range(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
-        self.session.select_range(range);
-        window.notify_text_selection_changed(&self.focus);
-        self.restart_blink(window, cx);
+        crate::text_client::select_range(self, range, window, cx);
     }
 
     fn replace_selection(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -677,132 +635,44 @@ impl TextHost for TextField {
     }
 }
 
-impl EntityInputHandler for TextField {
-    fn text_for_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        actual_range: &mut Option<Range<usize>>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<String> {
-        let range = self.range_from_utf16(&range_utf16);
-        actual_range.replace(self.range_to_utf16(&range));
-        // Secure text is never handed to the platform.
-        if self.masked {
-            return Some(BULLET.repeat(self.session.text()[range].graphemes(true).count()));
-        }
-        Some(self.session.text()[range].to_string())
+crate::impl_text_input_handler!(TextField);
+
+impl TextClient for TextField {
+    fn session(&self) -> &EditSession {
+        &self.session
     }
 
-    fn selected_text_range(
-        &mut self,
-        _: bool,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<UTF16Selection> {
-        Some(UTF16Selection {
-            range: self.range_to_utf16(&self.session.selected_range()),
-            reversed: self.session.selection().is_reversed(),
-        })
+    fn session_mut(&mut self) -> &mut EditSession {
+        &mut self.session
     }
 
-    fn set_selected_text_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let range = self.range_from_utf16(&range_utf16);
-        self.select_range(range, window, cx);
+    fn text_focus(&self) -> &FocusHandle {
+        &self.focus
     }
 
-    fn text_length_utf16(&mut self, _: &mut Window, _: &mut Context<Self>) -> Option<usize> {
-        Some(self.session.text().encode_utf16().count())
+    fn caret(&mut self) -> &mut CaretBlink {
+        &mut self.caret
     }
 
-    fn marked_text_range(&self, _: &mut Window, _: &mut Context<Self>) -> Option<Range<usize>> {
-        self.session.marked_range().map(|r| self.range_to_utf16(&r))
+    fn is_disabled(&self) -> bool {
+        self.disabled
     }
 
-    fn unmark_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.session.clear_marked();
-        window.notify_text_input_changed(&self.focus);
-        cx.notify();
+    fn is_secure(&self) -> bool {
+        self.masked
     }
 
-    fn replace_text_in_range(
-        &mut self,
-        range_utf16: Option<Range<usize>>,
-        new_text: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.disabled {
-            return;
-        }
-        let range = range_utf16
-            .as_ref()
-            .map(|r| self.range_from_utf16(r))
-            .or(self.session.marked_range())
-            .unwrap_or(self.session.selected_range());
-        if let Some(change) = self.session.replace_range(range, new_text, false) {
-            self.record_change(&change, cx);
-            window.notify_text_input_changed(&self.focus);
-            cx.emit(TextFieldEvent::Changed);
-            self.restart_blink(window, cx);
-        }
-    }
-
-    fn replace_and_mark_text_in_range(
-        &mut self,
-        range_utf16: Option<Range<usize>>,
-        new_text: &str,
-        new_selected_range_utf16: Option<Range<usize>>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.disabled {
-            return;
-        }
-        let range = range_utf16
-            .as_ref()
-            .map(|r| self.range_from_utf16(r))
-            .or(self.session.marked_range())
-            .unwrap_or(self.session.selected_range());
-        self.session.replace_range(range.clone(), new_text, false);
-        if new_text.is_empty() {
-            self.session.clear_marked();
-        } else {
-            self.session
-                .set_marked(Some(range.start..range.start + new_text.len()));
-        }
-        let start16 = self.offset_to_utf16(range.start);
-        let len16 = new_text.encode_utf16().count();
-        let selection = new_selected_range_utf16
-            .map(|s| {
-                self.range_from_utf16(&(start16 + s.start.min(len16)..start16 + s.end.min(len16)))
-            })
-            .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
-        self.session
-            .set_selection(Selection::new(selection.start, selection.end));
-        window.notify_text_input_changed(&self.focus);
+    fn did_change(&mut self, change: &Change, cx: &mut Context<Self>) {
+        self.record_change(change, cx);
         cx.emit(TextFieldEvent::Changed);
-        self.restart_blink(window, cx);
     }
 
-    fn bounds_for_range(
-        &mut self,
-        range_utf16: Range<usize>,
-        _element_bounds: Bounds<Pixels>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<Bounds<Pixels>> {
+    fn range_bounds(&self, range: Range<usize>) -> Option<Bounds<Pixels>> {
         let (line, origin, bounds) = (
             self.last_layout.as_ref()?,
             self.last_origin?,
             self.last_bounds?,
         );
-        let range = self.range_from_utf16(&range_utf16);
         let x = |o: usize| origin.x + line.x_for_index(self.display_offset(o));
         Some(Bounds::from_corners(
             point(x(range.start), bounds.top()),
@@ -810,17 +680,11 @@ impl EntityInputHandler for TextField {
         ))
     }
 
-    fn character_index_for_point(
-        &mut self,
-        p: Point<Pixels>,
-        _: &mut Window,
-        _: &mut Context<Self>,
-    ) -> Option<usize> {
-        let bounds = self.last_bounds?;
-        if !bounds.contains(&p) {
+    fn offset_at(&self, p: Point<Pixels>) -> Option<usize> {
+        if !self.last_bounds?.contains(&p) {
             return None;
         }
-        Some(self.offset_to_utf16(self.index_for_position(p)))
+        Some(self.index_for_position(p))
     }
 }
 
@@ -1171,7 +1035,7 @@ impl Element for TextElement {
         });
         let caret = (focused
             && field.session.selection().is_empty()
-            && field.caret_on
+            && field.caret.on
             && window.is_window_active())
         .then(|| {
             gpui::fill(

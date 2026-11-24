@@ -20,14 +20,28 @@ reuse the session without adopting a Silvestris widget.
 - `Change { range, inserted, composing }` for change notification and undo
   grouping (#39); `EditKind` classifies an edit for a menu title.
 - `ClipboardPolicy`: a field flattens newlines on paste, an area keeps them.
-- `CaretBlink` state; each view owns the timer and stops it when focus leaves.
+- `CaretBlink` state (`restart`, `stop`, `tick`).
+- The composition origin: what a composition replaced when it began. Committing
+  records that as the removed text, so Undo after an IME commit restores the
+  text before composing, not the raw phonetic input.
 
-The view owns focus, painting, horizontal or vertical scrolling, wrapping and
-the `EntityInputHandler` trait. GPUI implements that trait per entity, so each
-control has a thin forwarding impl; all of its decisions call the same session
-methods. The alternative, a generic adapter entity owning the session, would
-put the entity boundary in the wrong place and force every view to reach
-through it for normal editing.
+## The platform adapter
+
+`text_client` is the one GPUI adapter for every client. A client implements
+`TextClient` (session, focus, caret, disabled, secure, `did_change` for history
+and its Changed event, and the two layout queries: `range_bounds` and
+`offset_at`) and gets `EntityInputHandler` from
+`impl_text_input_handler!(Client)`. No client writes the ten input-handler
+methods itself, so UTF-16 mapping, marked text, secure queries and selection
+notifications cannot drift between field and area again. GPUI's orphan rule
+rules out a blanket impl; the macro is the single implementation.
+
+Caret blink lives there too. `restart_blink` starts a timer only when the
+window is active; a running timer ends with a steady caret when the window
+deactivates, and `observe_activation` restarts it on activation while focused.
+An inactive window therefore schedules no caret wakeups (#58 trap; lotus
+measured idle redraw cost). The view still owns focus, painting, scrolling and
+wrapping.
 
 ## TextField
 
@@ -84,5 +98,12 @@ bell instead of writing the clipboard. The area has no masked mode.
 - The existing text-field interaction suite still passes against the rebuilt
   engine (typing, IME, masking, key isolation, focus per window).
 
-The shared engine means the conformance cases above are the same code path for
-every client; a new client gets them by using `EditSession`.
+- `text_client.rs` conformance suite, generated per client by `conformance!`
+  (TextField and TextArea today; a new client adds one line): compose then
+  commit is one undo step back to the pre-composition text, and the caret
+  blinks while active, holds with no timer while inactive and resumes on
+  activation. A secure field answers `text_for_range` with bullets.
+- `text_field.rs`: undo during a composition cancels it first (#39).
+
+The shared engine and adapter mean these cases are the same code path for
+every client; a new client gets them by implementing `TextClient`.
