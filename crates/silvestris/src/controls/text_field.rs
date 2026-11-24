@@ -28,15 +28,17 @@ use gpui::{
     MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString, Style,
     Subscription, TextRun, UTF16Selection, UnderlineStyle, Window,
 };
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::ControlSize;
 use crate::convert::hsla;
 use crate::paint;
+use crate::text::{ClipboardPolicy, EditSession, Selection};
 use crate::theme::ActiveTheme;
 
 actions!(
-    silvestris_text_field,
+    silvestris_text,
     [
         Backspace,
         Delete,
@@ -50,6 +52,10 @@ actions!(
         WordRight,
         SelectWordLeft,
         SelectWordRight,
+        Up,
+        Down,
+        SelectUp,
+        SelectDown,
         Home,
         End,
         SelectHome,
@@ -58,12 +64,21 @@ actions!(
         Copy,
         Cut,
         Paste,
+        Newline,
         Submit,
     ]
 );
 
-/// Key context of a focused text field.
-pub const KEY_CONTEXT: &str = "SilvestrisTextField";
+/// The shared key context. Every text client (field, area, token, cell) has
+/// this in its context stack, so one binding set edits all of them.
+pub const KEY_CONTEXT: &str = "SilvestrisText";
+
+/// Extra context a single-line field keeps for existing predicates such as
+/// `!SilvestrisTextField`.
+pub const FIELD_CONTEXT: &str = "SilvestrisTextField";
+
+/// Extra context for the multiline area.
+pub const AREA_CONTEXT: &str = "SilvestrisTextArea";
 
 /// Bind text-field keys. Called by `silvestris::init`.
 pub fn bind_keys(cx: &mut App) {
@@ -97,6 +112,11 @@ pub fn bind_keys(cx: &mut App) {
             SelectWordRight,
             ctx,
         ),
+        KeyBinding::new("up", Up, ctx),
+        KeyBinding::new("down", Down, ctx),
+        KeyBinding::new("shift-up", SelectUp, ctx),
+        KeyBinding::new("shift-down", SelectDown, ctx),
+        KeyBinding::new("shift-enter", Newline, ctx),
         KeyBinding::new("home", Home, ctx),
         KeyBinding::new("end", End, ctx),
         KeyBinding::new("shift-home", SelectHome, ctx),
@@ -106,6 +126,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new(k!("cmd-x", "ctrl-x"), Cut, ctx),
         KeyBinding::new(k!("cmd-v", "ctrl-v"), Paste, ctx),
         KeyBinding::new("enter", Submit, ctx),
+        KeyBinding::new(k!("cmd-enter", "ctrl-enter"), Submit, ctx),
     ];
     if cfg!(target_os = "macos") {
         // Line start/end on Cmd-arrows, the Mac convention.
@@ -140,12 +161,9 @@ const BULLET: &str = "\u{2022}";
 
 pub struct TextField {
     focus: FocusHandle,
-    content: String,
+    session: EditSession,
     placeholder: SharedString,
     label: SharedString,
-    selected: Range<usize>,
-    reversed: bool,
-    marked: Option<Range<usize>>,
     size: ControlSize,
     masked: bool,
     search: bool,
@@ -186,12 +204,9 @@ impl TextField {
         ];
         TextField {
             focus,
-            content: String::new(),
+            session: EditSession::new(),
             placeholder: SharedString::default(),
             label: SharedString::default(),
-            selected: 0..0,
-            reversed: false,
-            marked: None,
             size: ControlSize::Regular,
             masked: false,
             search: false,
@@ -208,15 +223,11 @@ impl TextField {
     }
 
     pub fn text(&self) -> &str {
-        &self.content
+        self.session.text()
     }
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
-        self.content = text.into();
-        let end = self.content.len();
-        self.selected = end..end;
-        self.reversed = false;
-        self.marked = None;
+        self.session.set_text(text);
         // No Changed event: AppKit sends text-change notifications only for
         // user edits (NSControlTextDidChangeNotification), not for setters.
         cx.notify();
@@ -263,6 +274,7 @@ impl TextField {
     /// Secure entry: bullets on screen, no copy or cut.
     pub fn set_masked(&mut self, masked: bool, cx: &mut Context<Self>) {
         self.masked = masked;
+        self.session.set_masked(masked);
         cx.notify();
     }
 
@@ -333,130 +345,51 @@ impl TextField {
     // --- offsets -----------------------------------------------------------
 
     fn cursor(&self) -> usize {
-        if self.reversed {
-            self.selected.start
-        } else {
-            self.selected.end
-        }
+        self.session.cursor()
     }
 
     fn previous_boundary(&self, offset: usize) -> usize {
-        self.content
-            .grapheme_indices(true)
-            .rev()
-            .find_map(|(i, _)| (i < offset).then_some(i))
-            .unwrap_or(0)
+        self.session.previous_boundary(offset)
     }
 
     fn next_boundary(&self, offset: usize) -> usize {
-        self.content
-            .grapheme_indices(true)
-            .find_map(|(i, _)| (i > offset).then_some(i))
-            .unwrap_or(self.content.len())
+        self.session.next_boundary(offset)
     }
 
-    /// Start of the word before `offset` (words contain an alphanumeric).
-    /// Masked fields treat the whole text as one word.
     fn previous_word(&self, offset: usize) -> usize {
-        if self.masked {
-            return 0;
-        }
-        self.content
-            .split_word_bound_indices()
-            .rev()
-            .find_map(|(i, w)| (i < offset && w.chars().any(char::is_alphanumeric)).then_some(i))
-            .unwrap_or(0)
+        self.session.previous_word(offset)
     }
 
     fn next_word(&self, offset: usize) -> usize {
-        if self.masked {
-            return self.content.len();
-        }
-        self.content
-            .split_word_bound_indices()
-            .find_map(|(i, w)| {
-                let end = i + w.len();
-                (end > offset && w.chars().any(char::is_alphanumeric)).then_some(end)
-            })
-            .unwrap_or(self.content.len())
+        self.session.next_word(offset)
     }
 
     fn word_at(&self, offset: usize) -> Range<usize> {
-        if self.masked {
-            return 0..self.content.len();
-        }
-        self.content
-            .split_word_bound_indices()
-            .map(|(i, w)| i..i + w.len())
-            .find(|r| r.contains(&offset) || r.end == offset && offset == self.content.len())
-            .unwrap_or(offset..offset)
+        self.session.word_at(offset)
     }
 
-    /// Byte offset in the displayed string for a byte offset in `content`.
     fn display_offset(&self, offset: usize) -> usize {
-        if !self.masked {
-            return offset;
-        }
-        self.content
-            .grapheme_indices(true)
-            .take_while(|(i, _)| *i < offset)
-            .count()
-            * BULLET.len()
+        self.session.display_offset(offset)
     }
 
-    /// Inverse of `display_offset`.
     fn content_offset(&self, display: usize) -> usize {
-        if !self.masked {
-            return display;
-        }
-        let n = display / BULLET.len();
-        self.content
-            .grapheme_indices(true)
-            .nth(n)
-            .map(|(i, _)| i)
-            .unwrap_or(self.content.len())
+        self.session.content_offset(display)
     }
 
     fn display_text(&self) -> String {
-        if self.masked {
-            BULLET.repeat(self.content.graphemes(true).count())
-        } else {
-            self.content.clone()
-        }
-    }
-
-    fn offset_from_utf16(&self, offset: usize) -> usize {
-        let mut utf8 = 0;
-        let mut utf16 = 0;
-        for ch in self.content.chars() {
-            if utf16 >= offset {
-                break;
-            }
-            utf16 += ch.len_utf16();
-            utf8 += ch.len_utf8();
-        }
-        utf8
+        self.session.display_text()
     }
 
     fn offset_to_utf16(&self, offset: usize) -> usize {
-        let mut utf16 = 0;
-        let mut utf8 = 0;
-        for ch in self.content.chars() {
-            if utf8 >= offset {
-                break;
-            }
-            utf8 += ch.len_utf8();
-            utf16 += ch.len_utf16();
-        }
-        utf16
+        self.session.offset_to_utf16(offset)
     }
 
-    fn range_to_utf16(&self, r: &Range<usize>) -> Range<usize> {
-        self.offset_to_utf16(r.start)..self.offset_to_utf16(r.end)
+    fn range_to_utf16(&self, range: &Range<usize>) -> Range<usize> {
+        self.session.range_to_utf16(range)
     }
 
-    fn range_from_utf16(&self, r: &Range<usize>) -> Range<usize> {
-        self.offset_from_utf16(r.start)..self.offset_from_utf16(r.end)
+    fn range_from_utf16(&self, range: &Range<usize>) -> Range<usize> {
+        self.session.range_from_utf16(range)
     }
 
     fn index_for_position(&self, position: Point<Pixels>) -> usize {
@@ -465,39 +398,31 @@ impl TextField {
         };
         // An empty field's shaped line is the placeholder, whose indices are
         // not content offsets.
-        if self.content.is_empty() {
+        if self.session.is_empty() {
             return 0;
         }
         self.content_offset(line.closest_index_for_x(position.x - origin.x))
-            .min(self.content.len())
+            .min(self.session.len())
     }
 
     // --- selection ---------------------------------------------------------
 
     fn move_to(&mut self, offset: usize, window: &mut Window, cx: &mut Context<Self>) {
-        self.selected = offset..offset;
-        self.reversed = false;
-        window.notify_text_selection_changed(&self.focus);
-        self.restart_blink(window, cx);
+        if self.session.move_to(offset) {
+            window.notify_text_selection_changed(&self.focus);
+            self.restart_blink(window, cx);
+        }
     }
 
     fn select_to(&mut self, offset: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.reversed {
-            self.selected.start = offset
-        } else {
-            self.selected.end = offset
+        if self.session.select_to(offset) {
+            window.notify_text_selection_changed(&self.focus);
+            self.restart_blink(window, cx);
         }
-        if self.selected.end < self.selected.start {
-            self.reversed = !self.reversed;
-            self.selected = self.selected.end..self.selected.start;
-        }
-        window.notify_text_selection_changed(&self.focus);
-        self.restart_blink(window, cx);
     }
 
     fn select_range(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
-        self.selected = range;
-        self.reversed = false;
+        self.session.select_range(range);
         window.notify_text_selection_changed(&self.focus);
         self.restart_blink(window, cx);
     }
@@ -509,19 +434,19 @@ impl TextField {
     // --- actions -----------------------------------------------------------
 
     fn left(&mut self, _: &Left, window: &mut Window, cx: &mut Context<Self>) {
-        let to = if self.selected.is_empty() {
+        let to = if self.session.selection().is_empty() {
             self.previous_boundary(self.cursor())
         } else {
-            self.selected.start
+            self.session.selection().start()
         };
         self.move_to(to, window, cx);
     }
 
     fn right(&mut self, _: &Right, window: &mut Window, cx: &mut Context<Self>) {
-        let to = if self.selected.is_empty() {
+        let to = if self.session.selection().is_empty() {
             self.next_boundary(self.cursor())
         } else {
-            self.selected.end
+            self.session.selection().end()
         };
         self.move_to(to, window, cx);
     }
@@ -565,7 +490,7 @@ impl TextField {
     }
 
     fn end(&mut self, _: &End, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.content.len(), window, cx);
+        self.move_to(self.session.len(), window, cx);
     }
 
     fn select_home(&mut self, _: &SelectHome, window: &mut Window, cx: &mut Context<Self>) {
@@ -573,15 +498,18 @@ impl TextField {
     }
 
     fn select_end(&mut self, _: &SelectEnd, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.content.len(), window, cx);
+        self.select_to(self.session.len(), window, cx);
     }
 
     fn select_all(&mut self, _: &SelectAll, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_range(0..self.content.len(), window, cx);
+        if self.session.select_all() {
+            window.notify_text_selection_changed(&self.focus);
+            self.restart_blink(window, cx);
+        }
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
-        if self.selected.is_empty() {
+        if self.session.selection().is_empty() {
             let prev = self.previous_boundary(self.cursor());
             if prev == self.cursor() {
                 window.play_system_bell();
@@ -593,7 +521,7 @@ impl TextField {
     }
 
     fn delete(&mut self, _: &Delete, window: &mut Window, cx: &mut Context<Self>) {
-        if self.selected.is_empty() {
+        if self.session.selection().is_empty() {
             let next = self.next_boundary(self.cursor());
             if next == self.cursor() {
                 window.play_system_bell();
@@ -610,7 +538,7 @@ impl TextField {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.selected.is_empty() {
+        if self.session.selection().is_empty() {
             self.select_to(self.previous_word(self.cursor()), window, cx);
         }
         self.replace_selection("", window, cx);
@@ -622,7 +550,7 @@ impl TextField {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.selected.is_empty() {
+        if self.session.selection().is_empty() {
             self.select_to(self.next_word(self.cursor()), window, cx);
         }
         self.replace_selection("", window, cx);
@@ -631,9 +559,9 @@ impl TextField {
     fn copy(&mut self, _: &Copy, window: &mut Window, cx: &mut Context<Self>) {
         if self.masked {
             window.play_system_bell();
-        } else if !self.selected.is_empty() {
+        } else if !self.session.selection().is_empty() {
             cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected.clone()].to_string(),
+                self.session.text()[self.session.selected_range()].to_string(),
             ));
         }
     }
@@ -641,9 +569,9 @@ impl TextField {
     fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
         if self.masked {
             window.play_system_bell();
-        } else if !self.selected.is_empty() {
+        } else if !self.session.selection().is_empty() {
             cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected.clone()].to_string(),
+                self.session.text()[self.session.selected_range()].to_string(),
             ));
             self.replace_selection("", window, cx);
         }
@@ -652,7 +580,7 @@ impl TextField {
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
             // Single line: newlines become spaces.
-            let text = text.replace("\r\n", " ").replace(['\n', '\r'], " ");
+            let text = ClipboardPolicy::field(self.masked).pasted(&text);
             self.replace_selection(&text, window, cx);
         }
     }
@@ -660,6 +588,14 @@ impl TextField {
     fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
         cx.emit(TextFieldEvent::Submitted);
     }
+
+    // Single-line fields ignore the multiline-only movement. The bindings are
+    // shared so one keymap serves every text client.
+    fn up(&mut self, _: &Up, _: &mut Window, _: &mut Context<Self>) {}
+    fn down(&mut self, _: &Down, _: &mut Window, _: &mut Context<Self>) {}
+    fn select_up(&mut self, _: &SelectUp, _: &mut Window, _: &mut Context<Self>) {}
+    fn select_down(&mut self, _: &SelectDown, _: &mut Window, _: &mut Context<Self>) {}
+    fn newline(&mut self, _: &Newline, _: &mut Window, _: &mut Context<Self>) {}
 
     // --- mouse -------------------------------------------------------------
 
@@ -676,7 +612,7 @@ impl TextField {
         let index = self.index_for_position(event.position);
         match event.click_count {
             2 => self.select_range(self.word_at(index), window, cx),
-            n if n >= 3 => self.select_range(0..self.content.len(), window, cx),
+            n if n >= 3 => self.select_range(0..self.session.len(), window, cx),
             _ => {
                 self.selecting = true;
                 if event.modifiers.shift {
@@ -716,9 +652,9 @@ impl EntityInputHandler for TextField {
         actual_range.replace(self.range_to_utf16(&range));
         // Secure text is never handed to the platform.
         if self.masked {
-            return Some(BULLET.repeat(self.content[range].graphemes(true).count()));
+            return Some(BULLET.repeat(self.session.text()[range].graphemes(true).count()));
         }
-        Some(self.content[range].to_string())
+        Some(self.session.text()[range].to_string())
     }
 
     fn selected_text_range(
@@ -728,8 +664,8 @@ impl EntityInputHandler for TextField {
         _: &mut Context<Self>,
     ) -> Option<UTF16Selection> {
         Some(UTF16Selection {
-            range: self.range_to_utf16(&self.selected),
-            reversed: self.reversed,
+            range: self.range_to_utf16(&self.session.selected_range()),
+            reversed: self.session.selection().is_reversed(),
         })
     }
 
@@ -744,15 +680,15 @@ impl EntityInputHandler for TextField {
     }
 
     fn text_length_utf16(&mut self, _: &mut Window, _: &mut Context<Self>) -> Option<usize> {
-        Some(self.content.encode_utf16().count())
+        Some(self.session.text().encode_utf16().count())
     }
 
     fn marked_text_range(&self, _: &mut Window, _: &mut Context<Self>) -> Option<Range<usize>> {
-        self.marked.as_ref().map(|r| self.range_to_utf16(r))
+        self.session.marked_range().map(|r| self.range_to_utf16(&r))
     }
 
     fn unmark_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.marked = None;
+        self.session.clear_marked();
         window.notify_text_input_changed(&self.focus);
         cx.notify();
     }
@@ -770,13 +706,9 @@ impl EntityInputHandler for TextField {
         let range = range_utf16
             .as_ref()
             .map(|r| self.range_from_utf16(r))
-            .or(self.marked.clone())
-            .unwrap_or(self.selected.clone());
-        self.content.replace_range(range.clone(), new_text);
-        let end = range.start + new_text.len();
-        self.selected = end..end;
-        self.reversed = false;
-        self.marked = None;
+            .or(self.session.marked_range())
+            .unwrap_or(self.session.selected_range());
+        self.session.replace_range(range, new_text, false);
         window.notify_text_input_changed(&self.focus);
         cx.emit(TextFieldEvent::Changed);
         self.restart_blink(window, cx);
@@ -796,18 +728,24 @@ impl EntityInputHandler for TextField {
         let range = range_utf16
             .as_ref()
             .map(|r| self.range_from_utf16(r))
-            .or(self.marked.clone())
-            .unwrap_or(self.selected.clone());
-        self.content.replace_range(range.clone(), new_text);
-        self.marked = (!new_text.is_empty()).then(|| range.start..range.start + new_text.len());
+            .or(self.session.marked_range())
+            .unwrap_or(self.session.selected_range());
+        self.session.replace_range(range.clone(), new_text, false);
+        if new_text.is_empty() {
+            self.session.clear_marked();
+        } else {
+            self.session
+                .set_marked(Some(range.start..range.start + new_text.len()));
+        }
         let start16 = self.offset_to_utf16(range.start);
         let len16 = new_text.encode_utf16().count();
-        self.selected = new_selected_range_utf16
+        let selection = new_selected_range_utf16
             .map(|s| {
                 self.range_from_utf16(&(start16 + s.start.min(len16)..start16 + s.end.min(len16)))
             })
             .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
-        self.reversed = false;
+        self.session
+            .set_selection(Selection::new(selection.start, selection.end));
         window.notify_text_input_changed(&self.focus);
         cx.emit(TextFieldEvent::Changed);
         self.restart_blink(window, cx);
@@ -861,7 +799,7 @@ impl Render for TextField {
         let ring_color = theme.colors.focus_ring;
         let ring = m.focus_ring;
         let search = self.search && !self.masked;
-        let clearable = search && enabled && !self.content.is_empty();
+        let clearable = search && enabled && !self.session.is_empty();
         let radius = if search { height / 2.0 } else { 0.0 };
         let role = match (self.masked, search) {
             (true, _) => gpui::Role::PasswordInput,
@@ -873,12 +811,12 @@ impl Render for TextField {
         div()
             .id(("silvestris-text-field", cx.entity_id()))
             .debug_selector(move || selector)
-            .key_context(KEY_CONTEXT)
+            .key_context("SilvestrisTextField SilvestrisText")
             .role(role)
             .aria_label(self.label.clone())
             .aria_placeholder(self.placeholder.clone())
             .when(!self.masked, |el| {
-                el.aria_value(SharedString::from(self.content.clone()))
+                el.aria_value(SharedString::from(self.session.text().to_string()))
             })
             .relative()
             .w_full()
@@ -909,6 +847,11 @@ impl Render for TextField {
                     .on_action(cx.listener(Self::cut))
                     .on_action(cx.listener(Self::paste))
                     .on_action(cx.listener(Self::submit))
+                    .on_action(cx.listener(Self::up))
+                    .on_action(cx.listener(Self::down))
+                    .on_action(cx.listener(Self::select_up))
+                    .on_action(cx.listener(Self::select_down))
+                    .on_action(cx.listener(Self::newline))
                     .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
                     .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
@@ -1088,7 +1031,12 @@ impl Element for TextElement {
             underline: None,
             strikethrough: None,
         };
-        let runs = match field.marked.as_ref().filter(|_| !field.content.is_empty()) {
+        let runs = match field
+            .session
+            .marked_range()
+            .as_ref()
+            .filter(|_| !field.session.is_empty())
+        {
             Some(marked) => {
                 let (s, e) = (
                     field.display_offset(marked.start),
@@ -1143,13 +1091,13 @@ impl Element for TextElement {
         let visible = (bounds.size.width - left - right).max(px(0.));
 
         // Keep the caret inside the visible box.
-        let caret_x = if field.content.is_empty() {
+        let caret_x = if field.session.is_empty() {
             px(0.)
         } else {
             line.x_for_index(field.display_offset(field.cursor()))
         };
         let mut scroll_x = field.scroll_x;
-        if line.width() <= visible || field.content.is_empty() {
+        if line.width() <= visible || field.session.is_empty() {
             scroll_x = px(0.);
         } else {
             if caret_x - scroll_x > visible {
@@ -1169,26 +1117,32 @@ impl Element for TextElement {
         let caret_top = bounds.top() + px(m.caret_inset_top);
         let caret_bottom = bounds.bottom() - px(m.caret_inset_bottom);
 
-        let selection =
-            (focused && !field.selected.is_empty() && !field.content.is_empty()).then(|| {
-                let x0 = origin.x + line.x_for_index(field.display_offset(field.selected.start));
-                let x1 = origin.x + line.x_for_index(field.display_offset(field.selected.end));
-                gpui::fill(
-                    Bounds::from_corners(point(x0, caret_top), point(x1, caret_bottom)),
-                    hsla(f.selection),
-                )
-            });
-        let caret =
-            (focused && field.selected.is_empty() && field.caret_on && window.is_window_active())
-                .then(|| {
-                    gpui::fill(
-                        Bounds::new(
-                            point(origin.x + caret_x, caret_top),
-                            size(px(m.caret_width), caret_bottom - caret_top),
-                        ),
-                        hsla(f.caret),
-                    )
-                });
+        let selection = (focused
+            && !field.session.selection().is_empty()
+            && !field.session.is_empty())
+        .then(|| {
+            let x0 = origin.x
+                + line.x_for_index(field.display_offset(field.session.selection().start()));
+            let x1 =
+                origin.x + line.x_for_index(field.display_offset(field.session.selection().end()));
+            gpui::fill(
+                Bounds::from_corners(point(x0, caret_top), point(x1, caret_bottom)),
+                hsla(f.selection),
+            )
+        });
+        let caret = (focused
+            && field.session.selection().is_empty()
+            && field.caret_on
+            && window.is_window_active())
+        .then(|| {
+            gpui::fill(
+                Bounds::new(
+                    point(origin.x + caret_x, caret_top),
+                    size(px(m.caret_width), caret_bottom - caret_top),
+                ),
+                hsla(f.caret),
+            )
+        });
         Prepaint {
             line,
             origin,

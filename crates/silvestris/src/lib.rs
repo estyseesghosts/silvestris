@@ -10,6 +10,8 @@ pub mod fonts;
 pub mod native;
 pub mod paint;
 pub mod sprites;
+pub mod text;
+
 pub mod theme;
 
 pub use silvestris_core as core;

@@ -11,7 +11,7 @@ use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ConfirmationFocus, ConfirmationSheet, ControlSize,
     Disclosure, ProgressIndicator, RadioGroup, RadioOption, Segment, SegmentedControl,
-    ShortcutRecorder, Slider, SourceList, SourceListEvent, TextField, TextFieldEvent,
+    ShortcutRecorder, Slider, SourceList, SourceListEvent, TextArea, TextField, TextFieldEvent,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -70,6 +70,7 @@ struct Gallery {
     focus: gpui::FocusHandle,
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
+    composer: Entity<TextArea>,
     last_field: gpui::SharedString,
     combo: Entity<TextField>,
     radio: usize,
@@ -221,6 +222,15 @@ impl Gallery {
             cx.notify();
         })
         .detach();
+        let composer = cx.new(|cx| {
+            let mut area = TextArea::new(window, cx);
+            area.set_placeholder(
+                "Message the assistant. Return submits, Shift-Return adds a line.",
+                cx,
+            );
+            area.set_label("Composer", cx);
+            area
+        });
         let commands = cx.new(|_| CommandRegistry::default());
         let toggle_sidebar = cx.listener(|g, _: &CommandId, _, cx| {
             g.sidebar.expanded = !g.sidebar.expanded;
@@ -368,6 +378,7 @@ impl Gallery {
             checks: [CheckState::Off, CheckState::On, CheckState::Mixed],
             last_click: "none".into(),
             fields: vec![name, password, small, disabled, search],
+            composer,
             combo,
             radio: 0,
             progress: 0.42,
@@ -491,7 +502,8 @@ impl Render for Gallery {
                     .text_size(small_text)
                     .text_color(secondary)
                     .child(self.last_field.clone()),
-            );
+            )
+            .child(div().w(px(360.)).child(self.composer.clone()));
         let routing_row = div()
             .flex()
             .flex_row()
