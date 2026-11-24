@@ -7,6 +7,22 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #58, shared text core. Additive:
+
+- `text::EditSession` with buffer, `Selection`, grapheme/word/line/paragraph
+  boundaries, UTF-16 mapping, marked text, masked mode, `Change`/`EditKind`,
+  `copy_text` and `floor_boundary`; `Buffer`/`StringBuffer`, `ClipboardPolicy`,
+  `CaretBlink`.
+- `controls::TextArea` and `TextAreaEvent`, built on the session with wrapped
+  layout, visual-row movement, growth/scrolling and the composer contract.
+- Shared `silvestris_text` actions and the `SilvestrisText` key context,
+  including Up/Down/SelectUp/SelectDown/Newline; `cmd/ctrl-enter` submits.
+
+Behaviour: `TextField` keeps `TextFieldEvent` and its silent setter but now
+delegates editing to the session; the field's context stack also contains
+`SilvestrisText` for shared bindings. `TextArea` submits on Return, inserts a
+newline on Shift-Return, and never emits `Changed` from `set_text`.
+
 PR #61, bindings. Additive:
 
 - `binding::Binding<T>` with `new`, `field`, `value`, `set`; `checkbox`,

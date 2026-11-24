@@ -4,12 +4,14 @@ pub mod button;
 pub mod checkbox;
 pub mod disclosure;
 pub mod source_list;
+pub mod text_area;
 pub mod text_field;
 
 pub use button::{Button, ButtonStyle, ControlSize};
 pub use checkbox::{CheckState, Checkbox};
 pub use disclosure::Disclosure;
 pub use source_list::{SourceList, SourceListEvent};
+pub use text_area::{TextArea, TextAreaEvent};
 pub use text_field::{TextField, TextFieldEvent};
 
 pub mod segmented;

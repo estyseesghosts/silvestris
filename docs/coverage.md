@@ -83,7 +83,8 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Static text | styled text in composition | missing | — | — | unfiled |
-| Text input field | `TextField`, `TextFieldEvent` | functional | four | `text-field` | #58 |
+| Text input field | `TextField`, `TextFieldEvent`, `text::EditSession` | functional | four | `text-field` | #58 |
+| Multiline text area | `TextArea`, `TextAreaEvent` | functional | four | — | #58 |
 | Token field | none | missing | — | — | #43 |
 | Search field | `TextField` search variant | provisional | four | — | #77 |
 | Scrolling list | `controls::table::virtual_table` | provisional | four | — | #32 |
