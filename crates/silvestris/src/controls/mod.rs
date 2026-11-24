@@ -2,6 +2,7 @@
 //! or handbook contract.
 pub mod button;
 pub mod checkbox;
+pub mod container;
 pub mod disclosure;
 pub mod source_list;
 pub mod text_area;
@@ -9,16 +10,17 @@ pub mod text_field;
 
 pub use button::{Button, ButtonStyle, ControlSize};
 pub use checkbox::{CheckState, Checkbox};
-pub use disclosure::Disclosure;
-pub use source_list::{SourceList, SourceListEvent};
+pub use container::{GroupBox, Separator, SeparatorAxis, Well};
+pub use disclosure::{Disclosure, DisclosureStyle};
+pub use source_list::{RowAccessory, RowStatus, SourceList, SourceListEvent, SourceListStyle};
 pub use text_area::{TextArea, TextAreaEvent};
 pub use text_field::{TextField, TextFieldEvent};
 
 pub mod segmented;
-pub use segmented::{Segment, SegmentedControl};
+pub use segmented::{Segment, SegmentMode, SegmentStyle, SegmentedControl};
 
 pub mod popup_button;
-pub use popup_button::PopUpButton;
+pub use popup_button::{PopUpButton, PopupStyle};
 pub mod stepper;
 pub use stepper::Stepper;
 pub mod scrollbar;
@@ -27,13 +29,13 @@ pub use scrollbar::Scrollbar;
 pub mod tooltip;
 
 pub mod progress;
-pub use progress::ProgressIndicator;
+pub use progress::{ProgressIndicator, ProgressStyle};
 pub mod table;
 
 pub mod radio;
 pub use radio::{RadioGroup, RadioOption};
 pub mod slider;
-pub use slider::Slider;
+pub use slider::{Orientation, Slider, ThumbStyle};
 
 pub mod notice;
 pub use notice::Notice;

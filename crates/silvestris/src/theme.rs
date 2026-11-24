@@ -32,8 +32,11 @@ pub fn appearance_of(a: WindowAppearance) -> Appearance {
     }
 }
 
-/// Install the theme global. Called by `silvestris::init`.
-pub(crate) fn install(preference: ThemePreference, cx: &mut App) {
+/// Install the theme global without registering fonts.
+///
+/// [`crate::init`] calls this after [`crate::fonts::register`]. Hosts that
+/// manage their own fonts, and headless tests, can call it directly.
+pub fn install(preference: ThemePreference, cx: &mut App) {
     let system = appearance_of(cx.window_appearance());
     let id = preference.resolve(system);
     cx.set_global(ThemeState {

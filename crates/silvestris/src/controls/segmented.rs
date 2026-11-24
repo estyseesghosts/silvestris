@@ -7,16 +7,41 @@ use crate::{
     paint, ActiveTheme,
 };
 use gpui::{
-    canvas, div, point, prelude::*, px, size, App, Bounds, ContentMask, ElementId, SharedString,
-    TextRun, Window,
+    canvas, div, point, prelude::*, px, size, AnyElement, App, Bounds, ContentMask, ElementId,
+    SharedString, TextRun, Window,
 };
+use silvestris_core::Rgba8;
 use std::rc::Rc;
 
-#[derive(Clone, Debug)]
+use super::ControlSize;
+
+/// Selection semantics (HIG pp. 286-288).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SegmentMode {
+    /// Radio-like: one latched segment.
+    #[default]
+    SelectOne,
+    /// Checkbox-like: the consumer owns a set and each click toggles one.
+    SelectAny,
+    /// Toolbar action: never latches; every click dispatches.
+    Momentary,
+}
+
+/// Capsule (window body) or textured (toolbar) material.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SegmentStyle {
+    #[default]
+    Rounded,
+    Textured,
+}
+
+#[derive(Clone)]
 pub struct Segment {
     pub id: SharedString,
     pub label: SharedString,
     pub disabled: bool,
+    pub icon: Option<SharedString>,
+    pub show_label: bool,
 }
 impl Segment {
     pub fn new(id: impl Into<SharedString>, label: impl Into<SharedString>) -> Self {
@@ -24,15 +49,28 @@ impl Segment {
             id: id.into(),
             label: label.into(),
             disabled: false,
+            icon: None,
+            show_label: true,
         }
     }
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
+    /// An icon role resolved by [`SegmentedControl::icon_renderer`]. With
+    /// `show_label(false)` the segment is icon-only and square.
+    pub fn icon(mut self, role: impl Into<SharedString>) -> Self {
+        self.icon = Some(role.into());
+        self
+    }
+    pub fn show_label(mut self, show: bool) -> Self {
+        self.show_label = show;
+        self
+    }
 }
 
 type SelectionHandler = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
+type IconRenderer = Rc<dyn Fn(&str, Rgba8) -> AnyElement>;
 
 #[derive(IntoElement)]
 pub struct SegmentedControl {
@@ -40,9 +78,14 @@ pub struct SegmentedControl {
     label: SharedString,
     segments: Vec<Segment>,
     selected: Option<SharedString>,
+    selected_many: Vec<SharedString>,
+    mode: SegmentMode,
+    style: SegmentStyle,
+    size: ControlSize,
     disabled: bool,
     min_segment_width: f32,
     label_margin: Option<f32>,
+    icon_renderer: Option<IconRenderer>,
     on_select: Option<SelectionHandler>,
 }
 impl SegmentedControl {
@@ -56,14 +99,40 @@ impl SegmentedControl {
             label: label.into(),
             segments,
             selected: None,
+            selected_many: Vec::new(),
+            mode: SegmentMode::SelectOne,
+            style: SegmentStyle::Rounded,
+            size: ControlSize::Regular,
             disabled: false,
             min_segment_width: 0.,
             label_margin: None,
+            icon_renderer: None,
             on_select: None,
         }
     }
     pub fn selected(mut self, id: impl Into<SharedString>) -> Self {
         self.selected = Some(id.into());
+        self
+    }
+    /// The selected set for [`SegmentMode::SelectAny`].
+    pub fn selected_many(mut self, ids: impl IntoIterator<Item = impl Into<SharedString>>) -> Self {
+        self.selected_many = ids.into_iter().map(Into::into).collect();
+        self
+    }
+    pub fn mode(mut self, mode: SegmentMode) -> Self {
+        self.mode = mode;
+        self
+    }
+    pub fn style(mut self, style: SegmentStyle) -> Self {
+        self.style = style;
+        self
+    }
+    pub fn size(mut self, size: ControlSize) -> Self {
+        self.size = size;
+        self
+    }
+    pub fn icon_renderer(mut self, f: impl Fn(&str, Rgba8) -> AnyElement + 'static) -> Self {
+        self.icon_renderer = Some(Rc::new(f));
         self
     }
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -118,6 +187,20 @@ impl RenderOnce for SegmentedControl {
             })
             .read(cx)
             .clone();
+        let height = match self.size {
+            ControlSize::Regular => t.metrics.segment_height,
+            ControlSize::Small => t.metrics.push_small_height,
+            ControlSize::Mini => t.metrics.push_mini_height,
+        };
+        let text_size = self.size.label_size(&t);
+        let states = match self.style {
+            SegmentStyle::Rounded => t.controls.segment,
+            SegmentStyle::Textured => t.controls.textured,
+        };
+        let radius = match self.style {
+            SegmentStyle::Rounded => height / 2.,
+            SegmentStyle::Textured => t.metrics.textured_radius,
+        };
         let labels: Vec<f32> = self
             .segments
             .iter()
@@ -132,51 +215,86 @@ impl RenderOnce for SegmentedControl {
                 };
                 window
                     .text_system()
-                    .shape_line(s.label.clone(), px(t.type_.size_regular), &[run], None)
+                    .shape_line(s.label.clone(), px(text_size), &[run], None)
                     .width
                     .as_f32()
             })
             .collect();
         let widths: Vec<f32> = match self.label_margin {
-            Some(margin) => labels
+            Some(margin) => self
+                .segments
                 .iter()
-                .map(|w| (w + 2. * margin).ceil().max(self.min_segment_width))
+                .zip(labels.iter())
+                .map(|(segment, w)| {
+                    if segment.icon.is_some() && !segment.show_label {
+                        height.max(self.min_segment_width)
+                    } else {
+                        let icon = if segment.icon.is_some() { 16.0 } else { 0.0 };
+                        (w + icon + 2. * margin).ceil().max(self.min_segment_width)
+                    }
+                })
                 .collect(),
             None => {
-                let w = labels
+                let w = self
+                    .segments
                     .iter()
-                    .map(|w| w + 2. * t.metrics.push_padding[0])
+                    .zip(labels.iter())
+                    .map(|(segment, w)| {
+                        if segment.icon.is_some() && !segment.show_label {
+                            height
+                        } else {
+                            let icon = if segment.icon.is_some() { 16.0 } else { 0.0 };
+                            w + icon + 2. * t.metrics.push_padding[0]
+                        }
+                    })
                     .fold(self.min_segment_width, f32::max);
-                vec![w; labels.len()]
+                self.segments
+                    .iter()
+                    .map(|segment| {
+                        if segment.icon.is_some() && !segment.show_label {
+                            height.max(self.min_segment_width)
+                        } else {
+                            w
+                        }
+                    })
+                    .collect()
             }
         };
         let total: f32 = widths.iter().sum();
         let enabled = !self.disabled && self.segments.iter().any(|s| !s.disabled);
+        let mode = self.mode;
         let selected = self.selected.clone();
+        let selected_many = self.selected_many.clone();
         let keyboard_segments = self.segments.clone();
+        let keyboard_selected = selected.clone().or_else(|| selected_many.first().cloned());
         let keyboard = self.on_select.clone();
+        let icon_renderer = self.icon_renderer.clone();
         let ring_focus = focus.clone();
-        let radius = t.metrics.segment_height / 2.;
         let ring = t.colors.focus_ring;
         let profile = t.metrics.focus_ring;
         let mut group = div()
+            .debug_selector(|| self.id.to_string())
             .id(self.id)
             .role(gpui::Role::Group)
             .aria_label(self.label)
             .relative()
             .flex()
             .flex_none()
-            .h(px(t.metrics.segment_height))
+            .h(px(height))
             .when(enabled, |el| el.track_focus(&focus))
             .on_key_down(move |event, window, cx| {
                 if !enabled || event.keystroke.modifiers.modified() {
                     return;
                 }
-                if let Some(id) =
-                    destination(&keyboard_segments, selected.as_ref(), &event.keystroke.key)
-                {
+                if let Some(id) = destination(
+                    &keyboard_segments,
+                    keyboard_selected.as_ref(),
+                    &event.keystroke.key,
+                ) {
                     cx.stop_propagation();
-                    if selected.as_ref() != Some(&id) {
+                    let latched =
+                        mode == SegmentMode::SelectOne && keyboard_selected.as_ref() == Some(&id);
+                    if !latched {
                         if let Some(f) = &keyboard {
                             f(&id, window, cx);
                         }
@@ -184,9 +302,12 @@ impl RenderOnce for SegmentedControl {
                 }
             });
         for (i, segment) in self.segments.into_iter().enumerate() {
-            let is_selected = self.selected.as_ref() == Some(&segment.id);
+            let is_selected = match mode {
+                SegmentMode::SelectOne => self.selected.as_ref() == Some(&segment.id),
+                SegmentMode::SelectAny => self.selected_many.contains(&segment.id),
+                SegmentMode::Momentary => false,
+            };
             let active = enabled && !segment.disabled;
-            let states = t.controls.segment;
             let base = if !active {
                 states.disabled
             } else if is_selected {
@@ -232,9 +353,9 @@ impl RenderOnce for SegmentedControl {
                     .items_center()
                     .justify_center()
                     .w(px(width))
-                    .h(px(t.metrics.segment_height))
+                    .h(px(height))
                     .font_family(t.type_.ui)
-                    .text_size(px(t.type_.size_regular))
+                    .text_size(px(text_size))
                     .text_color(hsla(base.text))
                     .child(
                         canvas(|_, _, _| (), move |b, _, w, _| paint_segment(b, w, base))
@@ -258,22 +379,41 @@ impl RenderOnce for SegmentedControl {
                                 ),
                         )
                     })
-                    .child(
-                        div()
-                            .id("label")
-                            .relative()
-                            .when(active, |el| {
-                                el.group_active("silvestris-segment", |s| {
-                                    s.text_color(hsla(pressed.text))
+                    .when_some(segment.icon.as_ref(), |el, role| {
+                        el.child(
+                            div()
+                                .id("icon")
+                                .relative()
+                                .flex_none()
+                                .size(px(16.0))
+                                .when_some(icon_renderer.as_ref(), |el, render| {
+                                    el.child(render(role, base.text))
+                                }),
+                        )
+                    })
+                    .when(segment.show_label, |el| {
+                        el.child(
+                            div()
+                                .id("label")
+                                .relative()
+                                .when(segment.icon.is_some(), |el| el.ml(px(4.0)))
+                                .when(active, |el| {
+                                    el.group_active("silvestris-segment", |s| {
+                                        s.text_color(hsla(pressed.text))
+                                    })
                                 })
-                            })
-                            .child(segment.label),
-                    )
+                                .child(segment.label),
+                        )
+                    })
                     .when(active, |el| {
                         el.on_click(move |_, window, cx| {
                             window.focus(&click_focus, cx);
                             cx.stop_propagation();
-                            if !is_selected {
+                            let dispatch = match mode {
+                                SegmentMode::SelectOne => !is_selected,
+                                SegmentMode::SelectAny | SegmentMode::Momentary => true,
+                            };
+                            if dispatch {
                                 if let Some(f) = &handler {
                                     f(&segment.id, window, cx);
                                 }
@@ -405,5 +545,43 @@ mod tests {
             None
         );
         assert_eq!(destination(&segments, None, "escape"), None);
+    }
+
+    #[test]
+    fn select_any_and_momentary_dispatch_every_click_and_never_latch() {
+        struct ModeHarness {
+            mode: SegmentMode,
+            calls: usize,
+        }
+        impl Render for ModeHarness {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                div().size_full().child(
+                    SegmentedControl::new(
+                        "modes",
+                        "Modes",
+                        vec![Segment::new("a", "A"), Segment::new("b", "B")],
+                    )
+                    .mode(self.mode)
+                    .selected_many(["a"])
+                    .on_select(cx.listener(|h, _, _, cx| {
+                        h.calls += 1;
+                        cx.notify();
+                    })),
+                )
+            }
+        }
+        for mode in [SegmentMode::SelectAny, SegmentMode::Momentary] {
+            let mut app = TestAppContext::single();
+            app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+            let (h, cx) = app.add_window_view(|_, _| ModeHarness { mode, calls: 0 });
+            draw(cx);
+            let a = cx.debug_bounds("segment-a").unwrap();
+            let b = cx.debug_bounds("segment-b").unwrap();
+            cx.simulate_click(a.center(), Modifiers::default());
+            draw(cx);
+            cx.simulate_click(b.center(), Modifiers::default());
+            draw(cx);
+            cx.update(|_, cx| assert_eq!(h.read(cx).calls, 2, "{mode:?}"));
+        }
     }
 }

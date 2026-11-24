@@ -275,6 +275,56 @@ pub fn focus_ring(
     }
 }
 
+/// Fill a closed polygon, used for measured control glyphs (disclosure
+/// triangles, check marks, spinner spokes, pointed slider thumbs).
+pub fn polygon(window: &mut Window, points: &[Point<Pixels>], color: Rgba8) {
+    if points.len() < 3 {
+        return;
+    }
+    let mut path = gpui::PathBuilder::fill();
+    path.move_to(points[0]);
+    for point in &points[1..] {
+        path.line_to(*point);
+    }
+    path.close();
+    if let Ok(path) = path.build() {
+        window.paint_path(path, hsla(color));
+    }
+}
+
+/// A recessed well: 1 px border, a darker top inner row and a soft bottom
+/// highlight (M: groupbox.left/top; HIG pp. 361-363).
+pub fn well(
+    window: &mut Window,
+    bounds: Bounds<Pixels>,
+    radius: f32,
+    fill: Rgba8,
+    border: Rgba8,
+    shadow: Rgba8,
+) {
+    let bounds = snap_bounds(window, bounds);
+    let h = hairline(window);
+    let r = px(radius.min(bounds.size.height.as_f32() / 2.0));
+    fill_rounded(window, bounds, r, gpui::solid_background(hsla(border)));
+    let inner = inset(bounds, h);
+    fill_rounded(
+        window,
+        inner,
+        (r - h).max(px(0.)),
+        gpui::solid_background(hsla(fill)),
+    );
+    let x = inner.origin.x + r;
+    let w = (inner.size.width - r * 2.0).max(px(0.));
+    window.paint_quad(gpui::fill(
+        Bounds::new(point(x, inner.origin.y), size(w, h)),
+        hsla(shadow),
+    ));
+    window.paint_quad(gpui::fill(
+        Bounds::new(point(x, inner.bottom() - h), size(w, h)),
+        hsla(silvestris_core::Rgba8::hex(0xffffff).alpha(70)),
+    ));
+}
+
 /// Selection band: gradient body with a one-row line on top
 /// (M: sidebar.selection.active: 5595d2 line over 6ca5dd→1a6ab9).
 pub fn selection(window: &mut Window, bounds: Bounds<Pixels>, s: &Selection) {

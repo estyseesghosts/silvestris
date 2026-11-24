@@ -20,8 +20,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, prelude::*, px, AnyElement, App, ClickEvent, ElementId, FocusHandle, MouseButton,
-    MouseExitEvent, MouseMoveEvent, MouseUpEvent, SharedString, Window,
+    canvas, div, prelude::*, px, Animation, AnimationExt, AnyElement, App, ClickEvent, ElementId,
+    FocusHandle, KeyDownEvent, MouseButton, MouseExitEvent, MouseMoveEvent, MouseUpEvent,
+    SharedString, Window,
 };
 use silvestris_core::tokens::{Bevel, Theme};
 use silvestris_core::{Gradient, Rgba8};
@@ -67,6 +68,14 @@ pub enum ButtonStyle {
     Textured,
     /// Square gradient control for actions adjoining a list (HIG pp. 273–276).
     Gradient,
+    /// Square bevel button (Address Book/Network preferences).
+    Bevel,
+    /// Circular textured capsule control (HIG p. 261).
+    Round,
+    /// Inset/recessed control (HIG pp. 257–261).
+    Recessed,
+    /// Purple question-mark help button.
+    Help,
 }
 
 type Icon = Box<dyn Fn(gpui::Rgba) -> AnyElement>;
@@ -80,6 +89,8 @@ pub struct Button {
     style: ButtonStyle,
     size: ControlSize,
     default: bool,
+    cancel: bool,
+    throb: bool,
     disabled: bool,
     selected: bool,
     min_width: Option<f32>,
@@ -98,6 +109,8 @@ impl Button {
             style: ButtonStyle::Push,
             size: ControlSize::Regular,
             default: false,
+            cancel: false,
+            throb: true,
             disabled: false,
             selected: false,
             min_width: None,
@@ -123,6 +136,18 @@ impl Button {
     /// Return-key routing belongs to the dialog that owns it (handbook 12).
     pub fn default_button(mut self, default: bool) -> Self {
         self.default = default;
+        self
+    }
+
+    /// Escape / Cmd-period key equivalent (dialogs).
+    pub fn cancel_button(mut self, cancel: bool) -> Self {
+        self.cancel = cancel;
+        self
+    }
+
+    /// Disable the default-button throb (goldens and still captures).
+    pub fn throb(mut self, throb: bool) -> Self {
+        self.throb = throb;
         self
     }
 
@@ -221,6 +246,24 @@ fn blend_bevel(resting: Bevel, pressed: Bevel, amount: f32) -> Bevel {
     }
 }
 
+/// Default-button throb. The measured default bevel is the rest state; the
+/// pulse adds a small white lift to the gloss, roughly 10% at the peak. The
+/// capture sets the two endpoints but not the period, so 1.1 s is an estimate
+/// recorded in docs/exceptions.md.
+fn throb_bevel(resting: Bevel, phase: f32) -> Bevel {
+    let lift = (0.5 - (phase * std::f32::consts::TAU).cos() * 0.5) * 0.10;
+    let white = Rgba8::hex(0xffffff).alpha(255);
+    let light = |g: Gradient| Gradient::new(g.from.mix(white, lift), g.to.mix(white, lift));
+    Bevel {
+        border: resting.border,
+        upper: light(resting.upper),
+        lower: light(resting.lower),
+        split: resting.split,
+        emboss: resting.emboss,
+        text: resting.text,
+    }
+}
+
 impl RenderOnce for Button {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -240,7 +283,7 @@ impl RenderOnce for Button {
                 m.textured_height,
                 m.textured_radius,
             ),
-            ButtonStyle::Gradient => (
+            ButtonStyle::Gradient | ButtonStyle::Bevel => (
                 &theme.controls.gradient,
                 match self.size {
                     ControlSize::Regular => 21.0,
@@ -248,6 +291,29 @@ impl RenderOnce for Button {
                     ControlSize::Mini => 17.0,
                 },
                 0.0,
+            ),
+            ButtonStyle::Round => (
+                &theme.controls.round,
+                m.textured_height,
+                m.textured_height / 2.0,
+            ),
+            ButtonStyle::Recessed => (
+                &theme.controls.recessed,
+                match self.size {
+                    ControlSize::Regular => m.push_height,
+                    ControlSize::Small => m.push_small_height,
+                    ControlSize::Mini => m.push_mini_height,
+                },
+                m.textured_radius,
+            ),
+            ButtonStyle::Help => (
+                &theme.controls.help.states,
+                match self.size {
+                    ControlSize::Regular => m.push_height,
+                    ControlSize::Small => m.push_small_height,
+                    ControlSize::Mini => m.push_mini_height,
+                },
+                m.push_height / 2.0,
             ),
         };
         let base: Bevel = if self.disabled {
@@ -265,9 +331,15 @@ impl RenderOnce for Button {
                 Rc::new(Cell::new(Press::Resting)),
             )
         });
-        let (default_focus, feedback) = state.read(cx);
+        let (default_focus, feedback) = {
+            let state = state.read(cx);
+            (state.0.clone(), state.1.clone())
+        };
         let focus = self.focus.unwrap_or_else(|| default_focus.clone());
         let enabled = !self.disabled;
+        if self.default && enabled && window.is_window_active() && window.focused(cx).is_none() {
+            window.focus(&focus, cx);
+        }
         let handler = self.on_click.filter(|_| enabled);
         if handler.is_none()
             || !window.is_window_active()
@@ -280,6 +352,17 @@ impl RenderOnce for Button {
             feedback.set(Press::Resting);
         }
         let feedback = handler.as_ref().map(|_| feedback.clone());
+        let focused_elsewhere = window.focused(cx).is_some_and(|f| f != focus);
+        let throb = self.throb
+            && self.default
+            && self.style == ButtonStyle::Push
+            && enabled
+            && window.is_window_active()
+            && !cx.reduce_motion()
+            && !focused_elsewhere
+            && amount == 0.0;
+        let throb_phase = Rc::new(Cell::new(0.0));
+        let throb_for_paint = throb_phase.clone();
         let bezel = if amount == 0.0 {
             base
         } else {
@@ -307,7 +390,8 @@ impl RenderOnce for Button {
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
         let icon_only = self.icon.is_some();
-        let padding = if icon_only {
+        let help_style = self.style == ButtonStyle::Help;
+        let padding = if icon_only || help_style {
             0.0
         } else {
             m.push_padding[self.size.index()]
@@ -321,6 +405,8 @@ impl RenderOnce for Button {
         let pointer_down = feedback.clone();
         let key_down = feedback.clone();
         let activation = feedback.clone();
+        let key_handler = handler.clone();
+        let help = self.style == ButtonStyle::Help;
 
         div()
             .debug_selector(|| self.id.to_string())
@@ -336,13 +422,32 @@ impl RenderOnce for Button {
             .items_center()
             .justify_center()
             .h(px(height))
-            .when(icon_only, |el| el.w(px(height)))
+            .when(icon_only || help, |el| el.w(px(height)))
             .px(px(padding))
             .when_some(self.min_width, |el, w| el.min_w(px(w)))
             .when_some(self.tooltip, super::tooltip::attach)
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
             .when(enabled, |el| el.track_focus(&focus))
+            .when(self.cancel && enabled, |el| {
+                let handler = key_handler.clone();
+                let key_focus = focus.clone();
+                el.on_key_down(move |event: &KeyDownEvent, window, cx| {
+                    if !key_focus.is_focused(window) {
+                        return;
+                    }
+                    let stroke = &event.keystroke;
+                    if (stroke.key == "escape" && !stroke.modifiers.modified())
+                        || (stroke.key == "."
+                            && (stroke.modifiers.platform || stroke.modifiers.control))
+                    {
+                        cx.stop_propagation();
+                        if let Some(handler) = &handler {
+                            handler(&ClickEvent::default(), window, cx);
+                        }
+                    }
+                })
+            })
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 if enabled {
                     window.focus(&pointer_focus, cx);
@@ -388,11 +493,16 @@ impl RenderOnce for Button {
                     handler(event, window, cx);
                 })
             })
-            .child(
-                canvas(
+            .child({
+                let bezel_canvas = canvas(
                     |_, _, _| (),
-                    move |bounds, _, window, _| {
-                        paint::bevel(window, bounds, radius, &bezel);
+                    move |bounds, _, window, _cx| {
+                        let painted = if throb {
+                            throb_bevel(bezel, throb_for_paint.get())
+                        } else {
+                            bezel
+                        };
+                        paint::bevel(window, bounds, radius, &painted);
                         if let Some(feedback) = &feedback {
                             // Capture release even when another control consumes the mouse-up.
                             // GPUI's later ClickEvent starts the animation for a valid release.
@@ -437,10 +547,34 @@ impl RenderOnce for Button {
                     },
                 )
                 .absolute()
-                .inset_0(),
-            )
+                .inset_0();
+                if throb {
+                    let phase = throb_phase.clone();
+                    bezel_canvas
+                        .with_animation(
+                            "default-throb",
+                            Animation::new(Duration::from_millis(1100)).repeat(),
+                            move |el, t| {
+                                phase.set(t);
+                                el
+                            },
+                        )
+                        .into_any_element()
+                } else {
+                    bezel_canvas.into_any_element()
+                }
+            })
             .when_some(icon, |el, icon| el.child(div().relative().child(icon)))
-            .when(!icon_only, |el| {
+            .when(help, |el| {
+                el.child(
+                    div()
+                        .relative()
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(hsla(theme.controls.help.glyph))
+                        .child("?"),
+                )
+            })
+            .when(!icon_only && !help, |el| {
                 el.child(
                     div()
                         .relative()
@@ -629,5 +763,63 @@ mod tests {
         cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
         draw(cx);
         assert_eq!(fill(cx), selected);
+    }
+
+    #[test]
+    fn default_and_cancel_key_equivalents_activate_from_an_unfocused_dialog() {
+        struct Dialog {
+            focus: FocusHandle,
+            accepted: usize,
+            cancelled: usize,
+        }
+        impl Render for Dialog {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                div()
+                    .size_full()
+                    .track_focus(&self.focus)
+                    .child(
+                        Button::new("ok", "OK")
+                            .default_button(true)
+                            .on_click(cx.listener(|d, _, _, cx| {
+                                d.accepted += 1;
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        Button::new("cancel", "Cancel")
+                            .cancel_button(true)
+                            .on_click(cx.listener(|d, _, _, cx| {
+                                d.cancelled += 1;
+                                cx.notify();
+                            })),
+                    )
+            }
+        }
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (dialog, cx) = app.add_window_view(|_, cx| Dialog {
+            focus: cx.focus_handle(),
+            accepted: 0,
+            cancelled: 0,
+        });
+        cx.update(|window, _| {
+            window.activate_window();
+        });
+        draw(cx);
+        cx.simulate_keystrokes("enter");
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("enter").unwrap(),
+        });
+        draw(cx);
+        // Tab leaves the default button; Escape still reaches the cancel
+        // button's key equivalent wherever focus sits in the dialog.
+        cx.update(|window, cx| window.focus_next(cx));
+        draw(cx);
+        cx.simulate_keystrokes("escape");
+        draw(cx);
+        cx.update(|_, cx| {
+            assert_eq!(dialog.read(cx).accepted, 1);
+            assert_eq!(dialog.read(cx).cancelled, 1);
+        });
     }
 }

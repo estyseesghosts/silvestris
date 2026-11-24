@@ -115,19 +115,21 @@ fn box_paint(
     state: CheckState,
 ) {
     paint::bevel(window, bounds, radius, &bevel);
-    // Estimated silhouette: the measured captures establish colour/material,
-    // not a reusable glyph outline. A filled path avoids font substitutions.
+    // M: checkbox.on at 2x: the check's left arm starts at 10% width / 52%
+    // height, its elbow sits at 40% / 84%, and the long arm overshoots the top
+    // right at 94% / 6%. The mark is a filled path so it does not depend on a
+    // font substitution.
     let vertices: &[(f32, f32)] = match state {
         CheckState::Off => return,
         CheckState::On => &[
-            (0.18, 0.48),
-            (0.34, 0.66),
-            (0.78, 0.19),
-            (0.87, 0.28),
-            (0.35, 0.84),
-            (0.10, 0.57),
+            (0.10, 0.52),
+            (0.24, 0.40),
+            (0.40, 0.60),
+            (0.82, 0.10),
+            (0.94, 0.20),
+            (0.40, 0.86),
         ],
-        CheckState::Mixed => &[(0.22, 0.43), (0.78, 0.43), (0.78, 0.57), (0.22, 0.57)],
+        CheckState::Mixed => &[(0.18, 0.44), (0.82, 0.44), (0.82, 0.56), (0.18, 0.56)],
     };
     let at = |(x, y)| {
         point(

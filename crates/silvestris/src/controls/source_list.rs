@@ -12,8 +12,75 @@ use std::rc::Rc;
 
 type IconRenderer = Rc<dyn Fn(&str, bool, bool, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
 type AccessoryRenderer = Rc<dyn Fn(&SourceRow, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
+type AccessoryModel = Rc<dyn Fn(&SourceRow) -> Vec<RowAccessory>>;
+type AccessoryAction = Rc<dyn Fn(&mut Window, &mut gpui::App)>;
 type RowDecorator =
     Rc<dyn Fn(&SourceRow, gpui::AnyElement, &mut Window, &mut gpui::App) -> gpui::AnyElement>;
+
+/// Primary blue-grey sidebar or secondary document-integrated list
+/// (HIG p. 208; M: sidebar.background and SL/mail-inbox.png).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SourceListStyle {
+    #[default]
+    Primary,
+    Secondary,
+}
+
+/// Semantic status for [`RowAccessory::StatusDot`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RowStatus {
+    Running,
+    Paused,
+    Error,
+    Idle,
+}
+
+/// A trailing row accessory. Consumers choose one; they do not paint their own
+/// badge, dot or action button (issue #4).
+#[derive(Clone)]
+pub enum RowAccessory {
+    /// Count badge, e.g. Mail's unread count.
+    Badge(usize),
+    /// Eject glyph for a removable device.
+    Eject,
+    /// Small asynchronous spinner.
+    Spinner,
+    /// Semantic status dot; the theme maps the role to a colour.
+    StatusDot(RowStatus),
+    /// A subtle icon action. It stops row selection and drag events.
+    Button {
+        id: gpui::SharedString,
+        label: gpui::SharedString,
+        glyph: gpui::SharedString,
+        action: AccessoryAction,
+    },
+    /// Reveal the inner accessory only while the pointer is over the row.
+    Hover(Box<RowAccessory>),
+}
+
+impl RowAccessory {
+    pub fn badge(count: usize) -> Self {
+        Self::Badge(count)
+    }
+
+    pub fn status(status: RowStatus) -> Self {
+        Self::StatusDot(status)
+    }
+
+    pub fn button(
+        id: impl Into<gpui::SharedString>,
+        label: impl Into<gpui::SharedString>,
+        glyph: impl Into<gpui::SharedString>,
+        action: impl Fn(&mut Window, &mut gpui::App) + 'static,
+    ) -> Self {
+        Self::Button {
+            id: id.into(),
+            label: label.into(),
+            glyph: glyph.into(),
+            action: Rc::new(action),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SourceListEvent {
@@ -25,8 +92,10 @@ pub struct SourceList {
     tree: SourceTree,
     focus: FocusHandle,
     scroll: UniformListScrollHandle,
+    style: SourceListStyle,
     icons: Option<IconRenderer>,
     accessory: Option<AccessoryRenderer>,
+    accessories: Option<AccessoryModel>,
     decorate: Option<RowDecorator>,
 }
 
@@ -45,10 +114,32 @@ impl SourceList {
             tree,
             focus: cx.focus_handle().tab_stop(true),
             scroll: UniformListScrollHandle::new(),
+            style: SourceListStyle::Primary,
             icons: None,
             accessory: None,
+            accessories: None,
             decorate: None,
         })
+    }
+
+    /// Primary blue-grey sidebar or secondary document-integrated list.
+    pub fn style(&mut self, style: SourceListStyle, cx: &mut Context<Self>) {
+        if self.style != style {
+            self.style = style;
+            cx.notify();
+        }
+    }
+
+    /// Model-driven accessories. The closure runs per visible row; the list
+    /// renders each returned accessory with the standard hit area, focus and
+    /// event isolation.
+    pub fn set_row_accessories(
+        &mut self,
+        render: impl Fn(&SourceRow) -> Vec<RowAccessory> + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.accessories = Some(Rc::new(render));
+        cx.notify();
     }
 
     pub fn state(&self) -> &SourceTree {
@@ -165,9 +256,156 @@ impl SourceList {
     }
 }
 
+fn accessory_element(
+    accessory: &RowAccessory,
+    group: &gpui::SharedString,
+    selected: bool,
+    theme: &silvestris_core::Theme,
+    window: &mut Window,
+    cx: &mut gpui::App,
+) -> gpui::AnyElement {
+    let ink = if selected {
+        theme.lists.source_active.text
+    } else {
+        theme.colors.text_secondary
+    };
+    let reveal = |el: gpui::AnyElement| -> gpui::AnyElement {
+        div()
+            .flex_none()
+            .opacity(0.55)
+            .group_hover(group.clone(), |s| s.opacity(1.0))
+            .child(el)
+            .into_any_element()
+    };
+    match accessory {
+        RowAccessory::Badge(count) => div()
+            .flex_none()
+            .min_w(px(16.))
+            .h(px(14.))
+            .px(px(4.))
+            .rounded_full()
+            .bg(hsla(if selected {
+                theme.lists.source_active.text
+            } else {
+                theme.colors.divider
+            }))
+            .text_color(hsla(if selected {
+                theme.lists.source_active.fill.from
+            } else {
+                theme.colors.text
+            }))
+            .text_size(px(theme.type_.size_mini))
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(count.to_string())
+            .into_any_element(),
+        RowAccessory::Eject => div()
+            .flex_none()
+            .w(px(16.))
+            .h(px(16.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .text_size(px(11.))
+            .text_color(hsla(ink))
+            .child("\u{23CF}")
+            .into_any_element(),
+        RowAccessory::Spinner => super::ProgressIndicator::spinner(
+            gpui::ElementId::Name(gpui::SharedString::from(format!("spinner-{}", group))),
+            "Working",
+        )
+        .size(super::ControlSize::Mini)
+        .into_any_element(),
+        RowAccessory::StatusDot(status) => {
+            let colour = match status {
+                RowStatus::Running => theme.colors.success,
+                RowStatus::Paused => theme.colors.warning,
+                RowStatus::Error => theme.colors.error,
+                RowStatus::Idle => theme.colors.text_disabled,
+            };
+            div()
+                .flex_none()
+                .size(px(7.))
+                .rounded_full()
+                .bg(hsla(colour))
+                .into_any_element()
+        }
+        RowAccessory::Hover(inner) => {
+            let child = accessory_element(inner, group, selected, theme, window, cx);
+            div()
+                .flex_none()
+                .opacity(0.0)
+                .group_hover(group.clone(), |s| s.opacity(1.0))
+                .child(child)
+                .into_any_element()
+        }
+        RowAccessory::Button {
+            id,
+            label,
+            glyph,
+            action,
+        } => {
+            let focus = window
+                .use_keyed_state(
+                    gpui::ElementId::Name(gpui::SharedString::from(format!(
+                        "acc-focus-{group}-{id}"
+                    ))),
+                    cx,
+                    |_, cx| cx.focus_handle().tab_stop(true),
+                )
+                .read(cx)
+                .clone();
+            let click_focus = focus.clone();
+            let key_focus = focus.clone();
+            let key_action = action.clone();
+            let click_action = action.clone();
+            reveal(
+                div()
+                    .id(gpui::SharedString::from(format!("acc-{group}-{id}")))
+                    .debug_selector({
+                        let name = format!("acc-{group}-{id}");
+                        move || name.clone()
+                    })
+                    .role(gpui::Role::Button)
+                    .aria_label(label.clone())
+                    .occlude()
+                    .flex_none()
+                    .size(px(16.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .track_focus(&focus)
+                    .text_size(px(11.))
+                    .text_color(hsla(ink))
+                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                        window.focus(&click_focus, cx);
+                        cx.stop_propagation();
+                    })
+                    .on_click(move |_, window, cx| {
+                        cx.stop_propagation();
+                        click_action(window, cx);
+                    })
+                    .on_key_down(move |event: &gpui::KeyDownEvent, window, cx| {
+                        if !key_focus.is_focused(window) || event.keystroke.modifiers.modified() {
+                            return;
+                        }
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            cx.stop_propagation();
+                            key_action(window, cx);
+                        }
+                    })
+                    .child(glyph.clone())
+                    .into_any_element(),
+            )
+        }
+    }
+}
+
 impl Render for SourceList {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let style = self.style;
         let active = window.is_window_active() && self.focus.contains_focused(window, cx);
         let selected = self.tree.selected().map(str::to_owned);
         // Share cached rows across repaints; row elements only for viewport.
@@ -175,7 +413,9 @@ impl Render for SourceList {
         let view = cx.entity();
         let icons = self.icons.clone();
         let accessory = self.accessory.clone();
+        let accessories = self.accessories.clone();
         let decorate = self.decorate.clone();
+        let bg_theme = theme.clone();
         let list = uniform_list("rows", rows.len(), move |range, window, cx| {
             range
                 .map(|i| {
@@ -193,15 +433,28 @@ impl Render for SourceList {
                             .font_family(theme.type_.ui)
                             .font_weight(gpui::FontWeight::BOLD)
                             .text_size(px(theme.type_.size_heading))
-                            .text_color(hsla(theme.colors.sidebar_heading))
+                            .text_color(hsla(match style {
+                                SourceListStyle::Primary => theme.colors.sidebar_heading,
+                                SourceListStyle::Secondary => theme.colors.source_secondary_heading,
+                            }))
                             .child(div().min_w_0().truncate().child(row.label.to_uppercase()))
                             .into_any_element();
                     }
                     let is_selected = selected.as_deref() == Some(row.id.as_str());
-                    let selection = if active {
-                        theme.lists.source_active
-                    } else {
-                        theme.lists.source_inactive
+                    let window_active = window.is_window_active();
+                    let selection = match (style, window_active, active) {
+                        (SourceListStyle::Primary, false, _) => theme.lists.source_inactive,
+                        (SourceListStyle::Primary, true, true) => theme.lists.source_active,
+                        (SourceListStyle::Primary, true, false) => theme.lists.source_unfocused,
+                        (SourceListStyle::Secondary, false, _) => {
+                            theme.lists.source_secondary_inactive
+                        }
+                        (SourceListStyle::Secondary, true, true) => {
+                            theme.lists.source_secondary_active
+                        }
+                        (SourceListStyle::Secondary, true, false) => {
+                            theme.lists.source_secondary_inactive
+                        }
                     };
                     let text = if row.disabled {
                         theme.colors.text_disabled
@@ -258,6 +511,7 @@ impl Render for SourceList {
                                     )
                                     .expanded(row.expanded)
                                     .disabled(row.disabled)
+                                    .selected(is_selected)
                                     .on_toggle(move |expanded, _, cx| {
                                         toggle_view.update(cx, |list, cx| {
                                             if list.tree.expand(&toggle_id, *expanded) {
@@ -301,6 +555,28 @@ impl Render for SourceList {
                                 })
                                 .when_some(accessory.as_ref(), |el, render| {
                                     el.child(div().flex_none().child(render(row, window, cx)))
+                                })
+                                .when_some(accessories.as_ref(), |el, render| {
+                                    let group =
+                                        gpui::SharedString::from(format!("accessories-{}", row.id));
+                                    el.child(
+                                        div()
+                                            .flex_none()
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(4.))
+                                            .group(group.clone())
+                                            .children(render(row).into_iter().map(|item| {
+                                                accessory_element(
+                                                    &item,
+                                                    &group,
+                                                    is_selected,
+                                                    &theme,
+                                                    window,
+                                                    cx,
+                                                )
+                                            })),
+                                    )
                                 }),
                         )
                         .when(row.selectable(), |el| {
@@ -333,10 +609,11 @@ impl Render for SourceList {
             .track_focus(&self.focus)
             .size_full()
             .overflow_hidden()
-            .bg(hsla(if window.is_window_active() {
-                cx.theme().colors.sidebar
-            } else {
-                cx.theme().colors.sidebar_inactive
+            .bg(hsla(match (style, window.is_window_active()) {
+                (SourceListStyle::Primary, true) => bg_theme.colors.sidebar,
+                (SourceListStyle::Primary, false) => bg_theme.colors.sidebar_inactive,
+                (SourceListStyle::Secondary, true) => bg_theme.colors.source_secondary,
+                (SourceListStyle::Secondary, false) => bg_theme.colors.sidebar_inactive,
             }))
             .on_mouse_down(
                 MouseButton::Left,
@@ -590,5 +867,50 @@ mod interaction_tests {
         );
         assert!(cx.debug_bounds("source-row-child").is_some());
         assert_eq!(selected(&list, cx).as_deref(), Some("other"));
+    }
+
+    #[test]
+    fn model_accessories_stay_isolated_and_secondary_style_keeps_selection() {
+        use std::cell::Cell;
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let hits = Rc::new(Cell::new(0));
+        let (list, cx) = app.add_window_view(|_, cx| {
+            let mut list = SourceList::new(
+                vec![
+                    SourceNode::new("inbox", "Inbox"),
+                    SourceNode::new("sent", "Sent"),
+                ],
+                cx,
+            )
+            .unwrap();
+            list.style(SourceListStyle::Secondary, cx);
+            list.select("inbox", cx);
+            let count = hits.clone();
+            list.set_row_accessories(
+                move |row| {
+                    let count = count.clone();
+                    vec![
+                        RowAccessory::badge(3),
+                        RowAccessory::status(RowStatus::Running),
+                        RowAccessory::button("act", "Act on row", "\u{2699}", move |_, _| {
+                            count.set(count.get() + 1)
+                        }),
+                    ]
+                    .into_iter()
+                    .filter(|_| row.id == "inbox")
+                    .collect()
+                },
+                cx,
+            );
+            list
+        });
+        draw(cx);
+        let action = cx.debug_bounds("acc-accessories-inbox-act").unwrap();
+        cx.simulate_click(action.center(), Modifiers::default());
+        draw(cx);
+        assert_eq!(hits.get(), 1);
+        assert_eq!(selected(&list, cx).as_deref(), Some("inbox"));
+        cx.update(|_, cx| assert_eq!(list.read(cx).style, SourceListStyle::Secondary));
     }
 }

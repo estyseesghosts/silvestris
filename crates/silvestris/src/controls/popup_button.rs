@@ -19,14 +19,22 @@ use gpui::{
     anchored, canvas, deferred, div, point, prelude::*, px, App, Bounds, ElementId, Entity,
     FocusHandle, KeyDownEvent, MouseButton, Pixels, SharedString, Window,
 };
+use silvestris_core::tokens::{Bevel, PopUp, Theme};
 
 use crate::controls::ControlSize;
 use crate::convert::hsla;
 use crate::transient::{self, SurfaceId, TransientKind, TransientLayer};
 use crate::{paint, ActiveTheme};
 
-/// Width of the arrow cap (estimate from the disabled capture's right cap).
-const CAP: f32 = 18.0;
+/// Body or capsule/textured pop-up (HIG pp. 257-261; #1 vs #2).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PopupStyle {
+    /// Window-body bezel with a blue arrow cap.
+    #[default]
+    Rounded,
+    /// Unified-toolbar capsule.
+    Textured,
+}
 
 type ChooseFn = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 
@@ -36,6 +44,7 @@ struct State {
     highlight: usize,
     bounds: Bounds<Pixels>,
     menu_focus: Option<FocusHandle>,
+    pressed: bool,
 }
 
 #[derive(IntoElement)]
@@ -46,6 +55,7 @@ pub struct PopUpButton {
     selected: Option<usize>,
     disabled: bool,
     size: ControlSize,
+    style: PopupStyle,
     min_width: f32,
     arrow_only: bool,
     on_choose: Option<ChooseFn>,
@@ -66,6 +76,7 @@ impl PopUpButton {
             selected: None,
             disabled: false,
             size: ControlSize::Small,
+            style: PopupStyle::Rounded,
             min_width: 0.0,
             arrow_only: false,
             on_choose: None,
@@ -90,6 +101,11 @@ impl PopUpButton {
     }
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
+        self
+    }
+    /// Rounded window-body pop-up or textured toolbar capsule.
+    pub fn bezel(mut self, style: PopupStyle) -> Self {
+        self.style = style;
         self
     }
     pub fn min_width(mut self, width: f32) -> Self {
@@ -151,6 +167,41 @@ fn close(
     window.refresh();
 }
 
+fn measure(window: &Window, theme: &Theme, size: ControlSize, text: &str) -> f32 {
+    let run = gpui::TextRun {
+        len: text.len(),
+        font: gpui::font(theme.type_.ui),
+        color: crate::convert::hsla(theme.colors.text),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    window
+        .text_system()
+        .shape_line(text.into(), px(size.label_size(theme)), &[run], None)
+        .width
+        .as_f32()
+}
+
+fn dim_toward(mut bevel: Bevel, disabled: Bevel, amount: f32) -> Bevel {
+    let mix = |a: silvestris_core::Rgba8, b: silvestris_core::Rgba8| a.mix(b, amount);
+    bevel.border = silvestris_core::Gradient::new(
+        mix(bevel.border.from, disabled.border.from),
+        mix(bevel.border.to, disabled.border.to),
+    );
+    bevel.upper = silvestris_core::Gradient::new(
+        mix(bevel.upper.from, disabled.upper.from),
+        mix(bevel.upper.to, disabled.upper.to),
+    );
+    bevel.lower = silvestris_core::Gradient::new(
+        mix(bevel.lower.from, disabled.lower.from),
+        mix(bevel.lower.to, disabled.lower.to),
+    );
+    bevel.emboss = mix(bevel.emboss, disabled.emboss);
+    bevel.text = mix(bevel.text, disabled.text);
+    bevel
+}
+
 impl RenderOnce for PopUpButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -175,6 +226,11 @@ impl RenderOnce for PopUpButton {
             )
             .read(cx)
             .clone();
+        let index = match self.size {
+            ControlSize::Regular => 0,
+            ControlSize::Small => 1,
+            ControlSize::Mini => 2,
+        };
         let height = match self.size {
             ControlSize::Regular => m.push_height,
             ControlSize::Small => m.push_small_height,
@@ -182,15 +238,37 @@ impl RenderOnce for PopUpButton {
         };
         let text_size = self.size.label_size(&theme);
         let radius = m.push_radius.min(height / 2.0);
-        let body = if enabled {
-            theme.controls.push.normal
-        } else {
-            theme.controls.push.disabled
+        let cap_width = m.popup_cap[index];
+        let tokens: PopUp = match self.style {
+            PopupStyle::Rounded => theme.controls.popup,
+            PopupStyle::Textured => theme.controls.popup_textured,
         };
-        let cap = if enabled {
-            theme.controls.push_default
+        let surface = state.read(cx).surface;
+        let is_open = enabled && surface.is_some_and(|id| layer.read(cx).is_open(id));
+        let is_pressed = state.read(cx).pressed || is_open;
+        let inactive = !window.is_window_active();
+        let pick = |states: silvestris_core::tokens::BevelStates| {
+            let bevel = if !enabled {
+                states.disabled
+            } else if is_pressed {
+                states.pressed
+            } else {
+                states.normal
+            };
+            if inactive && enabled {
+                dim_toward(bevel, states.disabled, 0.45)
+            } else {
+                bevel
+            }
+        };
+        let body = pick(tokens.body);
+        let cap = pick(tokens.cap);
+        let arrow = if !enabled {
+            tokens.arrow.mix(body.text, 0.7)
+        } else if inactive {
+            tokens.arrow.mix(theme.colors.text_disabled, 0.45)
         } else {
-            theme.controls.push.disabled
+            tokens.arrow
         };
         let current = self
             .selected
@@ -203,10 +281,23 @@ impl RenderOnce for PopUpButton {
         let ring_focus = focus.clone();
         let ring = theme.colors.focus_ring;
         let profile = m.focus_ring;
+        // The control is as wide as its longest item, so changing the current
+        // item never reflows a toolbar (lotus Settings scope picker).
+        let longest = self
+            .items
+            .iter()
+            .map(|item| measure(window, &theme, self.size, item))
+            .fold(0.0_f32, f32::max);
+        let width = (longest + 8.0 + cap_width + 6.0)
+            .max(self.min_width)
+            .max(cap_width + 24.0);
         let items = Rc::new(self.items);
         let on_choose = self.on_choose;
-        let surface = state.read(cx).surface;
-        let is_open = enabled && surface.is_some_and(|id| layer.read(cx).is_open(id));
+        let ink = if inactive && enabled {
+            body.text.mix(theme.colors.text_disabled, 0.45)
+        } else {
+            body.text
+        };
 
         let key_state = state.clone();
         let key_layer = layer.clone();
@@ -216,20 +307,19 @@ impl RenderOnce for PopUpButton {
             .id(self.id.clone())
             .role(gpui::Role::ComboBox)
             .aria_label(format!("{}: {}", self.label, shown))
+            .aria_expanded(is_open)
             .occlude()
             .relative()
             .flex()
             .flex_none()
             .items_center()
             .h(px(height))
-            .when(self.arrow_only, |el| el.w(px(CAP + 2.0)))
+            .when(self.arrow_only, |el| el.w(px(cap_width + 2.0)))
             .when(!self.arrow_only, |el| {
-                el.min_w(px(self.min_width.max(CAP + 24.0)))
-                    .pl(px(8.0))
-                    .pr(px(CAP + 6.0))
+                el.w(px(width)).pl(px(8.0)).pr(px(cap_width + 6.0))
             })
             .text_size(px(text_size))
-            .text_color(hsla(body.text))
+            .text_color(hsla(ink))
             .child(
                 canvas(
                     {
@@ -239,8 +329,8 @@ impl RenderOnce for PopUpButton {
                     move |bounds, _, window, _| {
                         paint::bevel(window, bounds, radius, &body);
                         let cap_bounds = Bounds::new(
-                            point(bounds.right() - px(CAP), bounds.origin.y),
-                            gpui::size(px(CAP), bounds.size.height),
+                            point(bounds.right() - px(cap_width), bounds.origin.y),
+                            gpui::size(px(cap_width), bounds.size.height),
                         );
                         window.with_content_mask(
                             Some(gpui::ContentMask { bounds: cap_bounds }),
@@ -248,7 +338,41 @@ impl RenderOnce for PopUpButton {
                                 paint::bevel(window, bounds, radius, &cap);
                             },
                         );
-                        if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
+                        let seam = cap_bounds.origin.x;
+                        paint::vline(
+                            window,
+                            seam - crate::convert::hairline(window) / 2.0,
+                            bounds.origin.y + crate::convert::hairline(window),
+                            bounds.size.height - crate::convert::hairline(window) * 2.0,
+                            tokens.divider,
+                        );
+                        // Paired triangles, painted as paths so their geometry
+                        // is independent of the active font (M: popup-button.regular).
+                        let middle = cap_bounds.center().x;
+                        let top = cap_bounds.origin.y + cap_bounds.size.height * 0.30;
+                        let bottom = cap_bounds.origin.y + cap_bounds.size.height * 0.70;
+                        paint::polygon(
+                            window,
+                            &[
+                                point(middle, top - px(2.0)),
+                                point(middle - px(3.5), top + px(2.0)),
+                                point(middle + px(3.5), top + px(2.0)),
+                            ],
+                            arrow,
+                        );
+                        paint::polygon(
+                            window,
+                            &[
+                                point(middle, bottom + px(2.0)),
+                                point(middle - px(3.5), bottom - px(2.0)),
+                                point(middle + px(3.5), bottom - px(2.0)),
+                            ],
+                            arrow,
+                        );
+                        if window.is_window_active()
+                            && ring_focus.is_focused(window)
+                            && window.last_input_was_keyboard()
+                        {
                             paint::focus_ring(window, bounds, radius, ring, profile);
                         }
                     },
@@ -258,36 +382,37 @@ impl RenderOnce for PopUpButton {
             )
             .when(!self.arrow_only, |el| {
                 el.child(div().relative().truncate().child(shown))
-            })
-            .child(
-                // Up/down arrow pair (U+25B4/U+25BE small triangles).
-                div()
-                    .absolute()
-                    .right_0()
-                    .top_0()
-                    .bottom_0()
-                    .w(px(CAP))
-                    .flex()
-                    .flex_col()
-                    .items_center()
-                    .justify_center()
-                    .text_size(px(7.0))
-                    .line_height(px(6.0))
-                    .text_color(hsla(cap.text))
-                    .child("\u{25B2}")
-                    .child("\u{25BC}"),
-            );
+            });
         if enabled {
             let click_state = state.clone();
             let click_layer = layer.clone();
             let mouse_focus = focus.clone();
+            let down_state = state.clone();
+            let up_state = state.clone();
             button = button
                 .track_focus(&focus)
                 .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                     window.focus(&mouse_focus, cx);
+                    down_state.update(cx, |s, cx| {
+                        s.pressed = true;
+                        cx.notify();
+                    });
                     cx.stop_propagation();
                 })
+                .on_mouse_up(MouseButton::Left, move |_, window, cx| {
+                    up_state.update(cx, |s, cx| {
+                        if s.pressed {
+                            s.pressed = false;
+                            cx.notify();
+                        }
+                    });
+                    window.refresh();
+                })
                 .on_click(move |_, window, cx| {
+                    click_state.update(cx, |s, cx| {
+                        s.pressed = false;
+                        cx.notify();
+                    });
                     open(&click_state, &click_layer, current, window, cx)
                 })
                 .on_key_down(move |event: &KeyDownEvent, window, cx| {
@@ -326,7 +451,14 @@ impl RenderOnce for PopUpButton {
                 .py(px(m.menu_padding))
                 .bg(hsla(theme.colors.menu))
                 .rounded(px(m.menu_radius))
-                .shadow_lg()
+                .border_1()
+                .border_color(hsla(theme.colors.menu_border))
+                .shadow(vec![gpui::BoxShadow::new(
+                    px(m.menu_shadow_offset[0]),
+                    px(m.menu_shadow_offset[1]),
+                    hsla(theme.colors.shadow),
+                )
+                .blur_radius(px(m.menu_shadow_blur))])
                 .text_size(px(theme.type_.size_menu))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation());
             for (index, item) in items.iter().enumerate() {
@@ -544,5 +676,56 @@ mod tests {
         });
         assert_eq!(depth, 1);
         assert_eq!(kind, Some(crate::transient::TransientKind::Popover));
+    }
+
+    #[test]
+    fn width_does_not_change_with_the_selected_item_and_textured_renders() {
+        struct PopupHarness {
+            selected: usize,
+            textured: bool,
+        }
+        impl Render for PopupHarness {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                div().size_full().child(
+                    PopUpButton::new(
+                        "popup-stable",
+                        "Choice",
+                        vec!["One".into(), "A much longer second choice".into()],
+                    )
+                    .selected(Some(self.selected))
+                    .size(ControlSize::Regular)
+                    .bezel(if self.textured {
+                        PopupStyle::Textured
+                    } else {
+                        PopupStyle::Rounded
+                    }),
+                )
+            }
+        }
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (h, cx) = app.add_window_view(|_, _| PopupHarness {
+            selected: 0,
+            textured: false,
+        });
+        draw(cx);
+        let first = cx.debug_bounds("popup-stable").unwrap();
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.selected = 1;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        let second = cx.debug_bounds("popup-stable").unwrap();
+        assert_eq!(first.size.width, second.size.width);
+        cx.update(|_, cx| {
+            h.update(cx, |h, cx| {
+                h.textured = true;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        assert!(cx.debug_bounds("popup-stable").is_some());
     }
 }

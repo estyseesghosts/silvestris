@@ -10,8 +10,8 @@ use crate::{
 };
 use gpui::{
     anchored, canvas, deferred, div, point, prelude::*, px, size, Anchor, AnchoredPositionMode,
-    AnyElement, App, Bounds, Context, Entity, FocusHandle, MouseButton, Pixels, Point, Render,
-    Window,
+    AnyElement, App, Bounds, BoxShadow, Context, Entity, FocusHandle, MouseButton, Pixels, Point,
+    Render, Window,
 };
 use silvestris_core::command::{display_shortcut, CommandId, MenuEntry, MenuModel, Platform};
 
@@ -472,7 +472,14 @@ impl PopupMenu {
             .track_scroll(&self.scroll[depth])
             .bg(hsla(theme.colors.menu))
             .rounded(px(m.menu_radius))
-            .shadow_lg()
+            .border_1()
+            .border_color(hsla(theme.colors.menu_border))
+            .shadow(vec![BoxShadow::new(
+                px(m.menu_shadow_offset[0]),
+                px(m.menu_shadow_offset[1]),
+                hsla(theme.colors.shadow),
+            )
+            .blur_radius(px(m.menu_shadow_blur))])
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation());
         for (i, entry) in entries.iter().enumerate() {

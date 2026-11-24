@@ -7,6 +7,8 @@ use gpui::{canvas, div, prelude::*, px, App, ElementId, MouseButton, SharedStrin
 
 use crate::{convert::hsla, paint, ActiveTheme};
 
+use super::ControlSize;
+
 pub struct RadioOption {
     pub label: SharedString,
     pub disabled: bool,
@@ -34,6 +36,7 @@ pub struct RadioGroup {
     label: SharedString,
     items: Vec<RadioOption>,
     selected: Option<usize>,
+    size: ControlSize,
     on_select: Option<Select>,
 }
 
@@ -48,8 +51,16 @@ impl RadioGroup {
             label: label.into(),
             items,
             selected: None,
+            size: ControlSize::Regular,
             on_select: None,
         }
+    }
+
+    /// Regular, small or mini, matching the checkbox and button sizes (HIG
+    /// p. 283). Small and mini use scaled bezel and label sizes.
+    pub fn size(mut self, size: ControlSize) -> Self {
+        self.size = size;
+        self
     }
 
     pub fn selected(mut self, index: Option<usize>) -> Self {
@@ -84,13 +95,16 @@ impl RenderOnce for RadioGroup {
             .or_else(|| enabled.first().copied());
         let key_select = self.on_select.clone();
         let selected = self.selected;
+        let debug_id = self.id.to_string();
+        let bezel_prefix = debug_id.clone();
         div()
+            .debug_selector(move || debug_id.clone())
             .id(self.id)
             .role(gpui::Role::RadioGroup)
             .aria_label(self.label)
             .flex()
             .flex_col()
-            .gap(px(4.0))
+            .gap(px(theme.metrics.radio_row_gap))
             .when(!enabled.is_empty(), |el| {
                 el.track_focus(&focus)
                     .on_key_down(move |event, window, cx| {
@@ -115,7 +129,8 @@ impl RenderOnce for RadioGroup {
             })
             .children(self.items.into_iter().enumerate().map(|(i, item)| {
                 let checked = selected == Some(i);
-                let states = theme.controls.checkbox;
+                let radio = &theme.controls.radio;
+                let states = radio.states;
                 let bevel = if item.disabled {
                     states.disabled
                 } else if checked {
@@ -123,7 +138,17 @@ impl RenderOnce for RadioGroup {
                 } else {
                     states.normal
                 };
-                let dimension = theme.metrics.checkbox_size;
+                let dimension = match self.size {
+                    ControlSize::Regular => theme.metrics.radio_size[0],
+                    ControlSize::Small => theme.metrics.radio_size[1],
+                    ControlSize::Mini => theme.metrics.radio_size[2],
+                };
+                let dot = dimension * theme.metrics.radio_dot_fraction;
+                let dot_color = if item.disabled {
+                    theme.colors.text_disabled
+                } else {
+                    radio.dot
+                };
                 let color = if item.disabled {
                     theme.colors.text_disabled
                 } else {
@@ -144,10 +169,12 @@ impl RenderOnce for RadioGroup {
                         gpui::Toggled::False
                     })
                     .occlude()
+                    .group("silvestris-radio")
                     .flex()
                     .items_center()
-                    .gap(px(theme.metrics.checkbox_label_gap))
+                    .gap(px(theme.metrics.radio_label_gap))
                     .font_family(theme.type_.ui)
+                    .text_size(px(self.size.label_size(&theme)))
                     .text_color(hsla(color))
                     .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                         if !item.disabled {
@@ -163,34 +190,130 @@ impl RenderOnce for RadioGroup {
                         })
                     })
                     .child(
-                        canvas(
-                            |_, _, _| (),
-                            move |bounds, _, window, _| {
-                                paint::bevel(window, bounds, dimension / 2.0, &bevel);
-                                if checked {
-                                    let dot = paint::inset(bounds, px(dimension * 0.32));
-                                    window.paint_quad(
-                                        gpui::fill(dot, hsla(bevel.text))
-                                            .corner_radii(px(dimension)),
-                                    );
-                                }
-                                if cursor == Some(i)
-                                    && ring_focus.is_focused(window)
-                                    && window.last_input_was_keyboard()
-                                {
-                                    paint::focus_ring(
-                                        window,
-                                        bounds,
-                                        dimension / 2.0,
-                                        ring,
-                                        profile,
-                                    );
-                                }
-                            },
-                        )
-                        .size(px(dimension)),
+                        div()
+                            .id("bezel")
+                            .debug_selector({
+                                let name = format!("{bezel_prefix}-bezel-{i}");
+                                move || name.clone()
+                            })
+                            .relative()
+                            .flex_none()
+                            .size(px(dimension))
+                            .child(
+                                canvas(
+                                    |_, _, _| (),
+                                    move |b, _, window, _| {
+                                        paint::bevel(
+                                            window,
+                                            b,
+                                            b.size.height.as_f32() / 2.0,
+                                            &bevel,
+                                        );
+                                        if checked {
+                                            let inset = (b.size.width.as_f32() - dot) / 2.0;
+                                            let dot_bounds = paint::inset(b, px(inset));
+                                            window.paint_quad(
+                                                gpui::fill(dot_bounds, hsla(dot_color))
+                                                    .corner_radii(px(dot / 2.0)),
+                                            );
+                                        }
+                                    },
+                                )
+                                .absolute()
+                                .inset_0(),
+                            )
+                            .child(
+                                div()
+                                    .id("pressed")
+                                    .absolute()
+                                    .inset_0()
+                                    .opacity(0.)
+                                    .group_active("silvestris-radio", |s| s.opacity(1.))
+                                    .child(
+                                        canvas(
+                                            |_, _, _| (),
+                                            move |b, _, window, _| {
+                                                paint::bevel(
+                                                    window,
+                                                    b,
+                                                    b.size.height.as_f32() / 2.0,
+                                                    &states.pressed,
+                                                );
+                                                if checked {
+                                                    let inset = (b.size.width.as_f32() - dot) / 2.0;
+                                                    let dot_bounds = paint::inset(b, px(inset));
+                                                    window.paint_quad(
+                                                        gpui::fill(dot_bounds, hsla(dot_color))
+                                                            .corner_radii(px(dot / 2.0)),
+                                                    );
+                                                }
+                                            },
+                                        )
+                                        .size_full(),
+                                    ),
+                            )
+                            .child(
+                                canvas(
+                                    |_, _, _| (),
+                                    move |b, _, window, _| {
+                                        if !item.disabled
+                                            && cursor == Some(i)
+                                            && ring_focus.is_focused(window)
+                                            && window.last_input_was_keyboard()
+                                        {
+                                            paint::focus_ring(
+                                                window,
+                                                b,
+                                                b.size.height.as_f32() / 2.0,
+                                                ring,
+                                                profile,
+                                            );
+                                        }
+                                    },
+                                )
+                                .absolute()
+                                .inset_0(),
+                            ),
                     )
                     .child(item.label)
             }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::{Context, Render, TestAppContext};
+
+    struct Harness(ControlSize);
+
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            RadioGroup::new(
+                "radio-size",
+                "Size",
+                vec![RadioOption::new("One"), RadioOption::new("Two")],
+            )
+            .size(self.0)
+            .selected(Some(0))
+        }
+    }
+
+    #[test]
+    fn sizes_descend_and_selected_state_renders_in_every_theme() {
+        for theme in crate::ThemeId::ALL {
+            let mut height = Vec::new();
+            for size in [ControlSize::Regular, ControlSize::Small, ControlSize::Mini] {
+                let mut app = TestAppContext::single();
+                app.update(|cx| crate::theme::install(crate::ThemePreference::explicit(theme), cx));
+                let (_, cx) = app.add_window_view(|_, _| Harness(size));
+                cx.run_until_parked();
+                cx.update(|window, cx| {
+                    window.draw(cx).clear(cx);
+                });
+                height.push(cx.debug_bounds("radio-size-bezel-0").unwrap().size.width);
+            }
+            assert!(height[0] > height[1] && height[1] > height[2], "{theme:?}");
+        }
     }
 }
