@@ -577,297 +577,6 @@ impl Render for Gallery {
                             })),
                     ),
             );
-        let scroll = gpui::ScrollHandle::new();
-        let fidelity_row = div()
-            .flex()
-            .flex_wrap()
-            .items_start()
-            .gap(px(16.))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(8.))
-                            .child(
-                                PopUpButton::new(
-                                    "fidelity-popup",
-                                    "Appearance",
-                                    vec!["Blue".into(), "Graphite".into()],
-                                )
-                                .selected(Some(0))
-                                .size(ControlSize::Regular),
-                            )
-                            .child(
-                                PopUpButton::new(
-                                    "fidelity-popup-textured",
-                                    "Scope",
-                                    vec!["Everything".into(), "Selection".into()],
-                                )
-                                .selected(Some(0))
-                                .size(ControlSize::Regular)
-                                .bezel(PopupStyle::Textured),
-                            )
-                            .child(
-                                PopUpButton::new(
-                                    "fidelity-popup-disabled",
-                                    "Unavailable",
-                                    vec!["Nothing".into()],
-                                )
-                                .disabled(true),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(12.))
-                            .child(Button::new("fidelity-help", "Help").style(ButtonStyle::Help))
-                            .child(
-                                Button::new("fidelity-round", "Round")
-                                    .style(ButtonStyle::Round)
-                                    .icon(|ink| div().text_color(ink).child("\u{2699}")),
-                            )
-                            .child(
-                                Button::new("fidelity-recessed", "Recessed")
-                                    .style(ButtonStyle::Recessed),
-                            )
-                            .child(Button::new("fidelity-bevel", "Bevel").style(ButtonStyle::Bevel))
-                            .child(
-                                Disclosure::new("fidelity-disclosure-button", "Disclosure button")
-                                    .style(DisclosureStyle::Button)
-                                    .expanded(true),
-                            ),
-                    ),
-            )
-            .child(
-                div()
-                    .w(px(240.))
-                    .flex()
-                    .flex_col()
-                    .gap(px(10.))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(16.))
-                            .child(
-                                RadioGroup::new(
-                                    "fidelity-radio-regular",
-                                    "Regular radios",
-                                    vec![RadioOption::new("First"), RadioOption::new("Second")],
-                                )
-                                .selected(Some(0)),
-                            )
-                            .child(
-                                RadioGroup::new(
-                                    "fidelity-radio-mini",
-                                    "Mini radios",
-                                    vec![RadioOption::new("On"), RadioOption::new("Off")],
-                                )
-                                .size(ControlSize::Mini)
-                                .selected(Some(1)),
-                            ),
-                    )
-                    .child(
-                        Slider::new("fidelity-slider-ticks", "Dock size", 0.6)
-                            .thumb(ThumbStyle::Pointed)
-                            .ticks([0.0, 1.0])
-                            .tick_labels(["Small", "Large"])
-                            .snap_to_ticks(true),
-                    )
-                    .child(
-                        div().flex().items_center().gap(px(12.)).child(
-                            div().h(px(90.)).child(
-                                Slider::new("fidelity-slider-vertical", "Level", 0.35)
-                                    .orientation(Orientation::Vertical)
-                                    .thumb(ThumbStyle::Pointed)
-                                    .ticks([0.0, 0.5, 1.0]),
-                            ),
-                        ),
-                    ),
-            )
-            .child(
-                div()
-                    .w(px(260.))
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.))
-                    .child(
-                        SegmentedControl::new(
-                            "fidelity-segments-icon",
-                            "View",
-                            vec![
-                                Segment::new("grid", "Grid").icon("grid").show_label(false),
-                                Segment::new("list", "List").icon("list").show_label(false),
-                                Segment::new("columns", "Columns")
-                                    .icon("columns")
-                                    .show_label(false)
-                                    .disabled(true),
-                            ],
-                        )
-                        .selected("grid")
-                        .icon_renderer(|role, ink| {
-                            div()
-                                .text_color(silvestris::convert::hsla(ink))
-                                .child(match role {
-                                    "grid" => "\u{25a6}",
-                                    "list" => "\u{2630}",
-                                    _ => "\u{25a4}",
-                                })
-                                .into_any_element()
-                        }),
-                    )
-                    .child(
-                        SegmentedControl::new(
-                            "fidelity-segments-small",
-                            "Density",
-                            vec![
-                                Segment::new("compact", "Compact"),
-                                Segment::new("full", "Full"),
-                            ],
-                        )
-                        .size(ControlSize::Small)
-                        .selected("compact"),
-                    )
-                    .child(
-                        SegmentedControl::new(
-                            "fidelity-segments-momentary",
-                            "History",
-                            vec![
-                                Segment::new("back", "\u{2039}"),
-                                Segment::new("forward", "\u{203a}"),
-                            ],
-                        )
-                        .mode(SegmentMode::Momentary)
-                        .style(SegmentStyle::Textured),
-                    )
-                    .child(
-                        SegmentedControl::new(
-                            "fidelity-segments-any",
-                            "Columns",
-                            vec![Segment::new("name", "Name"), Segment::new("size", "Size")],
-                        )
-                        .mode(SegmentMode::SelectAny)
-                        .selected_many(["name"]),
-                    ),
-            )
-            .child(
-                div()
-                    .w(px(240.))
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.))
-                    .child(
-                        ProgressIndicator::new("fidelity-progress-bar", "Copying", Some(0.55))
-                            .style(ProgressStyle::Bar),
-                    )
-                    .child(
-                        ProgressIndicator::new("fidelity-progress-pole", "Preparing", None)
-                            .style(ProgressStyle::Bar)
-                            .animate(false),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(12.))
-                            .child(
-                                ProgressIndicator::spinner("fidelity-spinner", "Working")
-                                    .style(ProgressStyle::Spinner),
-                            )
-                            .child(
-                                ProgressIndicator::circular("fidelity-ring", "Ring", 0.7)
-                                    .style(ProgressStyle::Circular),
-                            ),
-                    ),
-            )
-            .child(
-                div()
-                    .w(px(260.))
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.))
-                    .child(
-                        GroupBox::new("fidelity-group").title("Group Box").child(
-                            div()
-                                .text_size(px(theme.type_.size_small))
-                                .child("Grouped content with a measured border."),
-                        ),
-                    )
-                    .child(
-                        Well::new("fidelity-well").child(
-                            div()
-                                .text_size(px(theme.type_.size_small))
-                                .child("Recessed well"),
-                        ),
-                    )
-                    .child(Separator::horizontal().inset(8.0)),
-            )
-            .child(
-                div()
-                    .w(px(220.))
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.))
-                    .child(
-                        Notice::new("No items", "Drop a file here or choose File > Open.")
-                            .failure(false),
-                    )
-                    .child(
-                        Notice::new("Import failed", "The file could not be read.").failure(true),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(12.))
-                            .child(Stepper::new("fidelity-stepper", "Copies").limits(true, false))
-                            .child(
-                                Stepper::new("fidelity-stepper-bounded", "At limit")
-                                    .limits(false, false),
-                            )
-                            .child(
-                                Separator::new(SeparatorAxis::Vertical)
-                                    .length(40.0)
-                                    .inset(4.0),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .w(px(220.))
-                            .h(px(80.))
-                            .flex()
-                            .border_1()
-                            .border_color(silvestris::convert::hsla(theme.colors.group_border))
-                            .child(
-                                div()
-                                    .id("fidelity-scroll-content")
-                                    .flex_1()
-                                    .h_full()
-                                    .overflow_y_scroll()
-                                    .track_scroll(&scroll)
-                                    .child(
-                                        div()
-                                            .h(px(300.))
-                                            .p(px(8.))
-                                            .text_size(px(theme.type_.size_small))
-                                            .child("Scrollable content with a themed scroller."),
-                                    ),
-                            )
-                            .child(Scrollbar::new("fidelity-scrollbar", &scroll)),
-                    ),
-            )
-            .child(
-                div()
-                    .w(px(220.))
-                    .h(px(170.))
-                    .child(self.secondary_list.clone()),
-            );
         let routing_row = div()
             .flex()
             .flex_row()
@@ -1073,7 +782,6 @@ impl Render for Gallery {
             .items_center()
             .gap(px(12.))
             .child(div().w(px(160.)).child(bound_primary))
-            .child(div().w(px(180.)).child(bound_level))
             .child(
                 div()
                     .text_size(small_text)
@@ -1142,6 +850,614 @@ impl Render for Gallery {
                     .child(format!("ids: {list_ids} · selected: {list_selection}")),
             );
 
+        let cell = |caption: &'static str, content: gpui::AnyElement| {
+            div()
+                .flex_none()
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap(px(6.))
+                .child(content)
+                .child(
+                    div()
+                        .text_size(small_text)
+                        .text_color(secondary)
+                        .child(caption),
+                )
+        };
+        let scroll = gpui::ScrollHandle::new();
+        let push_styles = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Help",
+                Button::new("fidelity-help", "Help")
+                    .style(ButtonStyle::Help)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Round",
+                Button::new("fidelity-round", "Round")
+                    .style(ButtonStyle::Round)
+                    .icon(|ink| div().text_color(ink).child("\u{2699}"))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Recessed",
+                Button::new("fidelity-recessed", "Recessed")
+                    .style(ButtonStyle::Recessed)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Bevel",
+                Button::new("fidelity-bevel", "Bevel")
+                    .style(ButtonStyle::Bevel)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Disclosure button",
+                Disclosure::new("fidelity-disclosure-button", "Disclosure button")
+                    .style(DisclosureStyle::Button)
+                    .expanded(true)
+                    .into_any_element(),
+            ));
+        let popups = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Pop-up",
+                PopUpButton::new(
+                    "fidelity-popup",
+                    "Appearance",
+                    vec!["Blue".into(), "Graphite".into()],
+                )
+                .selected(Some(0))
+                .size(ControlSize::Regular)
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Textured pop-up",
+                PopUpButton::new(
+                    "fidelity-popup-textured",
+                    "Scope",
+                    vec!["Everything".into(), "Selection".into()],
+                )
+                .selected(Some(0))
+                .size(ControlSize::Regular)
+                .bezel(PopupStyle::Textured)
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Disabled pop-up",
+                PopUpButton::new(
+                    "fidelity-popup-disabled",
+                    "Unavailable",
+                    vec!["Nothing".into()],
+                )
+                .disabled(true)
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Combo box",
+                div()
+                    .w(px(180.))
+                    .child(
+                        silvestris::controls::ComboBox::new(
+                            "locations",
+                            "Location",
+                            self.combo.clone(),
+                            vec!["Home".into(), "Documents".into(), "Desktop".into()],
+                        )
+                        .layer(self.transient.clone()),
+                    )
+                    .into_any_element(),
+            ));
+        let checks = div()
+            .flex()
+            .items_center()
+            .gap(px(16.))
+            .children(
+                [ControlSize::Regular, ControlSize::Small, ControlSize::Mini]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, size)| {
+                        Checkbox::new(
+                            ("catalog-check", i),
+                            ["Regular", "Small", "Mini / mixed"][i],
+                        )
+                        .size(size)
+                        .state(self.checks[i])
+                        .on_change(cx.listener(
+                            move |g, state: &CheckState, _, cx| {
+                                g.checks[i] = *state;
+                                cx.notify();
+                            },
+                        ))
+                    }),
+            )
+            .child(
+                Checkbox::new("disabled-check", "Disabled")
+                    .checked(true)
+                    .disabled(true),
+            );
+        let radios = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(32.))
+            .child(cell(
+                "Regular",
+                RadioGroup::new(
+                    "radio-group",
+                    "Export scope",
+                    vec![
+                        RadioOption::new("Current Item"),
+                        RadioOption::new("All Items"),
+                        RadioOption::new("Selection").disabled(true),
+                    ],
+                )
+                .selected(Some(self.radio))
+                .on_select(cx.listener(|g, selected, _, cx| {
+                    g.radio = *selected;
+                    cx.notify();
+                }))
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Regular, preset",
+                RadioGroup::new(
+                    "fidelity-radio-regular",
+                    "Regular radios",
+                    vec![RadioOption::new("First"), RadioOption::new("Second")],
+                )
+                .selected(Some(0))
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Mini",
+                RadioGroup::new(
+                    "fidelity-radio-mini",
+                    "Mini radios",
+                    vec![RadioOption::new("On"), RadioOption::new("Off")],
+                )
+                .size(ControlSize::Mini)
+                .selected(Some(1))
+                .into_any_element(),
+            ));
+        let sliders = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(32.))
+            .child(cell(
+                "Pointed, labelled ticks",
+                div()
+                    .w(px(240.))
+                    .px(px(20.))
+                    .child(
+                        Slider::new("fidelity-slider-ticks", "Dock size", 0.6)
+                            .thumb(ThumbStyle::Pointed)
+                            .ticks([0.0, 1.0])
+                            .tick_labels(["Small", "Large"])
+                            .snap_to_ticks(true),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Round, drives the progress bars",
+                div()
+                    .w(px(200.))
+                    .child(
+                        Slider::new("export-progress", "Progress preview", self.progress)
+                            .on_change(cx.listener(|g, value, _, cx| {
+                                g.progress = *value;
+                                cx.notify();
+                            })),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Bound to a model",
+                div().w(px(200.)).child(bound_level).into_any_element(),
+            ))
+            .child(cell(
+                "Vertical",
+                div()
+                    .h(px(120.))
+                    .w(px(80.))
+                    .child(
+                        Slider::new("fidelity-slider-vertical", "Level", 0.35)
+                            .orientation(Orientation::Vertical)
+                            .thumb(ThumbStyle::Pointed)
+                            .ticks([0.0, 0.5, 1.0]),
+                    )
+                    .into_any_element(),
+            ));
+        let segments = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Select one",
+                SegmentedControl::new(
+                    "view-selector",
+                    "View",
+                    vec![
+                        Segment::new("grid", "Grid"),
+                        Segment::new("list", "List"),
+                        Segment::new("columns", "Columns").disabled(true),
+                    ],
+                )
+                .selected(self.selected_view.clone())
+                .on_select(cx.listener(|g, selected: &gpui::SharedString, _, cx| {
+                    g.selected_view = selected.clone();
+                    cx.notify();
+                }))
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Icons",
+                SegmentedControl::new(
+                    "fidelity-segments-icon",
+                    "View",
+                    vec![
+                        Segment::new("grid", "Grid").icon("grid").show_label(false),
+                        Segment::new("list", "List").icon("list").show_label(false),
+                        Segment::new("columns", "Columns")
+                            .icon("columns")
+                            .show_label(false)
+                            .disabled(true),
+                    ],
+                )
+                .selected("grid")
+                .icon_renderer(|role, ink| {
+                    div()
+                        .text_color(silvestris::convert::hsla(ink))
+                        .child(match role {
+                            "grid" => "\u{25a6}",
+                            "list" => "\u{2630}",
+                            _ => "\u{25a4}",
+                        })
+                        .into_any_element()
+                })
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Small",
+                SegmentedControl::new(
+                    "fidelity-segments-small",
+                    "Density",
+                    vec![
+                        Segment::new("compact", "Compact"),
+                        Segment::new("full", "Full"),
+                    ],
+                )
+                .size(ControlSize::Small)
+                .selected("compact")
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Textured, momentary",
+                SegmentedControl::new(
+                    "fidelity-segments-momentary",
+                    "History",
+                    vec![
+                        Segment::new("back", "\u{2039}"),
+                        Segment::new("forward", "\u{203a}"),
+                    ],
+                )
+                .mode(SegmentMode::Momentary)
+                .style(SegmentStyle::Textured)
+                .into_any_element(),
+            ))
+            .child(cell(
+                "Select any",
+                SegmentedControl::new(
+                    "fidelity-segments-any",
+                    "Columns",
+                    vec![Segment::new("name", "Name"), Segment::new("size", "Size")],
+                )
+                .mode(SegmentMode::SelectAny)
+                .selected_many(["name"])
+                .into_any_element(),
+            ));
+        let progress = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(32.))
+            .child(cell(
+                "Determinate",
+                div()
+                    .w(px(200.))
+                    .flex()
+                    .flex_col()
+                    .gap(px(10.))
+                    .child(
+                        ProgressIndicator::new("fidelity-progress-bar", "Copying", Some(0.55))
+                            .style(ProgressStyle::Bar),
+                    )
+                    .child(ProgressIndicator::new(
+                        "percent",
+                        "Export Progress",
+                        Some(self.progress),
+                    ))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Indeterminate",
+                div()
+                    .w(px(200.))
+                    .flex()
+                    .flex_col()
+                    .gap(px(10.))
+                    .child(
+                        ProgressIndicator::new("fidelity-progress-pole", "Preparing", None)
+                            .style(ProgressStyle::Bar)
+                            .animate(false),
+                    )
+                    .child(ProgressIndicator::new("busy", "Preparing Export", None))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Spinner",
+                ProgressIndicator::spinner("fidelity-spinner", "Working")
+                    .style(ProgressStyle::Spinner)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Ring",
+                ProgressIndicator::circular("fidelity-ring", "Ring", 0.7)
+                    .style(ProgressStyle::Circular)
+                    .into_any_element(),
+            ));
+        let containers = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Group box",
+                div()
+                    .w(px(260.))
+                    .child(
+                        GroupBox::new("fidelity-group").title("Group Box").child(
+                            div()
+                                .text_size(small_text)
+                                .child("Grouped content with a measured border."),
+                        ),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Well and separators",
+                div()
+                    .w(px(260.))
+                    .flex()
+                    .flex_col()
+                    .gap(px(10.))
+                    .child(
+                        Well::new("fidelity-well")
+                            .child(div().text_size(small_text).child("Recessed well")),
+                    )
+                    .child(Separator::horizontal().inset(8.0))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Scroll view",
+                div()
+                    .w(px(220.))
+                    .h(px(80.))
+                    .flex()
+                    .border_1()
+                    .border_color(silvestris::convert::hsla(theme.colors.group_border))
+                    .child(
+                        div()
+                            .id("fidelity-scroll-content")
+                            .flex_1()
+                            .h_full()
+                            .overflow_y_scroll()
+                            .track_scroll(&scroll)
+                            .child(
+                                div()
+                                    .h(px(300.))
+                                    .p(px(8.))
+                                    .text_size(small_text)
+                                    .child("Scrollable content with a themed scroller."),
+                            ),
+                    )
+                    .child(Scrollbar::new("fidelity-scrollbar", &scroll))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Steppers",
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(12.))
+                    .child(Stepper::new("fidelity-stepper", "Copies").limits(true, false))
+                    .child(
+                        Stepper::new("fidelity-stepper-bounded", "At limit").limits(false, false),
+                    )
+                    .child(
+                        Separator::new(SeparatorAxis::Vertical)
+                            .length(40.0)
+                            .inset(4.0),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell("Disclosure triangle", disclosure.into_any_element()));
+        let notices = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Empty state",
+                div()
+                    .w(px(260.))
+                    .child(
+                        Notice::new("No items", "Drop a file here or choose File > Open.")
+                            .failure(false),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Failure",
+                div()
+                    .w(px(260.))
+                    .child(
+                        Notice::new("Import failed", "The file could not be read.").failure(true),
+                    )
+                    .into_any_element(),
+            ));
+        let sidebar = silvestris::sidebar::Sidebar::new(
+            "catalog-sidebar",
+            self.sidebar,
+            self.source_list.clone(),
+            div()
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap(px(8.))
+                .pt(px(8.))
+                .child(
+                    Button::new("rail-docs", "Docs")
+                        .size(ControlSize::Mini)
+                        .on_click(cx.listener(|g, _, _, cx| {
+                            g.source_list
+                                .update(cx, |list, cx| list.select("collection", cx));
+                            g.last_source = "Collection selected from rail".into();
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    Button::new("rail-archive", "Arc")
+                        .size(ControlSize::Mini)
+                        .on_click(cx.listener(|g, _, _, cx| {
+                            g.source_list
+                                .update(cx, |list, cx| list.select("archive", cx));
+                            g.last_source = "Archive selected from rail".into();
+                            cx.notify();
+                        })),
+                ),
+        )
+        .footer(
+            Button::new(
+                "toggle-sidebar",
+                if self.sidebar.expanded {
+                    "Hide"
+                } else {
+                    "Show"
+                },
+            )
+            .size(ControlSize::Mini)
+            .on_click(move |_, window, cx| {
+                CommandRegistry::invoke(&footer_commands, &"view.sidebar".into(), window, cx);
+            }),
+        )
+        .on_change(cx.listener(|g, preference, _, cx| {
+            g.sidebar = *preference;
+            g.sync_sidebar_command(cx);
+            cx.notify();
+        }));
+        let materials = canvas(
+            |_, _, _| (),
+            |bounds, _, window, cx| {
+                let t = cx.theme().clone();
+                let m = &t.metrics;
+                let o = bounds.origin;
+                let at = |x: f32, y: f32, w: f32, h: f32| {
+                    Bounds::new(point(o.x + px(x), o.y + px(y)), size(px(w), px(h)))
+                };
+                let c = &t.controls;
+                paint::bevel(
+                    window,
+                    at(0., 0., 90., m.push_height),
+                    m.push_radius,
+                    &c.push.normal,
+                );
+                paint::bevel(
+                    window,
+                    at(110., 0., 90., m.push_height),
+                    m.push_radius,
+                    &c.push_default,
+                );
+                paint::bevel(
+                    window,
+                    at(220., 0., 90., m.push_height),
+                    m.push_radius,
+                    &c.push.disabled,
+                );
+                paint::bevel(
+                    window,
+                    at(0., 40., 40., m.textured_height),
+                    m.textured_radius,
+                    &c.textured.normal,
+                );
+                paint::bevel(
+                    window,
+                    at(50., 40., 40., m.textured_height),
+                    m.textured_radius,
+                    &c.textured.selected,
+                );
+                paint::bevel(
+                    window,
+                    at(110., 40., 80., m.segment_height),
+                    m.push_radius,
+                    &c.segment.normal,
+                );
+                paint::bevel(
+                    window,
+                    at(190., 40., 80., m.segment_height),
+                    m.push_radius,
+                    &c.segment.selected,
+                );
+                paint::bevel(
+                    window,
+                    at(0., 80., m.checkbox_size, m.checkbox_size),
+                    m.checkbox_radius,
+                    &c.checkbox.normal,
+                );
+                paint::bevel(
+                    window,
+                    at(30., 80., m.checkbox_size, m.checkbox_size),
+                    m.checkbox_radius,
+                    &c.checkbox.selected,
+                );
+                let f = at(0., 120., 200., m.field_height);
+                paint::field(window, f, 0.0, &c.field, true);
+                let s = at(220., 120., 160., m.field_height);
+                paint::field(window, s, m.field_height / 2.0, &c.search, true);
+                paint::focus_ring(
+                    window,
+                    s,
+                    m.field_height / 2.0,
+                    t.colors.focus_ring,
+                    m.focus_ring,
+                );
+                paint::selection(
+                    window,
+                    at(0., 170., 200., m.source_row_height),
+                    &t.lists.source_active,
+                );
+                paint::selection(
+                    window,
+                    at(0., 200., 200., m.table_row_height),
+                    &t.lists.table_active,
+                );
+                paint::selection(
+                    window,
+                    at(0., 230., 200., m.menu_item_height),
+                    &t.lists.menu,
+                );
+            },
+        );
         let modal_sheet = self.modal.as_ref().and_then(|demo| {
             if !demo.session.read(cx).is_active() {
                 return None;
@@ -1216,12 +1532,19 @@ impl Render for Gallery {
                     .bottom_bar(div())
                     .child(
                         div()
-                            .id("gallery-scroll")
-                            .flex_1()
-                            .min_h_0()
-                            .min_w_0()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.gallery_scroll)
+                            // The frame's content slot is a block box, so fill it
+                            // explicitly; flex_1 would let the scroller grow to
+                            // the content height and never overflow.
+                            .size_full()
+                            .flex()
+                            .child(
+                                div()
+                                    .id("gallery-scroll")
+                                    .flex_1()
+                                    .min_w_0()
+                                    .h_full()
+                                    .overflow_y_scroll()
+                                    .track_scroll(&self.gallery_scroll)
                             .child(
                                 div()
                                     .w_full()
@@ -1229,345 +1552,95 @@ impl Render for Gallery {
                                     .p(px(20.))
                                     .flex()
                                     .flex_col()
-                                    .gap(px(20.))
-                                    .child(buttons)
-                                    .child(fidelity_row)
-                                    .child(fields)
-                                    .child(disclosure)
-                                    .child(routing_row)
-                                    .child(transient_row)
-                                    .child(shortcut_row)
-                                    .child(binding_row)
-                                    .child(list_row)
-                                    .child(role_row)
-                                    .child(
+                                    .gap(px(28.))
+                                    .child(section(
+                                        "Push buttons",
+                                        "HIG pp. 265–268",
+                                        &theme,
                                         div()
                                             .flex()
-                                            .items_center()
-                                            .gap(px(12.))
-                                            .children(
-                                                [
-                                                    ControlSize::Regular,
-                                                    ControlSize::Small,
-                                                    ControlSize::Mini,
-                                                ]
-                                                .into_iter()
-                                                .enumerate()
-                                                .map(|(i, size)| {
-                                                    Checkbox::new(
-                                                        ("catalog-check", i),
-                                                        ["Regular", "Small", "Mini / mixed"][i],
-                                                    )
-                                                    .size(size)
-                                                    .state(self.checks[i])
-                                                    .on_change(cx.listener(
-                                                        move |g, state: &CheckState, _, cx| {
-                                                            g.checks[i] = *state;
-                                                            cx.notify();
-                                                        },
-                                                    ))
-                                                }),
-                                            )
-                                            .child(
-                                                Checkbox::new("disabled-check", "Disabled")
-                                                    .checked(true)
-                                                    .disabled(true),
-                                            ),
-                                    )
-                                    .child(
-                                        SegmentedControl::new(
-                                            "view-selector",
-                                            "View",
-                                            vec![
-                                                Segment::new("grid", "Grid"),
-                                                Segment::new("list", "List"),
-                                                Segment::new("columns", "Columns").disabled(true),
-                                            ],
-                                        )
-                                        .selected(self.selected_view.clone())
-                                        .on_select(
-                                            cx.listener(
-                                                |g, selected: &gpui::SharedString, _, cx| {
-                                                    g.selected_view = selected.clone();
-                                                    cx.notify();
-                                                },
-                                            ),
+                                            .flex_col()
+                                            .gap(px(16.))
+                                            .child(buttons)
+                                            .child(push_styles),
+                                    ))
+                                    .child(section(
+                                        "Pop-ups and combo boxes",
+                                        "HIG pp. 279–284",
+                                        &theme,
+                                        popups,
+                                    ))
+                                    .child(section(
+                                        "Checkboxes and radio buttons",
+                                        "HIG pp. 272–276",
+                                        &theme,
+                                        div()
+                                            .flex()
+                                            .flex_col()
+                                            .gap(px(16.))
+                                            .child(checks)
+                                            .child(radios),
+                                    ))
+                                    .child(section("Sliders", "HIG pp. 286–288", &theme, sliders))
+                                    .child(section(
+                                        "Segmented controls",
+                                        "HIG pp. 291–293",
+                                        &theme,
+                                        segments,
+                                    ))
+                                    .child(section("Progress", "HIG pp. 305–309", &theme, progress))
+                                    .child(section(
+                                        "Text",
+                                        "fields, search, composer",
+                                        &theme,
+                                        fields,
+                                    ))
+                                    .child(section(
+                                        "Containers",
+                                        "HIG pp. 361–366",
+                                        &theme,
+                                        containers,
+                                    ))
+                                    .child(section(
+                                        "Notices",
+                                        "empty and failure states",
+                                        &theme,
+                                        notices,
+                                    ))
+                                    .child(section(
+                                        "Source lists and sidebar",
+                                        self.last_source.clone(),
+                                        &theme,
+                                        div().h(px(280.)).flex().gap(px(24.)).child(sidebar).child(
+                                            div()
+                                                .w(px(220.))
+                                                .h_full()
+                                                .child(self.secondary_list.clone()),
                                         ),
-                                    )
-                                    .child(
+                                    ))
+                                    .child(section(
+                                        "Behaviour",
+                                        "commands, focus, transient surfaces, bindings, windows",
+                                        &theme,
                                         div()
                                             .flex()
-                                            .items_center()
-                                            .gap(px(24.0))
-                                            .child(
-                                                RadioGroup::new(
-                                                    "radio-group",
-                                                    "Export scope",
-                                                    vec![
-                                                        RadioOption::new("Current Item"),
-                                                        RadioOption::new("All Items"),
-                                                        RadioOption::new("Selection")
-                                                            .disabled(true),
-                                                    ],
-                                                )
-                                                .selected(Some(self.radio))
-                                                .on_select(cx.listener(|g, selected, _, cx| {
-                                                    g.radio = *selected;
-                                                    cx.notify();
-                                                })),
-                                            )
-                                            .child(
-                                                div().w(px(180.)).child(
-                                                    silvestris::controls::ComboBox::new(
-                                                        "locations",
-                                                        "Location",
-                                                        self.combo.clone(),
-                                                        vec![
-                                                            "Home".into(),
-                                                            "Documents".into(),
-                                                            "Desktop".into(),
-                                                        ],
-                                                    )
-                                                    .layer(self.transient.clone()),
-                                                ),
-                                            )
-                                            .child(
-                                                div()
-                                                    .w(px(180.))
-                                                    .flex()
-                                                    .flex_col()
-                                                    .gap(px(8.0))
-                                                    .child(
-                                                        Slider::new(
-                                                            "export-progress",
-                                                            "Progress preview",
-                                                            self.progress,
-                                                        )
-                                                        .on_change(cx.listener(
-                                                            |g, value, _, cx| {
-                                                                g.progress = *value;
-                                                                cx.notify();
-                                                            },
-                                                        )),
-                                                    )
-                                                    .child(ProgressIndicator::new(
-                                                        "percent",
-                                                        "Export Progress",
-                                                        Some(self.progress),
-                                                    ))
-                                                    .child(ProgressIndicator::new(
-                                                        "busy",
-                                                        "Preparing Export",
-                                                        None,
-                                                    )),
-                                            ),
-                                    )
-                                    .child(
-                                        div().text_size(small_text).child(self.last_source.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_1()
-                                            .min_h_0()
-                                            .gap(px(20.))
-                                            .child(
-                                                silvestris::sidebar::Sidebar::new(
-                                                    "catalog-sidebar",
-                                                    self.sidebar,
-                                                    self.source_list.clone(),
-                                                    div()
-                                                        .flex()
-                                                        .flex_col()
-                                                        .items_center()
-                                                        .gap(px(8.))
-                                                        .pt(px(8.))
-                                                        .child(
-                                                            Button::new("rail-docs", "Docs")
-                                                                .size(ControlSize::Mini)
-                                                                .on_click(cx.listener(
-                                                                    |g, _, _, cx| {
-                                                                        g.source_list.update(
-                                                                            cx,
-                                                                            |list, cx| {
-                                                                                list.select(
-                                                                                    "collection",
-                                                                                    cx,
-                                                                                )
-                                                                            },
-                                                                        );
-                                                                        g.last_source =
-                                                                "Collection selected from rail"
-                                                                    .into();
-                                                                        cx.notify();
-                                                                    },
-                                                                )),
-                                                        )
-                                                        .child(
-                                                            Button::new("rail-archive", "Arc")
-                                                                .size(ControlSize::Mini)
-                                                                .on_click(cx.listener(
-                                                                    |g, _, _, cx| {
-                                                                        g.source_list.update(
-                                                                            cx,
-                                                                            |list, cx| {
-                                                                                list.select(
-                                                                                    "archive", cx,
-                                                                                )
-                                                                            },
-                                                                        );
-                                                                        g.last_source =
-                                                                "Archive selected from rail".into();
-                                                                        cx.notify();
-                                                                    },
-                                                                )),
-                                                        ),
-                                                )
-                                                .footer(
-                                                    Button::new(
-                                                        "toggle-sidebar",
-                                                        if self.sidebar.expanded {
-                                                            "Hide"
-                                                        } else {
-                                                            "Show"
-                                                        },
-                                                    )
-                                                    .size(ControlSize::Mini)
-                                                    .on_click(move |_, window, cx| {
-                                                        CommandRegistry::invoke(
-                                                            &footer_commands,
-                                                            &"view.sidebar".into(),
-                                                            window,
-                                                            cx,
-                                                        );
-                                                    }),
-                                                )
-                                                .on_change(cx.listener(|g, preference, _, cx| {
-                                                    g.sidebar = *preference;
-                                                    g.sync_sidebar_command(cx);
-                                                    cx.notify();
-                                                })),
-                                            )
-                                            .child(
-                                                canvas(
-                                                    |_, _, _| (),
-                                                    |bounds, _, window, cx| {
-                                                        let t = cx.theme().clone();
-                                                        let m = &t.metrics;
-                                                        let o = bounds.origin;
-                                                        let at =
-                                                            |x: f32, y: f32, w: f32, h: f32| {
-                                                                Bounds::new(
-                                                                    point(o.x + px(x), o.y + px(y)),
-                                                                    size(px(w), px(h)),
-                                                                )
-                                                            };
-                                                        let c = &t.controls;
-                                                        paint::bevel(
-                                                            window,
-                                                            at(0., 0., 90., m.push_height),
-                                                            m.push_radius,
-                                                            &c.push.normal,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(110., 0., 90., m.push_height),
-                                                            m.push_radius,
-                                                            &c.push_default,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(220., 0., 90., m.push_height),
-                                                            m.push_radius,
-                                                            &c.push.disabled,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(0., 40., 40., m.textured_height),
-                                                            m.textured_radius,
-                                                            &c.textured.normal,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(50., 40., 40., m.textured_height),
-                                                            m.textured_radius,
-                                                            &c.textured.selected,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(110., 40., 80., m.segment_height),
-                                                            m.push_radius,
-                                                            &c.segment.normal,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(190., 40., 80., m.segment_height),
-                                                            m.push_radius,
-                                                            &c.segment.selected,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(
-                                                                0.,
-                                                                80.,
-                                                                m.checkbox_size,
-                                                                m.checkbox_size,
-                                                            ),
-                                                            m.checkbox_radius,
-                                                            &c.checkbox.normal,
-                                                        );
-                                                        paint::bevel(
-                                                            window,
-                                                            at(
-                                                                30.,
-                                                                80.,
-                                                                m.checkbox_size,
-                                                                m.checkbox_size,
-                                                            ),
-                                                            m.checkbox_radius,
-                                                            &c.checkbox.selected,
-                                                        );
-                                                        let f = at(0., 120., 200., m.field_height);
-                                                        paint::field(
-                                                            window, f, 0.0, &c.field, true,
-                                                        );
-                                                        let s =
-                                                            at(220., 120., 160., m.field_height);
-                                                        paint::field(
-                                                            window,
-                                                            s,
-                                                            m.field_height / 2.0,
-                                                            &c.search,
-                                                            true,
-                                                        );
-                                                        paint::focus_ring(
-                                                            window,
-                                                            s,
-                                                            m.field_height / 2.0,
-                                                            t.colors.focus_ring,
-                                                            m.focus_ring,
-                                                        );
-                                                        paint::selection(
-                                                            window,
-                                                            at(0., 170., 200., m.source_row_height),
-                                                            &t.lists.source_active,
-                                                        );
-                                                        paint::selection(
-                                                            window,
-                                                            at(0., 200., 200., m.table_row_height),
-                                                            &t.lists.table_active,
-                                                        );
-                                                        paint::selection(
-                                                            window,
-                                                            at(0., 230., 200., m.menu_item_height),
-                                                            &t.lists.menu,
-                                                        );
-                                                    },
-                                                )
-                                                .flex_1(),
-                                            ),
-                                    ),
-                            ),
+                                            .flex_col()
+                                            .gap(px(14.))
+                                            .child(routing_row)
+                                            .child(transient_row)
+                                            .child(shortcut_row)
+                                            .child(binding_row)
+                                            .child(list_row)
+                                            .child(role_row),
+                                    ))
+                                    .child(section(
+                                        "Materials",
+                                        "raw bevels, fields and selections",
+                                        &theme,
+                                        div().h(px(260.)).flex().child(materials.flex_1()),
+                                    )),
+                            ))
+                            .child(Scrollbar::new("gallery-scrollbar", &self.gallery_scroll)),
                     ),
             )
             .child(gpui::deferred(self.menu.clone()).priority(1))
@@ -1615,4 +1688,39 @@ fn main() {
         .expect("open gallery window");
         cx.activate(true);
     });
+}
+
+/// A titled gallery section: bold heading, a secondary note (HIG page or
+/// purpose), a separator, then the samples.
+fn section(
+    title: &'static str,
+    note: impl Into<gpui::SharedString>,
+    theme: &silvestris::core::Theme,
+    body: impl IntoElement,
+) -> gpui::Div {
+    div()
+        .flex_none()
+        .flex()
+        .flex_col()
+        .gap(px(10.))
+        .child(
+            div()
+                .flex()
+                .items_end()
+                .gap(px(10.))
+                .child(
+                    div()
+                        .font_weight(gpui::FontWeight::BOLD)
+                        .text_color(silvestris::convert::hsla(theme.colors.text))
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .text_size(px(theme.type_.size_small))
+                        .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                        .child(note.into()),
+                ),
+        )
+        .child(Separator::horizontal())
+        .child(body)
 }
