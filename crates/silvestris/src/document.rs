@@ -19,8 +19,11 @@
 //! stay app-owned hooks.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
-use gpui::{App, Context, Entity, SharedString, Window};
+use gpui::{AnyWindowHandle, App, Context, Entity, SharedString, Window};
+
+use crate::file_panel::{FilePanel, FileProvider, OpenPanel, SavePanel};
 
 /// What a save attempt did. `NeedsPanel` means the document has no location
 /// and the application must open its Save panel (#29).
@@ -42,6 +45,15 @@ pub trait Document: 'static {
     fn save(&mut self, cx: &mut Context<Self>) -> SaveResult
     where
         Self: Sized;
+    /// Save to a destination chosen by a panel. The default ignores the path
+    /// and calls `save`, which is right for a document that already knows its
+    /// location. Documents that adopt the Save panel implement this.
+    fn save_to(&mut self, _path: &std::path::Path, cx: &mut Context<Self>) -> SaveResult
+    where
+        Self: Sized,
+    {
+        self.save(cx)
+    }
     fn save_as(&mut self, cx: &mut Context<Self>) -> SaveResult
     where
         Self: Sized,
@@ -307,6 +319,84 @@ impl Documents {
     pub fn is_empty(&self) -> bool {
         self.open.is_empty()
     }
+}
+
+/// Standard File-menu command ids. Apps register handlers that call the
+/// helpers below; the ids match the HIG menu titles.
+pub mod commands {
+    pub const SAVE: &str = "file.save";
+    pub const SAVE_AS: &str = "file.save-as";
+    pub const OPEN: &str = "file.open";
+}
+
+/// Present the Save panel for `document` as a sheet over `owner`, saving the
+/// chosen path through [`Document::save_to`].
+///
+/// The suggested name is the document's display name. A document with no
+/// `save_to` implementation keeps its old save behaviour.
+pub fn save_as_panel<T: Document>(
+    document: Entity<T>,
+    provider: Rc<dyn FileProvider>,
+    owner: AnyWindowHandle,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<FilePanel> {
+    save_as_panel_with(document, provider, owner, window, cx, |_, _| {})
+}
+
+/// Like [`save_as_panel`], and reports the save result so a close flow can
+/// call `DocumentController::resolve_save`.
+///
+/// ```ignore
+/// match controller.resolve_prompt(PromptChoice::Save, cx) {
+///     CloseStep::Saving => {
+///         document::save_as_panel_with(document, provider, owner, window, cx,
+///             move |result, cx| { controller.resolve_save(result); });
+///     }
+///     CloseStep::Close => window.remove_window(),
+///     _ => {}
+/// }
+/// ```
+pub fn save_as_panel_with<T: Document>(
+    document: Entity<T>,
+    provider: Rc<dyn FileProvider>,
+    owner: AnyWindowHandle,
+    window: &mut Window,
+    cx: &mut App,
+    report: impl Fn(SaveResult, &mut App) + 'static,
+) -> Entity<FilePanel> {
+    let name = document.read(cx).display_name().to_string();
+    let report = Rc::new(report);
+    SavePanel::new(provider)
+        .name(name)
+        .on_finish(move |outcome, cx| {
+            let result = match outcome.first_path() {
+                Some(path) => document.update(cx, |document, cx| document.save_to(path, cx)),
+                None if outcome.accepted() => SaveResult::NeedsPanel,
+                None => SaveResult::Failed("The chosen destination has no host path".into()),
+            };
+            report(result, cx);
+        })
+        .present(Some(owner), window, cx)
+}
+
+/// Present the Open panel application-modal and call `on_open` for each chosen
+/// host path. Returns the panel entity; the callback is the supported result.
+pub fn open_panel(
+    provider: Rc<dyn FileProvider>,
+    window: &mut Window,
+    cx: &mut App,
+    on_open: impl Fn(&std::path::Path, &mut App) + 'static,
+) -> Entity<FilePanel> {
+    OpenPanel::new(provider)
+        .can_choose_files(true)
+        .can_choose_directories(false)
+        .on_finish(move |outcome, cx| {
+            for path in &outcome.paths {
+                on_open(path, cx);
+            }
+        })
+        .present(None, window, cx)
 }
 
 /// Keep the title in step with the document. Call it when the document emits a

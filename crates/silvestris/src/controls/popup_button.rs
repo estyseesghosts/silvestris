@@ -58,6 +58,8 @@ pub struct PopUpButton {
     style: PopupStyle,
     min_width: f32,
     arrow_only: bool,
+    leading_icon: Option<gpui::AnyElement>,
+    unselectable: Vec<usize>,
     on_choose: Option<ChooseFn>,
     layer: Option<Entity<TransientLayer>>,
 }
@@ -79,6 +81,8 @@ impl PopUpButton {
             style: PopupStyle::Rounded,
             min_width: 0.0,
             arrow_only: false,
+            leading_icon: None,
+            unselectable: Vec::new(),
             on_choose: None,
             layer: None,
         }
@@ -112,6 +116,22 @@ impl PopUpButton {
         self.min_width = width;
         self
     }
+
+    /// A leading glyph in the closed button (the panel's folder icon). Menu
+    /// rows stay text-only, so the element is drawn once.
+    pub fn leading_icon(mut self, icon: impl IntoElement) -> Self {
+        self.leading_icon = Some(icon.into_any_element());
+        self
+    }
+
+    /// Item indices that are headings or separators: they render in the
+    /// disabled text colour, are skipped by pointer and keyboard selection,
+    /// and never become the chosen item.
+    pub fn unselectable(mut self, indices: impl IntoIterator<Item = usize>) -> Self {
+        self.unselectable = indices.into_iter().collect();
+        self
+    }
+
     pub(super) fn arrow_only(mut self) -> Self {
         self.arrow_only = true;
         self
@@ -288,10 +308,13 @@ impl RenderOnce for PopUpButton {
             .iter()
             .map(|item| measure(window, &theme, self.size, item))
             .fold(0.0_f32, f32::max);
-        let width = (longest + 8.0 + cap_width + 6.0)
+        let leading_icon = self.leading_icon;
+        let leading_space = if leading_icon.is_some() { 18.0 } else { 0.0 };
+        let width = (longest + 8.0 + cap_width + 6.0 + leading_space)
             .max(self.min_width)
             .max(cap_width + 24.0);
         let items = Rc::new(self.items);
+        let unselectable = Rc::new(self.unselectable);
         let on_choose = self.on_choose;
         let ink = if inactive && enabled {
             body.text.mix(theme.colors.text_disabled, 0.45)
@@ -381,7 +404,15 @@ impl RenderOnce for PopUpButton {
                 .inset_0(),
             )
             .when(!self.arrow_only, |el| {
-                el.child(div().relative().truncate().child(shown))
+                el.child(
+                    div()
+                        .relative()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .children(leading_icon)
+                        .child(div().truncate().child(shown)),
+                )
             });
         if enabled {
             let click_state = state.clone();
@@ -453,7 +484,8 @@ impl RenderOnce for PopUpButton {
                 let row_layer = layer.clone();
                 let row_focus = focus.clone();
                 let hover_state = state.clone();
-                let hot = index == highlight;
+                let blocked = unselectable.contains(&index);
+                let hot = index == highlight && !blocked;
                 panel = panel.child(
                     div()
                         .id(("popup-item", index))
@@ -465,7 +497,13 @@ impl RenderOnce for PopUpButton {
                         .items_center()
                         .pl(px(20.0))
                         .pr(px(16.0))
-                        .text_color(hsla(if hot { sel.text } else { menu_text }))
+                        .text_color(hsla(if blocked {
+                            theme.colors.menu_text_disabled
+                        } else if hot {
+                            sel.text
+                        } else {
+                            menu_text
+                        }))
                         .when(hot, |el| {
                             el.child(
                                 canvas(
@@ -476,22 +514,27 @@ impl RenderOnce for PopUpButton {
                                 .inset_0(),
                             )
                         })
-                        .when(index == current, |el| {
+                        .when(index == current && !blocked, |el| {
                             el.child(div().absolute().left(px(6.0)).child("\u{2713}"))
                         })
-                        .on_mouse_move(move |_, _, cx| {
-                            hover_state.update(cx, |s, cx| {
-                                if s.highlight != index {
-                                    s.highlight = index;
-                                    cx.notify();
-                                }
+                        .when(!blocked, |el| {
+                            el.on_mouse_move(move |_, _, cx| {
+                                hover_state.update(cx, |s, cx| {
+                                    if s.highlight != index {
+                                        s.highlight = index;
+                                        cx.notify();
+                                    }
+                                })
                             })
-                        })
-                        .on_mouse_up(MouseButton::Left, move |_, window, cx| {
-                            close(&row_state, &row_layer, &row_focus, window, cx);
-                            if let Some(f) = &choose {
-                                f(&index, window, cx);
-                            }
+                            .on_mouse_up(
+                                MouseButton::Left,
+                                move |_, window, cx| {
+                                    close(&row_state, &row_layer, &row_focus, window, cx);
+                                    if let Some(f) = &choose {
+                                        f(&index, window, cx);
+                                    }
+                                },
+                            )
                         })
                         .child(
                             div()
@@ -505,6 +548,7 @@ impl RenderOnce for PopUpButton {
             let key_layer = layer.clone();
             let key_focus = focus.clone();
             let key_choose = on_choose.clone();
+            let key_blocked = unselectable.clone();
             let count = items.len();
             let shield = transient::shield(
                 layer,
@@ -518,14 +562,31 @@ impl RenderOnce for PopUpButton {
                 let mut chosen = None;
                 match event.keystroke.key.as_str() {
                     "up" => key_state.update(cx, |s, cx| {
-                        s.highlight = s.highlight.saturating_sub(1);
+                        let mut next = s.highlight.saturating_sub(1);
+                        while next > 0 && key_blocked.contains(&next) {
+                            next -= 1;
+                        }
+                        if !key_blocked.contains(&next) {
+                            s.highlight = next;
+                        }
                         cx.notify();
                     }),
                     "down" => key_state.update(cx, |s, cx| {
-                        s.highlight = (s.highlight + 1).min(count - 1);
+                        let mut next = (s.highlight + 1).min(count - 1);
+                        while next + 1 < count && key_blocked.contains(&next) {
+                            next += 1;
+                        }
+                        if !key_blocked.contains(&next) {
+                            s.highlight = next;
+                        }
                         cx.notify();
                     }),
-                    "enter" | "space" => chosen = Some(key_state.read(cx).highlight),
+                    "enter" | "space" => {
+                        let highlight = key_state.read(cx).highlight;
+                        if !key_blocked.contains(&highlight) {
+                            chosen = Some(highlight);
+                        }
+                    }
                     "escape" => {
                         if key_layer.update(cx, |layer, cx| layer.escape(window, cx)) {
                             key_state.update(cx, |s, _| s.surface = None);

@@ -248,6 +248,30 @@ submenu placement, the arrow and the label inset.
   an activate in separate platform messages, and the grace keeps that from
   reading as the app resigning. No 10.6 capture can measure it.
 
+## File panels
+
+- Panel layout: the 4.15.47 AM Open capture gives 527 x 398 px, a 30 px
+  toolbar, a 157 px sidebar and a 37 px button row. The collapsed Save height
+  (160 px) is an estimate: no Save capture includes both window edges.
+- The search field is 180 px wide and the panel's sheet has no measured
+  shadow; `Sheet` reuses GPUI's large shadow and the theme's scrim. There is no
+  slide animation because no 10.6 timing evidence exists.
+- `browser.grip` is measured at `#5a5a5a`; the control reuses
+  `colors.text_secondary` (Aqua `#4c4c4c`) rather than adding a browser-only
+  token. `browser.divider` is the scroller track (`#dcdcdc` in the capture);
+  the control reuses the nearby measured scroller track border so it cannot
+  drift from the shared scroll bar.
+- `ColumnBrowser`'s 100 px minimum column width and its 3x-default drag limit
+  are estimates. The row height (19 px), branch triangle (7 x 6 px) and resize
+  grip (two 1 px lines 3 px apart, 7 px tall, 5 px above the bottom) are
+  measured.
+- The file-panel icons are original silhouettes designed for this project;
+  they are not traced or recoloured Apple artwork. Their 16 px and 12 px sizes
+  are design choices, not corpus measurements.
+- The Save panel's inline rename commits through `FileProvider::rename`; the
+  folder name suggestion "untitled folder" follows 10.6, but the numeric
+  suffix pattern is our own.
+
 ## Visual goldens
 
 - `goldens/renders` is produced by the native Windows renderer, not by a

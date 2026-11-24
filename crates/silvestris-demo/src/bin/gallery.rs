@@ -9,13 +9,14 @@ use silvestris::binding::{Binding, ListController};
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ConfirmationFocus, ConfirmationSheet,
-    ControlSize, Disclosure, DisclosureStyle, GroupBox, Notice, Orientation, PopUpButton,
-    PopupStyle, ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus,
-    ScrollArrows, ScrollAxes, ScrollView, Scrollbar, ScrollerPreferences, Segment, SegmentMode,
-    SegmentStyle, SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider,
-    SortDirection, SourceList, SourceListEvent, SourceListStyle, Stepper, TabView, TableColumn,
-    TableView, TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, TrackClick, Well,
+    BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
+    ConfirmationFocus, ConfirmationSheet, ControlSize, Disclosure, DisclosureStyle, GroupBox,
+    Notice, Orientation, PopUpButton, PopupStyle, ProgressIndicator, ProgressStyle, RadioGroup,
+    RadioOption, RowAccessory, RowStatus, ScrollArrows, ScrollAxes, ScrollView, Scrollbar,
+    ScrollerPreferences, Segment, SegmentMode, SegmentStyle, SegmentedControl, Separator,
+    SeparatorAxis, ShortcutRecorder, Slider, SortDirection, SourceList, SourceListEvent,
+    SourceListStyle, Stepper, TabView, TableColumn, TableView, TextArea, TextAreaEvent, TextField,
+    TextFieldEvent, ThumbStyle, TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -72,6 +73,7 @@ struct Gallery {
     gallery_scroll: gpui::ScrollHandle,
     fidelity_scroll: gpui::ScrollHandle,
     files_table: Entity<TableView<GalleryFile>>,
+    browser: Entity<ColumnBrowser>,
     fidelity_scroll_small: gpui::ScrollHandle,
     last_source: gpui::SharedString,
     details_expanded: bool,
@@ -455,6 +457,26 @@ impl Gallery {
             table.set_sort("name", SortDirection::Ascending, cx);
             table
         });
+        let browser = cx.new(|cx| {
+            let mut browser = ColumnBrowser::new(
+                vec![
+                    BrowserNode::branch("home", "Home"),
+                    BrowserNode::leaf("readme", "Read Me"),
+                ],
+                cx,
+            );
+            browser.set_children(
+                "home",
+                vec![
+                    BrowserNode::branch("desktop", "Desktop"),
+                    BrowserNode::branch("documents", "Documents"),
+                    BrowserNode::leaf("notes", "Notes.txt"),
+                ],
+                cx,
+            );
+            browser.set_path(&["home".into(), "documents".into()], cx);
+            browser
+        });
         let bound = cx.new(|_| BoundModel {
             primary: true,
             level: 0.4,
@@ -521,6 +543,7 @@ impl Gallery {
             gallery_scroll: gpui::ScrollHandle::new(),
             fidelity_scroll: gpui::ScrollHandle::new(),
             files_table,
+            browser,
             fidelity_scroll_small: gpui::ScrollHandle::new(),
             last_source: "No source-list event".into(),
             details_expanded: false,
@@ -1413,6 +1436,47 @@ impl Render for Gallery {
                     .into_any_element(),
             ))
             .child(cell(
+                "Column browser: branch arrows, grey parent selection, blue focused column",
+                div()
+                    .w(px(300.))
+                    .h(px(140.))
+                    .border_1()
+                    .border_color(silvestris::convert::hsla(theme.colors.group_border))
+                    .child(self.browser.clone())
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "File panels: Save/Save As and Open as application-modal windows",
+                div()
+                    .flex()
+                    .gap(px(8.))
+                    .child(
+                        Button::new("gallery-save-panel", "Save panel")
+                            .size(ControlSize::Small)
+                            .on_click(|_, window, cx| {
+                                let provider = std::rc::Rc::new(gallery_file_provider());
+                                silvestris::file_panel::SavePanel::new(provider)
+                                    .directory("/")
+                                    .name("Untitled.txt")
+                                    .expanded(true)
+                                    .present(None, window, cx);
+                            }),
+                    )
+                    .child(
+                        Button::new("gallery-open-panel", "Open panel")
+                            .size(ControlSize::Small)
+                            .on_click(|_, window, cx| {
+                                let provider = std::rc::Rc::new(gallery_file_provider());
+                                silvestris::file_panel::OpenPanel::new(provider)
+                                    .directory("/")
+                                    .can_choose_files(true)
+                                    .can_choose_directories(false)
+                                    .present(None, window, cx);
+                            }),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
                 "Small scroll view; Appearance scroller preferences",
                 div()
                     .flex()
@@ -1910,6 +1974,50 @@ fn main() {
 
 /// A titled gallery section: bold heading, a secondary note (HIG page or
 /// purpose), a separator, then the samples.
+/// Deterministic file provider for the gallery's panel buttons.
+fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
+    use silvestris::file_panel::{FileEntry, FilePlace, MemoryProvider, PlaceSection};
+    use silvestris::icons::Icon;
+
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        vec![
+            FileEntry::folder("documents", "Documents"),
+            FileEntry::document("readme", "Read Me.txt")
+                .size(4096)
+                .modified(1_700_000_000),
+            FileEntry::document("photo", "Photo.png").size(1_048_576),
+        ],
+    );
+    provider.add_location(
+        "/documents",
+        "Documents",
+        Icon::Documents,
+        Some("/".into()),
+        vec![FileEntry::document("notes", "Notes.txt")],
+    );
+    provider.set_places(vec![
+        FilePlace::new("/", "Computer", Icon::Volume, PlaceSection::Devices).eject(true),
+        FilePlace::new(
+            "/documents",
+            "Documents",
+            Icon::Documents,
+            PlaceSection::Places,
+        ),
+        FilePlace::new(
+            "search:today",
+            "Today",
+            Icon::Search,
+            PlaceSection::SearchFor,
+        ),
+    ]);
+    provider
+}
+
 fn section(
     title: &'static str,
     note: impl Into<gpui::SharedString>,

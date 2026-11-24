@@ -23,6 +23,8 @@ pub use tab_view::TabView;
 
 pub mod popup_button;
 pub use popup_button::{PopUpButton, PopupStyle};
+pub mod path_control;
+pub use path_control::{PathControl, PathEntry, PathEvent, PathPopUp};
 pub mod stepper;
 pub use stepper::Stepper;
 pub mod scroll_source;
@@ -36,9 +38,14 @@ pub mod tooltip;
 
 pub mod progress;
 pub use progress::{ProgressIndicator, ProgressStyle};
+pub mod column_browser;
 pub mod column_store;
 pub mod table;
 pub mod table_view;
+pub use column_browser::{
+    BrowserEvent, BrowserNode, ColumnBrowser, COLUMN_WIDTH as BROWSER_COLUMN_WIDTH,
+    ROOT as BROWSER_ROOT,
+};
 pub use column_store::{ColumnStore, MemoryColumns, PreferenceColumns, SavedColumns, SavedTables};
 pub use table_view::{
     icon_text, CellContext, ColumnAlign, GridLines, SortDirection, TableColumn, TableEvent,
@@ -59,6 +66,8 @@ pub use combo_box::ComboBox;
 
 pub mod confirmation;
 pub use confirmation::{ConfirmationFocus, ConfirmationSheet};
+pub mod alert;
+pub use alert::{Alert, AlertButton, AlertResult, AlertRole};
 
 pub mod shortcut_recorder;
 pub use shortcut_recorder::ShortcutRecorder;

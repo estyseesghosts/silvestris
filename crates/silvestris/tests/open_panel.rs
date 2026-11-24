@@ -1,0 +1,392 @@
+//! OpenPanel (#29): one or many files, folders, double-click navigation, the
+//! allowed-type gate and the list/column view switch.
+
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use gpui::{
+    div, prelude::*, Context, Entity, Modifiers, TestAppContext, VisualContext, VisualTestContext,
+    Window,
+};
+use silvestris::chrome::WindowFrame;
+use silvestris::file_panel::{FileEntry, FilePanel, MemoryProvider, OpenPanel, PanelOutcome};
+use silvestris::icons::Icon;
+use silvestris::{ThemeId, ThemePreference};
+
+struct Body;
+
+impl gpui::Render for Body {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div().size_full()
+    }
+}
+
+struct Owner {
+    body: Entity<Body>,
+}
+
+impl gpui::Render for Owner {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        WindowFrame::new("Document").child(self.body.clone())
+    }
+}
+
+type Outcome = Rc<RefCell<Option<PanelOutcome>>>;
+
+fn provider() -> MemoryProvider {
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        vec![
+            FileEntry::folder("docs", "Documents"),
+            FileEntry::document("note", "note.txt"),
+            FileEntry::document("photo", "photo.png"),
+        ],
+    );
+    provider.add_location(
+        "/docs",
+        "Documents",
+        Icon::Documents,
+        Some("/".into()),
+        vec![FileEntry::document("inner", "inner.txt")],
+    );
+    provider.set_places(vec![
+        silvestris::file_panel::FilePlace::new(
+            "/",
+            "Computer",
+            Icon::Volume,
+            silvestris::file_panel::PlaceSection::Devices,
+        ),
+        silvestris::file_panel::FilePlace::new(
+            "/docs",
+            "Documents",
+            Icon::Documents,
+            silvestris::file_panel::PlaceSection::Places,
+        ),
+        silvestris::file_panel::FilePlace::new(
+            "search:today",
+            "Today",
+            Icon::Search,
+            silvestris::file_panel::PlaceSection::SearchFor,
+        ),
+        silvestris::file_panel::FilePlace::new(
+            "search:week",
+            "Past Week",
+            Icon::Search,
+            silvestris::file_panel::PlaceSection::SearchFor,
+        ),
+    ]);
+    provider
+}
+
+fn draw(cx: &mut VisualTestContext) {
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        window.draw(cx).clear(cx);
+    });
+    cx.run_until_parked();
+}
+
+fn present(
+    app: &mut TestAppContext,
+    multiple: bool,
+    choose_dirs: bool,
+    types: Option<&[&str]>,
+) -> (Entity<FilePanel>, Outcome, VisualTestContext) {
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let mut cx = cx.clone();
+    let owner = cx.window_handle();
+    let outcome: Outcome = Rc::default();
+    let slot = outcome.clone();
+    let panel = cx.update(|window, cx| {
+        let mut builder = OpenPanel::new(Rc::new(provider()))
+            .directory("/")
+            .allows_multiple(multiple)
+            .can_choose_files(true)
+            .can_choose_directories(choose_dirs)
+            .on_finish(move |outcome, _| *slot.borrow_mut() = Some(outcome.clone()));
+        if let Some(types) = types {
+            builder = builder.allowed_types(types.iter().copied());
+        }
+        builder.present(Some(owner), window, cx)
+    });
+    draw(&mut cx);
+    (panel, outcome, cx.clone())
+}
+
+fn click_row(cx: &mut VisualTestContext, id: &str) {
+    let row = cx
+        .debug_bounds(Box::leak(format!("table-row-{id}").into_boxed_str()))
+        .unwrap_or_else(|| panic!("row {id}"));
+    cx.simulate_click(row.center(), Modifiers::default());
+    cx.run_until_parked();
+}
+
+#[test]
+fn open_is_disabled_until_a_choosable_row_is_selected() {
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let open = cx.debug_bounds("panel-accept").expect("open button");
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(cx.debug_bounds("silvestris-alert").is_none());
+    click_row(&mut cx, "note");
+    assert!(cx.debug_bounds("panel-accept").is_some());
+}
+
+#[test]
+fn opening_a_file_returns_its_location() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, false, None);
+    click_row(&mut cx, "note");
+    let open = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert!(outcome.accepted());
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/note")
+    );
+}
+
+#[test]
+fn double_click_enters_a_folder_and_then_opens_its_file() {
+    let mut app = TestAppContext::single();
+    let (panel, outcome, mut cx) = present(&mut app, false, false, None);
+    click_row(&mut cx, "docs");
+    cx.update(|_window, cx| {
+        panel.update(cx, |panel, cx| panel.activate_selection(cx));
+    });
+    draw(&mut cx);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).model().read(cx).location().to_string()),
+        "/docs"
+    );
+    click_row(&mut cx, "inner");
+    cx.update(|_window, cx| {
+        panel.update(cx, |panel, cx| panel.activate_selection(cx));
+    });
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert!(outcome.accepted());
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/docs/inner")
+    );
+}
+
+#[test]
+fn choosing_a_folder_returns_the_folder_when_directories_are_allowed() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, true, None);
+    click_row(&mut cx, "docs");
+    let open = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/docs")
+    );
+}
+
+#[test]
+fn multiple_selection_reports_every_chosen_location() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, true, false, None);
+    click_row(&mut cx, "note");
+    let secondary = cx.update(|_, cx| Modifiers::secondary_key(cx));
+    let photo = cx.debug_bounds("table-row-photo").expect("photo");
+    cx.simulate_click(photo.center(), secondary);
+    cx.run_until_parked();
+    let open = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    let mut locations: Vec<String> = outcome.locations.iter().map(ToString::to_string).collect();
+    locations.sort();
+    assert_eq!(locations, ["/note", "/photo"]);
+}
+
+#[test]
+fn a_file_outside_the_allowed_types_cannot_be_opened() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, false, Some(&["txt"]));
+    click_row(&mut cx, "photo");
+    let open = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(outcome.borrow().is_none(), "png is not choosable");
+    assert!(cx.debug_bounds("file-panel").is_some());
+}
+
+#[test]
+fn switching_to_columns_keeps_the_location_and_selection() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    click_row(&mut cx, "docs");
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(&mut cx);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).model().read(cx).view()),
+        silvestris::file_panel::FileViewMode::Columns
+    );
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).model().read(cx).location().to_string()),
+        "/"
+    );
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).selected_count(cx)),
+        1,
+        "the selection survives the mode switch"
+    );
+    assert!(cx.debug_bounds("column-browser").is_some());
+}
+
+#[test]
+fn columns_mode_keeps_the_location_when_a_file_is_selected() {
+    let mut app = TestAppContext::single();
+    let (panel, outcome, mut cx) = present(&mut app, false, false, None);
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(&mut cx);
+    click_row(&mut cx, "note");
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).model().read(cx).location().to_string()),
+        "/",
+        "a file row is not a directory"
+    );
+    let open = cx.debug_bounds("panel-accept").expect("open button");
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/note")
+    );
+}
+
+#[test]
+fn columns_mode_refuses_a_file_outside_the_allowed_types() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, false, Some(&["txt"]));
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(&mut cx);
+    click_row(&mut cx, "photo");
+    let open = cx.debug_bounds("panel-accept").expect("open button");
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(outcome.borrow().is_none(), "png is not choosable");
+    assert!(cx.debug_bounds("file-panel").is_some());
+}
+
+#[test]
+fn columns_mode_can_choose_a_folder_when_directories_are_allowed() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, true, None);
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(&mut cx);
+    click_row(&mut cx, "docs");
+    let open = cx.debug_bounds("panel-accept").expect("open button");
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/docs")
+    );
+}
+
+#[test]
+fn a_thirty_thousand_entry_directory_builds_only_the_rows_in_view() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        (0..30_000)
+            .map(|i| FileEntry::document(i.to_string(), format!("File {i}.txt")))
+            .collect(),
+    );
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider))
+            .directory("/")
+            .present(Some(owner), window, cx)
+    });
+    draw(cx);
+    assert!(cx.debug_bounds("table-row-0").is_some());
+    assert!(
+        cx.debug_bounds("table-row-500").is_none(),
+        "only the viewport's rows are built"
+    );
+    assert!(
+        cx.read(|cx| panel
+            .read(cx)
+            .model()
+            .read(cx)
+            .controller()
+            .read(cx)
+            .visible_len())
+            == 30_000
+    );
+}
+
+#[test]
+fn presenting_without_an_owner_uses_an_application_modal_window() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider()))
+            .directory("/")
+            .present(None, window, cx)
+    });
+    draw(cx);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).session().read(cx).scope()),
+        silvestris::modal::ModalScope::Application
+    );
+}
+
+#[test]
+fn the_sidebar_uses_devices_places_and_search_groups() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let headings: Vec<String> = cx.read(|cx| {
+        panel
+            .read(cx)
+            .sidebar_entity()
+            .read(cx)
+            .state()
+            .rows()
+            .iter()
+            .filter(|row| row.section)
+            .map(|row| row.label.to_uppercase())
+            .collect()
+    });
+    assert_eq!(headings, ["DEVICES", "PLACES", "SEARCH FOR"]);
+    let sidebar = cx.debug_bounds("panel-sidebar").expect("sidebar");
+    assert!(f32::from(sidebar.size.width) >= 150.0);
+}

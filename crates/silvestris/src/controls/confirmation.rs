@@ -1,8 +1,13 @@
-//! Document-modal confirmation sheet (HIG pp. 233–239).
-use gpui::{div, prelude::*, px, App, FocusHandle, MouseButton, SharedString, Window};
+//! Document-modal confirmation sheet (HIG pp. 233-239).
+//!
+//! The public API is unchanged; the body is now [`Alert`], so confirmations
+//! share one alert layout, button policy and Escape/Return mapping with the
+//! Save panel's replace-existing alert.
+
+use gpui::{App, AppContext, FocusHandle, SharedString, Window};
 use std::rc::Rc;
 
-use crate::{command::InvokeCommand, convert::hsla, ActiveTheme};
+use super::alert::{Alert, AlertButton, AlertRole};
 
 #[derive(Clone)]
 pub struct ConfirmationFocus {
@@ -32,7 +37,7 @@ impl ConfirmationFocus {
 
 type Respond = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 
-#[derive(IntoElement)]
+#[derive(gpui::IntoElement)]
 pub struct ConfirmationSheet {
     title: SharedString,
     message: SharedString,
@@ -59,78 +64,42 @@ impl ConfirmationSheet {
     }
 }
 
-impl RenderOnce for ConfirmationSheet {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let theme = cx.theme();
-        let keys = self.respond.clone();
-        let cancel = self.respond.clone();
-        let accept = self.respond;
-        let focus = self.focus.clone();
-        div()
-            .id("silvestris-sheet")
-            .role(gpui::Role::AlertDialog)
-            .aria_label(self.title.clone())
-            .absolute()
-            .inset_0()
-            .occlude()
-            .flex()
-            .justify_center()
-            .items_start()
-            .pt(px(58.0))
-            .bg(hsla(theme.colors.scrim))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
-            .on_action(|_: &InvokeCommand, _, cx| cx.stop_propagation())
-            .on_key_down(move |event, window, cx| {
-                cx.stop_propagation();
-                match event.keystroke.key.as_str() {
-                    "escape" => keys(false, window, cx),
-                    "tab" if focus.cancel.is_focused(window) => window.focus(&focus.accept, cx),
-                    "tab" => focus.focus_cancel(window, cx),
-                    _ => {}
-                }
-            })
-            .child(
-                div()
-                    .w(px(380.0))
-                    .max_w_full()
-                    .p(px(18.0))
-                    .rounded(px(6.0))
-                    .border_1()
-                    .border_color(hsla(theme.colors.group_border))
-                    .bg(hsla(theme.colors.window))
-                    .shadow_lg()
-                    .flex()
-                    .flex_col()
-                    .gap(px(10.0))
-                    .child(
-                        div()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(self.title),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(theme.type_.size_small))
-                            .child(self.message),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .justify_end()
-                            .gap(px(8.0))
-                            .child(
-                                super::Button::new("sheet-cancel", "Cancel")
-                                    .focus_handle(self.focus.cancel)
-                                    .default_button(true)
-                                    .on_click(move |_, window, cx| cancel(false, window, cx)),
+impl gpui::RenderOnce for ConfirmationSheet {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl gpui::IntoElement {
+        let [cancel_focus, _accept_focus] = self.focus.handles();
+        let respond = self.respond;
+        let accept_label = self.accept;
+        let title = self.title;
+        let message = self.message;
+        let alert = window
+            .use_keyed_state(
+                gpui::ElementId::Name("confirmation-sheet-alert".into()),
+                cx,
+                move |_, cx| {
+                    cx.new(|_| {
+                        Alert::new(title)
+                            .message(message)
+                            // The old sheet made Cancel the default button; keep
+                            // that policy for callers that rely on Return choosing
+                            // Cancel.
+                            .button(
+                                AlertButton::new("sheet-cancel", "Cancel").role(AlertRole::Default),
                             )
-                            .child(
-                                super::Button::new("sheet-accept", self.accept)
-                                    .focus_handle(self.focus.accept)
-                                    .destructive(true)
-                                    .on_click(move |_, window, cx| accept(true, window, cx)),
-                            ),
-                    ),
+                            .button(
+                                AlertButton::new("sheet-accept", accept_label)
+                                    .role(AlertRole::Destructive),
+                            )
+                            .focus_pair(cancel_focus.clone(), cancel_focus)
+                            .on_result(move |result, window, cx| {
+                                let accepted = !result.cancelled
+                                    && result.choice.as_deref() == Some("sheet-accept");
+                                respond(accepted, window, cx);
+                            })
+                    })
+                },
             )
+            .read(cx)
+            .clone();
+        alert
     }
 }

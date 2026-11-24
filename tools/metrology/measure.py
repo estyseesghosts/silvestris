@@ -245,6 +245,29 @@ row(LIST_SORTED, 82, 528, 566, "table.header.sort_arrow",
     "7 x 6 px triangle centred 7 px before the sorted column's 72a1d4 divider at 546")
 column(LIST_SORTED, 727, 74, 92, "table.header.divider", "plain header divider: c0c0c0, full height")
 
+# --- Column browser (Open panel, VM capture, 1x) ---------------------------
+OPEN_PANEL = "../vm-screenshots/Screen shot 2026-11-23 at 4.15.47 AM.png"
+row(OPEN_PANEL, 120, 377, 563, "browser.columns",
+    "first browser column: 171 px white content (377-547), then the 15 px scroller track "
+    "(548-562); the next column starts at 563, so the pitch is 186 px")
+row(OPEN_PANEL, 120, 548, 563, "browser.divider",
+    "column divider is the empty scroller track: dc leading edge, e0..f5 gradient, fd centre, "
+    "f7 trailing edge")
+column(OPEN_PANEL, 554, 377, 384, "browser.grip",
+    "left resize line: 5a for 7 rows, 5 rows above the browser's bottom edge")
+row(OPEN_PANEL, 109, 226, 233, "browser.arrow",
+    "sidebar branch triangle, row 2 of 6: 5 px wide (227-231), 9da8b3")
+note("browser.geometry",
+     "Open panel column browser: 186 px pitch = 171 px content + 15 px scroller; rows 19 px; "
+     "branch triangle 7 x 6 px (rows 108-113, 7, 5, 5, 3, 3, 1 px wide); resize grip is two "
+     "1 px lines 3 px apart (x 554 and 557), 7 rows tall, starting 5 rows above the browser "
+     "bottom (377 against bottom 388); column divider dc",
+     OPEN_PANEL,
+     {"column_px": [377, 548], "pitch_px": 186, "content_px": 171, "scroller_px": 15,
+      "arrow_px": [7, 6], "arrow_x": [226, 232], "arrow_y": [108, 113],
+      "grip_x": [554, 557], "grip_y": [377, 383], "grip_inset_bottom": 5,
+      "divider": "dc"})
+
 json.dump({
     "tool": "tools/metrology/measure.py",
     "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",

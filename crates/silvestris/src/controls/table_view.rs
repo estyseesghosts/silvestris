@@ -287,6 +287,9 @@ pub struct TableView<T: 'static> {
     focus: FocusHandle,
     row_height: f32,
     header_height: f32,
+    header_visible: bool,
+    alternating: bool,
+    fill_width: bool,
     multiple: bool,
     grid: GridLines,
     autosave: Option<(Rc<dyn ColumnStore>, String)>,
@@ -322,6 +325,9 @@ impl<T: 'static> TableView<T> {
             focus: cx.focus_handle(),
             row_height: theme.metrics.table_row_height,
             header_height: theme.metrics.table_header_height,
+            header_visible: true,
+            alternating: true,
+            fill_width: false,
             multiple: true,
             grid: GridLines::None,
             autosave: None,
@@ -343,6 +349,54 @@ impl<T: 'static> TableView<T> {
     pub fn set_header_height(&mut self, height: f32, cx: &mut Context<Self>) {
         self.header_height = height;
         cx.notify();
+    }
+
+    /// `false` removes the header row and its hit-testing. Column-view
+    /// columns and the Open panel's simple lists use a headerless table.
+    pub fn set_header_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
+        self.header_visible = visible;
+        cx.notify();
+    }
+
+    /// `false` paints every row on `colors.content`; the Finder column view
+    /// is unstriped.
+    pub fn set_alternating(&mut self, alternating: bool, cx: &mut Context<Self>) {
+        self.alternating = alternating;
+        cx.notify();
+    }
+
+    /// Stretch the last visible column to the viewport. The horizontal
+    /// scroller then has nothing to scroll, so it stays hidden.
+    pub fn set_fill_width(&mut self, fill: bool, cx: &mut Context<Self>) {
+        self.fill_width = fill;
+        if fill {
+            // Fill-width content is anchored at x = 0; a stale horizontal
+            // offset would separate headers and rows.
+            let position = self.scroll.position();
+            self.scroll.set_position(point(px(0.), position.y));
+        }
+        cx.notify();
+    }
+
+    /// Request a repaint from outside the view. Views that re-render from a
+    /// borrowed model use this after changing it.
+    pub fn repaint(&mut self, cx: &mut Context<Self>) {
+        cx.notify();
+    }
+
+    /// Whether the header row is shown.
+    pub fn header_visible(&self) -> bool {
+        self.header_visible
+    }
+
+    /// Whether rows alternate.
+    pub fn alternating(&self) -> bool {
+        self.alternating
+    }
+
+    /// Whether the last visible column fills the viewport.
+    pub fn fill_width(&self) -> bool {
+        self.fill_width
     }
 
     /// `false` restricts the user to one selected row.
@@ -819,13 +873,28 @@ impl<T: 'static> TableView<T> {
         cx.notify();
     }
 
-    fn header_down(&mut self, event: &MouseDownEvent, origin_x: Pixels, cx: &mut Context<Self>) {
+    fn header_down(
+        &mut self,
+        event: &MouseDownEvent,
+        origin_x: Pixels,
+        width: Pixels,
+        cx: &mut Context<Self>,
+    ) {
         let x = event.position.x - origin_x;
+        let visible = self.visible_columns();
         let mut left = px(0.);
-        for index in self.visible_columns() {
+        for (position, index) in visible.iter().copied().enumerate() {
             let column = &self.columns[index];
-            let right = left + px(column.width);
-            if column.resizable && (x - right).abs() <= px(RESIZE_ZONE) {
+            let last = position + 1 == visible.len();
+            let right = if last && self.fill_width {
+                width
+            } else {
+                left + px(column.width)
+            };
+            if !(last && self.fill_width)
+                && column.resizable
+                && (x - right).abs() <= px(RESIZE_ZONE)
+            {
                 self.header_drag = Some(HeaderDrag::Resize {
                     column: index,
                     start_x: event.position.x,
@@ -916,10 +985,23 @@ impl<T: 'static> TableView<T> {
     fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme().clone();
         let header_height = self.header_height;
-        let offset = self.scroll.position().x;
-        let mut cells = div().flex().flex_none().h_full().ml(-offset);
-        for index in self.visible_columns() {
+        let offset = if self.fill_width {
+            px(0.)
+        } else {
+            self.scroll.position().x
+        };
+        let visible = self.visible_columns();
+        let mut cells = div()
+            .flex()
+            .h_full()
+            .when(self.fill_width, |el| el.w_full());
+        if !self.fill_width {
+            cells = cells.flex_none().ml(-offset);
+        }
+        for (position, index) in visible.iter().copied().enumerate() {
             let column = &self.columns[index];
+            let last = position + 1 == visible.len();
+            let fills = last && self.fill_width;
             let sorted = self
                 .sort
                 .as_ref()
@@ -945,9 +1027,9 @@ impl<T: 'static> TableView<T> {
                     .role(gpui::Role::ColumnHeader)
                     .aria_label(title.clone())
                     .relative()
-                    .flex_none()
-                    .w(px(width))
                     .h_full()
+                    .when(fills, |el| el.flex_1().min_w_0())
+                    .when(!fills, |el| el.flex_none().w(px(width)))
                     .child(
                         canvas(
                             |_, _, _| (),
@@ -1004,7 +1086,9 @@ impl<T: 'static> TableView<T> {
                                 return;
                             }
                             cx.stop_propagation();
-                            view.update(cx, |t, cx| t.header_down(e, origin_x, cx));
+                            view.update(cx, |t, cx| {
+                                t.header_down(e, origin_x, bounds.size.width, cx)
+                            });
                         });
                         let view = move_view.clone();
                         window.on_mouse_event(move |e: &MouseMoveEvent, phase, _, cx| {
@@ -1050,6 +1134,8 @@ impl<T: 'static> TableView<T> {
         let row_height = self.row_height;
         let grid = self.grid;
         let grid_color = theme.controls.table_grid;
+        let fill = self.fill_width;
+        let viewport = self.scroll.viewport().width.as_f32();
         let editing = self
             .editing
             .as_ref()
@@ -1088,14 +1174,15 @@ impl<T: 'static> TableView<T> {
                 .relative()
                 .flex()
                 .flex_none()
-                .w(px(total))
+                .when(fill, |el| el.w_full())
+                .when(!fill, |el| el.w(px(total)))
                 .h(px(row_height))
                 .text_size(px(theme.type_.size_view))
                 .text_color(hsla(text))
-                .bg(hsla(if index % 2 == 0 {
-                    theme.colors.content
-                } else {
+                .bg(hsla(if self.alternating && index % 2 == 1 {
                     theme.colors.row_alternate
+                } else {
+                    theme.colors.content
                 }))
                 .on_mouse_down(
                     MouseButton::Left,
@@ -1123,7 +1210,12 @@ impl<T: 'static> TableView<T> {
             }
             for (position, column_index) in columns.iter().enumerate() {
                 let column = &self.columns[*column_index];
-                let width = column.width;
+                let last = position + 1 == columns.len();
+                let fills = last && fill;
+                let mut width = column.width;
+                if fills && viewport > 0.0 {
+                    width = (viewport - (total - column.width)).max(0.0);
+                }
                 let context = CellContext {
                     width,
                     ..context_base
@@ -1160,11 +1252,11 @@ impl<T: 'static> TableView<T> {
                     div()
                         .relative()
                         .flex()
-                        .flex_none()
                         .items_center()
                         .overflow_hidden()
-                        .w(px(width))
                         .h_full()
+                        .when(fills, |el| el.flex_1().min_w_0())
+                        .when(!fills, |el| el.flex_none().w(px(width)))
                         .px(px(CELL_INSET))
                         .map(|el| match column.align {
                             ColumnAlign::Leading => el.justify_start(),
@@ -1245,7 +1337,9 @@ fn paint_header_cell(
 impl<T: 'static> Render for TableView<T> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let count = self.controller.read(cx).visible_len();
-        let header = self.render_header(window, cx);
+        let header_visible = self.header_visible;
+        let fill = self.fill_width;
+        let header = header_visible.then(|| self.render_header(window, cx));
         let content = cx.theme().colors.content;
         let list = uniform_list(
             "table-rows",
@@ -1254,7 +1348,11 @@ impl<T: 'static> Render for TableView<T> {
                 this.render_rows(range, window, cx)
             }),
         )
-        .with_horizontal_sizing_behavior(ListHorizontalSizingBehavior::Unconstrained)
+        .with_horizontal_sizing_behavior(if fill {
+            ListHorizontalSizingBehavior::FitList
+        } else {
+            ListHorizontalSizingBehavior::Unconstrained
+        })
         .track_scroll(&self.scroll)
         .size_full();
         div()
@@ -1295,7 +1393,7 @@ impl<T: 'static> Render for TableView<T> {
                     this.finish_editing(false, window, cx);
                 }
             }))
-            .child(header)
+            .children(header)
             .child(
                 div().flex_1().min_h_0().child(
                     ScrollView::new("table-scroll", &self.scroll)

@@ -22,6 +22,7 @@ Every task inherits these rules from AGENTS.md:
   value. Log estimates in `docs/exceptions.md`.
 - A visual change needs goldens in 4 appearances × 5 scales
   (`tools/metrology/render.ps1`, then `gate.py --accept`).
+- The human user must sign off on goldens.
 - A behaviour change needs scenario tests in their own file under
   `crates/silvestris/tests/`.
 - A public API change updates `docs/coverage.md`, `docs/consumers.md` and

@@ -130,6 +130,19 @@ impl ModalSession {
         self
     }
 
+    /// Replace the Tab stops after presentation. Views whose content changes
+    /// (a panel switching list/column mode) use this so Tab never lands on a
+    /// hidden control.
+    pub fn set_focus_stops(&mut self, stops: Vec<FocusHandle>) {
+        self.stops = stops;
+    }
+
+    /// Change the covered scope. A panel decides sheet vs app-modal before the
+    /// deferred presentation runs.
+    pub fn set_scope(&mut self, scope: ModalScope) {
+        self.scope = scope;
+    }
+
     /// The one-shot result callback.
     #[must_use]
     pub fn on_end(mut self, f: impl FnOnce(ModalResult) + 'static) -> Self {

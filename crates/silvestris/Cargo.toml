@@ -10,6 +10,7 @@ description = "Snow Leopard (Mac OS X 10.6) Aqua and Geist application shell and
 
 [features]
 test-support = ["gpui/test-support"]
+std-fs = []
 
 [dependencies]
 silvestris-core = { workspace = true }

@@ -8,7 +8,9 @@ pub mod controls;
 
 pub mod convert;
 pub mod document;
+pub mod file_panel;
 pub mod fonts;
+pub mod icons;
 pub mod native;
 pub mod paint;
 pub mod sprites;
@@ -45,6 +47,8 @@ pub mod lifecycle;
 pub mod menu;
 
 pub mod modal;
+
+pub mod sheet;
 
 pub mod preferences;
 

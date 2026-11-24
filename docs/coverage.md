@@ -67,7 +67,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Action menu | none | missing | — | — | #46 |
 | Command pop-down | none | missing | — | — | #46 |
 | Date picker | none | missing | — | — | #42 |
-| Path control | none | missing | — | — | #41 |
+| Path control | `PathControl`, `PathPopUp`, `PathEntry`, `PathEvent`, `LocationId` | functional | four | — | #41 |
 | Colour well, image well | none | missing | — | — | #44 |
 | Radio button | `RadioGroup`, `RadioOption` | measured | four | `radio-on`, `radio-off`, `radio-small` | #6 |
 | Checkbox, mixed state | `Checkbox`, `CheckState` | measured | four | `checkbox-on`, `checkbox-off`, `checkbox-mixed`, `checkbox-small`, `checkbox-mini` | #19 |
@@ -102,7 +102,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Disclosure button | `DisclosureStyle::Button` | measured | four | `disclosure-button` | #5 |
 | List view | `virtual_table` | provisional | four | — | #32 |
 | Outline view | none | missing | — | — | #33 |
-| Column view | none | missing | — | — | #34 |
+| Column view | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | functional | four | `column-browser` | #34 |
 | Split view | `Shell` divider only | provisional | four | — | #53 |
 | Tab view | `TabView`, `preferences::pane_tab_view` | measured | four | `tab-view` | #13 |
 | Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
@@ -123,8 +123,9 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Alert | none | missing | — | — | #23 |
-| Open, Save, Choose | none | missing | — | — | #29 |
+| Alert | `Alert`, `AlertButton`, `AlertResult`, `AlertRole` | functional | four | — | #23 |
+| Sheet | `sheet::Sheet`, `sheet::present`, `sheet::overlay` | functional | four | — | #22 |
+| Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry` | functional | four | `open-panel-list`, `open-panel-columns`, `save-panel-collapsed`, `save-panel-expanded` | #29 |
 | Print, Page Setup | none | missing | — | — | #47 |
 | About | none | missing | — | — | #47 |
 | Progress copy window | none | missing | — | — | #47 |
@@ -142,7 +143,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Modal sessions | `modal::ModalSession`, `ModalScope`, `ModalResult`; `ConfirmationFocus` | functional | four | — | #21 |
 | Drag and drop | none | missing | — | — | #36 |
 | Undo and redo | `undo::UndoManager`, `TextHistory`, `undo::entry` | functional | four | — | #39 |
-| System images and icons | `sprites` | provisional | four | — | #48 |
+| System images and icons | `sprites`; `icons::Icon` for file-panel vocabulary | functional | four | — | #48 |
 | Cursors | GPUI cursor styles | provisional | four | — | #48 |
 
 ## Active, inactive and focus audit

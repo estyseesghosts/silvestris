@@ -66,6 +66,8 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Source lists](docs/source-list.md)
 - [Scroll views and scroll bars](docs/scrollbar.md)
 - [Table view](docs/table.md)
+- [Column browser](docs/column-browser.md)
+- [Open and Save panels](docs/file-panels.md)
 - [Commands and key contexts](docs/commands.md)
 - [Popup menus](docs/menus.md)
 - [Transient surfaces](docs/transients.md)

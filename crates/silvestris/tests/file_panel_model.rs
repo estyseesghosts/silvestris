@@ -1,0 +1,281 @@
+//! FileBrowserModel and FileProvider (#29/T6): listing, hidden and type
+//! policy, history, selection by id, view switching and cancellation.
+
+use std::rc::Rc;
+use std::time::Duration;
+
+use gpui::{
+    div, prelude::*, App, Context, Entity, Render, Task, TestAppContext, VisualTestContext, Window,
+};
+use silvestris::controls::path_control::LocationId;
+use silvestris::file_panel::{
+    FileAncestor, FileBrowserEvent, FileBrowserModel, FileEntry, FileError, FilePlace,
+    FileProvider, FileViewMode, MemoryProvider, PlaceSection,
+};
+use silvestris::icons::Icon;
+use silvestris::{ThemeId, ThemePreference};
+
+struct Empty;
+
+impl Render for Empty {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div().size_full()
+    }
+}
+
+fn memory() -> MemoryProvider {
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        vec![
+            FileEntry::folder("docs", "Documents"),
+            FileEntry::document("report", "report.txt")
+                .size(2048)
+                .modified(1_700_000_000),
+            FileEntry::document("secret", ".secret").hidden(true),
+        ],
+    );
+    provider.add_location(
+        "/docs",
+        "Documents",
+        Icon::Documents,
+        Some("/".into()),
+        vec![FileEntry::document("note", "note.txt")],
+    );
+    provider.set_places(vec![
+        FilePlace::new("/", "Computer", Icon::Volume, PlaceSection::Devices).eject(true),
+        FilePlace::new("/docs", "Documents", Icon::Documents, PlaceSection::Places),
+    ]);
+    provider
+}
+
+fn open(app: &mut TestAppContext) -> (Entity<FileBrowserModel>, VisualTestContext) {
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    let model = app.update(|cx| cx.new(|cx| FileBrowserModel::new(Rc::new(memory()), "/", cx)));
+    let window = app.add_window(|_, _| Empty);
+    let cx = VisualTestContext::from_window(*window, app);
+    cx.run_until_parked();
+    (model, cx)
+}
+
+fn visible(model: &Entity<FileBrowserModel>, cx: &mut VisualTestContext) -> Vec<String> {
+    let model = model.clone();
+    cx.read(|cx| {
+        model
+            .read(cx)
+            .controller()
+            .read(cx)
+            .visible()
+            .map(|entry| entry.name.to_string())
+            .collect()
+    })
+}
+
+#[test]
+fn a_new_model_lists_the_location_and_reports_loaded() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    let events = Rc::new(std::cell::RefCell::new(Vec::new()));
+    let sink = events.clone();
+    cx.update(|_, cx| {
+        cx.subscribe(&model, move |_, event: &FileBrowserEvent, _| {
+            sink.borrow_mut().push(event.clone());
+        })
+        .detach();
+    });
+    cx.run_until_parked();
+    cx.update(|_, cx| model.update(cx, |model, cx| model.reload(cx)));
+    cx.run_until_parked();
+    assert_eq!(visible(&model, &mut cx), ["Documents", "report.txt"]);
+    assert!(events
+        .borrow()
+        .iter()
+        .any(|event| matches!(event, FileBrowserEvent::Loaded { count: 2, .. })));
+}
+
+#[test]
+fn hidden_files_appear_only_when_enabled() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    assert_eq!(visible(&model, &mut cx), ["Documents", "report.txt"]);
+    cx.update(|_, cx| model.update(cx, |model, cx| model.set_show_hidden(true, cx)));
+    cx.run_until_parked();
+    assert_eq!(
+        visible(&model, &mut cx),
+        ["Documents", "report.txt", ".secret"]
+    );
+    cx.update(|_, cx| model.update(cx, |model, cx| model.set_show_hidden(false, cx)));
+    cx.run_until_parked();
+    assert_eq!(visible(&model, &mut cx), ["Documents", "report.txt"]);
+}
+
+#[test]
+fn allowed_types_match_directories_and_extensions() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    cx.update(|_, cx| {
+        model.update(cx, |model, _| {
+            model.set_allowed_types(["txt".to_string()]);
+            model.set_allows_other_types(false);
+        });
+        let entries = model.read(cx).controller().read(cx).visible_items();
+        let by_name = |name: &str| *entries.iter().find(|entry| entry.name == name).unwrap();
+        assert!(model.read(cx).matches_types(by_name("Documents")));
+        assert!(model.read(cx).matches_types(by_name("report.txt")));
+        let png = FileEntry::document("png", "photo.png");
+        assert!(!model.read(cx).matches_types(&png));
+        model.update(cx, |model, _| model.set_allows_other_types(true));
+        assert!(model.read(cx).matches_types(&png));
+    });
+}
+
+#[test]
+fn history_back_and_forward_move_the_model_but_never_the_selection() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    cx.update(|_, cx| {
+        let controller = model.read(cx).controller();
+        controller.update(cx, |controller, cx| {
+            controller.select("report");
+            cx.notify();
+        });
+        model.update(cx, |model, cx| model.navigate("/docs", cx));
+    });
+    cx.run_until_parked();
+    assert_eq!(visible(&model, &mut cx), ["note.txt"]);
+    assert!(cx.read(|cx| model.read(cx).can_go_back()));
+    assert!(cx.read(|cx| model
+        .read(cx)
+        .controller()
+        .read(cx)
+        .selected_ids()
+        .is_empty()));
+    cx.update(|_, cx| model.update(cx, |model, cx| model.go_back(cx)));
+    cx.run_until_parked();
+    assert_eq!(visible(&model, &mut cx), ["Documents", "report.txt"]);
+    assert!(cx.read(|cx| model.read(cx).can_go_forward()));
+    cx.update(|_, cx| model.update(cx, |model, cx| model.go_forward(cx)));
+    cx.run_until_parked();
+    assert_eq!(cx.read(|cx| model.read(cx).location().to_string()), "/docs");
+}
+
+#[test]
+fn reloading_keeps_the_selection_by_id() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    cx.update(|_, cx| {
+        let controller = model.read(cx).controller();
+        controller.update(cx, |controller, cx| {
+            controller.select("report");
+            cx.notify();
+        });
+        model.update(cx, |model, cx| model.reload(cx));
+    });
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|cx| model
+            .read(cx)
+            .controller()
+            .read(cx)
+            .selected_ids()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()),
+        ["report"]
+    );
+}
+
+#[test]
+fn switching_the_view_mode_keeps_location_and_selection() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    cx.update(|_, cx| {
+        let controller = model.read(cx).controller();
+        controller.update(cx, |controller, cx| {
+            controller.select("docs");
+            cx.notify();
+        });
+        model.update(cx, |model, cx| model.set_view(FileViewMode::Columns, cx));
+    });
+    cx.run_until_parked();
+    assert_eq!(cx.read(|cx| model.read(cx).view()), FileViewMode::Columns);
+    assert_eq!(cx.read(|cx| model.read(cx).location().to_string()), "/");
+    assert_eq!(
+        cx.read(|cx| model.read(cx).controller().read(cx).selected_ids().to_vec()),
+        ["docs"]
+    );
+}
+
+#[test]
+fn an_older_location_result_never_overwrites_a_newer_one() {
+    struct Delayed {
+        inner: MemoryProvider,
+        root_delay: Duration,
+    }
+
+    impl FileProvider for Delayed {
+        fn children(
+            &self,
+            location: &LocationId,
+            cx: &mut App,
+        ) -> Task<Result<Vec<FileEntry>, FileError>> {
+            let entries = self.inner.entries(location);
+            let delay = if location.as_ref() == "/" {
+                self.root_delay
+            } else {
+                Duration::ZERO
+            };
+            let executor = cx.background_executor().clone();
+            cx.background_executor().spawn(async move {
+                executor.timer(delay).await;
+                Ok(entries)
+            })
+        }
+
+        fn ancestors(&self, location: &LocationId, cx: &App) -> Vec<FileAncestor> {
+            self.inner.ancestors(location, cx)
+        }
+
+        fn places(&self, cx: &App) -> Vec<FilePlace> {
+            self.inner.places(cx)
+        }
+
+        fn create_folder(
+            &self,
+            parent: &LocationId,
+            name: &str,
+            cx: &mut App,
+        ) -> Task<Result<LocationId, FileError>> {
+            self.inner.create_folder(parent, name, cx)
+        }
+
+        fn exists(&self, parent: &LocationId, name: &str, cx: &mut App) -> Task<bool> {
+            self.inner.exists(parent, name, cx)
+        }
+    }
+
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::default(), cx));
+    let provider = Delayed {
+        inner: memory(),
+        root_delay: Duration::from_millis(100),
+    };
+    let model = app.update(|cx| cx.new(|cx| FileBrowserModel::new(Rc::new(provider), "/", cx)));
+    let window = app.add_window(|_, _| Empty);
+    let mut cx = VisualTestContext::from_window(*window, &app);
+    cx.update(|_, cx| model.update(cx, |model, cx| model.navigate("/docs", cx)));
+    cx.run_until_parked();
+    assert_eq!(cx.read(|cx| model.read(cx).location().to_string()), "/docs");
+    assert_eq!(visible(&model, &mut cx), ["note.txt"]);
+    cx.executor().advance_clock(Duration::from_millis(200));
+    cx.run_until_parked();
+    assert_eq!(
+        cx.read(|cx| model.read(cx).location().to_string()),
+        "/docs",
+        "the older root listing cannot overwrite the newer location"
+    );
+    assert_eq!(visible(&model, &mut cx), ["note.txt"]);
+}

@@ -513,14 +513,16 @@ impl RenderOnce for WindowFrame {
             .text_color(hsla(c.text))
             .rounded(px(radius))
             .child(band)
-            .child(
+            .child({
+                let sheets = crate::sheet::overlay(window, cx);
                 div()
                     .flex_1()
                     .min_h_0()
                     .w_full()
                     .relative()
-                    .children(self.content),
-            )
+                    .children(self.content)
+                    .children(sheets)
+            })
             .when_some(self.bottom_bar, |el, bar| {
                 el.child(
                     div()

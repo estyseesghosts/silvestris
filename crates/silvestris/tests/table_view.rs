@@ -6,8 +6,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    point, px, App, AppContext, Entity, Modifiers, MouseButton, SharedString, TestAppContext,
-    VisualTestContext,
+    div, point, prelude::*, px, App, AppContext, Context, Entity, Modifiers, MouseButton,
+    SharedString, TestAppContext, VisualTestContext, Window,
 };
 use silvestris::binding::{ItemId, ListController};
 use silvestris::controls::{
@@ -397,4 +397,136 @@ fn a_hundred_thousand_rows_render_only_the_viewport_and_survive_live_updates() {
         f.table.read(cx).scroll_handle().position()
     });
     assert_eq!(after, position);
+}
+
+fn options_fixture(
+    app: &mut TestAppContext,
+    configure: impl FnOnce(&mut TableView<File>, &mut Context<TableView<File>>),
+) -> (Entity<TableView<File>>, &mut VisualTestContext) {
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    let controller = app.update(|cx| {
+        cx.new(|_| {
+            let mut c = ListController::new(|f: &File| f.id.to_string().into());
+            c.set_items(files());
+            c
+        })
+    });
+    let (table, cx) = app.add_window_view(move |_, cx| {
+        let mut table = TableView::new(controller, columns(), cx);
+        configure(&mut table, cx);
+        table
+    });
+    cx.run_until_parked();
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    (table, cx)
+}
+
+#[test]
+fn hiding_the_header_removes_its_hit_area_and_starts_rows_at_the_top() {
+    let mut app = TestAppContext::single();
+    let (table, cx) = options_fixture(&mut app, |table, cx| {
+        table.set_header_visible(false, cx);
+    });
+    assert!(cx.debug_bounds("table-header").is_none());
+    let view = cx.debug_bounds("table-view").unwrap();
+    let row = cx.debug_bounds("table-row-0").unwrap();
+    assert_eq!(
+        row.top(),
+        view.top(),
+        "without a header the first row starts at the table top"
+    );
+    assert!(!cx.read(|cx| table.read(cx).header_visible()));
+}
+
+#[test]
+fn turning_stripes_off_leaves_a_plain_content_background() {
+    let mut app = TestAppContext::single();
+    let (table, cx) = options_fixture(&mut app, |table, cx| {
+        table.set_alternating(false, cx);
+    });
+    assert!(!cx.read(|cx| table.read(cx).alternating()));
+    assert!(
+        cx.debug_bounds("table-row-1").is_some(),
+        "rows still render without stripes"
+    );
+}
+
+#[test]
+fn fill_width_stretches_the_last_column_and_hides_the_horizontal_bar() {
+    let mut app = TestAppContext::single();
+    let (_table, cx) = options_fixture(&mut app, |table, cx| {
+        table.set_fill_width(true, cx);
+    });
+    let view = cx.debug_bounds("table-view").expect("table");
+    let row = cx.debug_bounds("table-row-0").expect("row");
+    assert!(
+        (f32::from(row.size.width) - f32::from(view.size.width)).abs() <= 16.0,
+        "row {} should fill the table {} (less the vertical bar)",
+        row.size.width,
+        view.size.width
+    );
+    assert!(
+        cx.debug_bounds("scrollbar-horizontal").is_none(),
+        "fill-width content never shows a horizontal bar"
+    );
+}
+
+struct TwoTables {
+    first: Entity<TableView<File>>,
+    second: Entity<TableView<File>>,
+}
+
+impl gpui::Render for TwoTables {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .child(div().h(px(150.)).child(self.first.clone()))
+            .child(div().flex_1().child(self.second.clone()))
+    }
+}
+
+#[test]
+fn programmatic_focus_moves_between_two_tables() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    let first_controller = app.update(|cx| {
+        cx.new(|_| {
+            let mut c = ListController::new(|f: &File| f.id.to_string().into());
+            c.set_items(files());
+            c
+        })
+    });
+    let second_controller = app.update(|cx| {
+        cx.new(|_| {
+            let mut c = ListController::new(|f: &File| f.id.to_string().into());
+            c.set_items(files());
+            c
+        })
+    });
+    let (view, cx) = app.add_window_view(move |_, cx| {
+        let first = cx.new(|cx| TableView::new(first_controller, columns(), cx));
+        let second = cx.new(|cx| TableView::new(second_controller, columns(), cx));
+        TwoTables { first, second }
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        let first = view.read(cx).first.clone();
+        let second = view.read(cx).second.clone();
+        use gpui::Focusable;
+        window.focus(&first.read(cx).focus_handle(cx), cx);
+        assert!(first.read(cx).focus_handle(cx).contains_focused(window, cx));
+        assert!(!second
+            .read(cx)
+            .focus_handle(cx)
+            .contains_focused(window, cx));
+        window.focus(&second.read(cx).focus_handle(cx), cx);
+        assert!(second
+            .read(cx)
+            .focus_handle(cx)
+            .contains_focused(window, cx));
+        assert!(!first.read(cx).focus_handle(cx).contains_focused(window, cx));
+    });
 }

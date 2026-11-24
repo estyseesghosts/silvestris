@@ -201,11 +201,16 @@ all four appearances.
 | Table view | `TableView`, `TableColumn` | Sortable, resizable, reorderable columns with autosave; multiple selection by id, type-select, in-place editing, virtualised rows. [table.md](table.md) |
 | Scroll view | `ScrollView`, `Scrollbar`, `ScrollSource` | Content plus both scroll bars and the corner over a `ScrollHandle`, `UniformListScrollHandle` or `ListState`; regular, small and mini; Appearance preferences. [scrollbar.md](scrollbar.md) |
 | Source list | `SourceList`, `SourceListEvent`, `SourceListStyle`, `RowAccessory`, `RowStatus` | Sidebar tree with sections, badges, eject and status accessories. [source-list.md](source-list.md) |
+| Column browser | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | Hierarchical columns over provider-supplied children; late answers, Left/Right, resize grip, preview. [column-browser.md](column-browser.md) |
+| Path controls | `PathPopUp`, `PathControl`, `PathEntry` | Ancestors plus Recent Places, and the Finder breadcrumb. Emit a location id; the app navigates |
+| Open and Save panels | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel` | Save/Save As and Open as a sheet or app-modal dialog. Returns paths/locations; never writes files. [file-panels.md](file-panels.md) |
+| Sheet | `sheet::Sheet`, `sheet::present`, `sheet::overlay` | Document-owned surface under the title bar; modal policy stays in `modal` |
+| Alert | `Alert`, `AlertButton`, `AlertResult` | Icon, message, up to three buttons, suppression; replace-existing preset. Stacks over a sheet |
 | Table rows | `table::virtual_table`, `table::code_row` | Virtualized alternating rows; you own the cell contents |
 | Help tags | `tooltip::attach`, `tooltip::attach_in` | Themed tooltips on the transient layer |
 | Notices | `Notice`, `notice::error_banner` | Empty and error states for a workspace |
 | Status values | `status::value` | Labelled values for status bars |
-| Confirmation sheet | `ConfirmationSheet`, `ConfirmationFocus` | Being replaced by alerts and sheets (#21, #22); do not build on it |
+| Confirmation sheet | `ConfirmationSheet`, `ConfirmationFocus` | Thin wrapper over `Alert`; new code should compose `Alert` and a `sheet::Sheet` |
 | Multiline text | `TextArea` | Prototype. Do not adopt until #58 lands the multiline API |
 
 ### Data binding

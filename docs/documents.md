@@ -26,6 +26,32 @@ impl Document for MyDocument {
 `save_as` calls `save`, so an app without Save As still type-checks.
 `DocumentHandle` erases the concrete type for `DocumentController`.
 
+## Save As and Open commands
+
+`Document::save_to(path, cx)` is the Save panel destination hook; its default
+calls `save`. Register the standard ids from `document::commands` (`file.save`,
+`file.save-as`, `file.open`).
+
+`document::save_as_panel(document, provider, owner, window, cx)` presents the
+Save panel as a document sheet and calls `save_to` on the chosen path.
+`save_as_panel_with` also reports `SaveResult`, which is what a close flow uses:
+
+```rust
+match controller.resolve_prompt(PromptChoice::Save, cx) {
+    CloseStep::Saving => {
+        document::save_as_panel_with(document, provider, owner, window, cx,
+            move |result, cx| { controller.resolve_save(result); });
+    }
+    CloseStep::Close => window.remove_window(),
+    _ => {}
+}
+```
+
+`document::open_panel(provider, window, cx, on_open)` presents the Open panel
+application-modal and calls `on_open` for each chosen host path. Neither helper
+changes identity or dirty-state semantics; the app decides what a path means.
+[file-panels.md](file-panels.md) has the provider and panel recipe.
+
 ## Controller
 
 `DocumentController` runs one window's close decision:

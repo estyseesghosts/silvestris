@@ -5,6 +5,35 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 6d3ceb1
+
+M3 column browser, path controls and M4 panels (#34, #41, #22, #23, #29):
+
+- Added `controls::ColumnBrowser`, `BrowserNode`, `BrowserEvent` and the
+  `browser.*` measurements. `ColumnBrowser` gained `set_rename`,
+  `begin_editing` and `is_editing` for New Folder in column view.
+  `TableView` gained `set_header_visible`, `set_alternating`, `set_fill_width`,
+  `repaint` and the matching getters.
+- Added `controls::PathPopUp`, `PathControl`, `PathEntry`, `PathEvent` and
+  `LocationId`. `PopUpButton` gained `leading_icon` and `unselectable`.
+- Added `icons::Icon` (folder, home, desktop, documents, volume, document,
+  application, back, forward, list, columns, eject, search) and
+  `icons::{role_renderer, source_renderer}`.
+- Added `chrome::WindowFrame` sheet attachment through `sheet::overlay`; a
+  custom window root must call `sheet::overlay` to show sheets.
+- Added `modal::ModalSession::set_focus_stops` and `set_scope`.
+- Added `controls::Alert`, `AlertButton`, `AlertResult`, `AlertRole` and the
+  `Alert::replace_existing` preset. `ConfirmationSheet` keeps its API and now
+  renders an `Alert` body.
+- Added `sheet::Sheet`, `sheet::present` and `sheet::active_sessions`.
+- Added `file_panel` with `FileProvider`, `FileEntry`, `FilePlace`,
+  `FileAncestor`, `FileError`, `FileKind`, `MemoryProvider`, the feature-gated
+  `StdFsProvider`, `FileBrowserModel`, `FileBrowserEvent`, `FileViewMode`,
+  `SavePanel`, `OpenPanel`, `FilePanel` and `PanelOutcome`.
+- `SavePanel`/`OpenPanel` present a document sheet with an owner window and an
+  application-modal dialog without one.
+- Added the `std-fs` feature (off by default) for the local-disk provider.
+
 ## After 6bd0467
 
 M3 table view (#32):

@@ -20,14 +20,19 @@ use silvestris::binding::ListController;
 use silvestris::chrome::WindowFrame;
 use silvestris::command::CommandRegistry;
 use silvestris::controls::{
-    Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ControlSize, Disclosure,
-    DisclosureStyle, GroupBox, Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup,
-    RadioOption, RowAccessory, RowStatus, ScrollAxes, ScrollView, Segment, SegmentStyle,
-    SegmentedControl, Separator, Slider, SortDirection, SourceList, SourceListStyle, TabView,
-    TableColumn, TableView, TextField, ThumbStyle, Well,
+    BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
+    ControlSize, Disclosure, DisclosureStyle, GroupBox, Orientation, PopUpButton, PopupStyle,
+    ProgressIndicator, RadioGroup, RadioOption, RowAccessory, RowStatus, ScrollAxes, ScrollView,
+    Segment, SegmentStyle, SegmentedControl, Separator, Slider, SortDirection, SourceList,
+    SourceListStyle, TabView, TableColumn, TableView, TextField, ThumbStyle, Well,
 };
 use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
+use silvestris::file_panel::{
+    FileEntry, FilePanel, FilePlace, FileViewMode, MemoryProvider, PanelMode, PanelOptions,
+    PlaceSection,
+};
+use silvestris::icons::Icon;
 use silvestris::menu::PopupMenu;
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
@@ -45,7 +50,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 49] = [
+const SAMPLES: [Sample; 50] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -291,6 +296,36 @@ const SAMPLES: [Sample; 49] = [
         width: 244.,
         height: 110.,
     },
+    Sample {
+        id: "column-browser",
+        width: 244.,
+        height: 110.,
+    },
+];
+
+/// File panels are larger than a grid cell; they get their own page after the
+/// menus so neither the grid nor the menu samples move.
+const PANEL_SAMPLES: [Sample; 4] = [
+    Sample {
+        id: "open-panel-columns",
+        width: 527.,
+        height: 398.,
+    },
+    Sample {
+        id: "open-panel-list",
+        width: 527.,
+        height: 398.,
+    },
+    Sample {
+        id: "save-panel-expanded",
+        width: 527.,
+        height: 398.,
+    },
+    Sample {
+        id: "save-panel-collapsed",
+        width: 527.,
+        height: 160.,
+    },
 ];
 
 /// Open menus are larger than a grid cell, so they get their own last page,
@@ -313,6 +348,10 @@ fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
 
+fn panel_page() -> usize {
+    menu_page() + 1
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
@@ -320,6 +359,9 @@ fn rows(page: usize) -> usize {
 fn page_samples(page: usize) -> &'static [Sample] {
     if page == menu_page() {
         return &MENU_SAMPLES;
+    }
+    if page == panel_page() {
+        return &PANEL_SAMPLES;
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -330,6 +372,11 @@ fn root_size(page: usize) -> (f32, f32) {
     if page == menu_page() {
         let width = MENU_SAMPLES.iter().map(|s| s.width + GAP).sum::<f32>() - GAP;
         let height = MENU_SAMPLES.iter().map(|s| s.height).fold(0., f32::max);
+        return (PAD + width + PAD, PAD + height + PAD);
+    }
+    if page == panel_page() {
+        let width = 2.0 * PANEL_SAMPLES[0].width + GAP;
+        let height = PANEL_SAMPLES[0].height + GAP + PANEL_SAMPLES[0].height;
         return (PAD + width + PAD, PAD + height + PAD);
     }
     (
@@ -349,6 +396,17 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
                 rect
             })
             .collect();
+    }
+    if page == panel_page() {
+        let mut rects = Vec::new();
+        for (index, sample) in PANEL_SAMPLES.iter().enumerate() {
+            let column = index % 2;
+            let row = index / 2;
+            let x = PAD + column as f32 * (PANEL_SAMPLES[0].width + GAP);
+            let y = PAD + row as f32 * (PANEL_SAMPLES[0].height + GAP);
+            rects.push((sample.id, x, y, sample.width, sample.height));
+        }
+        return rects;
     }
     let samples = page_samples(page);
     let mut rects = Vec::with_capacity(samples.len());
@@ -370,6 +428,8 @@ struct CaptureView {
     scroll: gpui::ScrollHandle,
     // Finder list view: 16 px header, 19 px rows, sorted by Name.
     table: Entity<TableView<(u32, &'static str, &'static str)>>,
+    browser: Entity<ColumnBrowser>,
+    panels: Vec<Entity<FilePanel>>,
     menus: Vec<Entity<PopupMenu>>,
     // Finder content white under the Arrange By menu.
     content: silvestris::core::Rgba8,
@@ -430,6 +490,26 @@ impl CaptureView {
             list.set_expanded("home", true, cx);
             list.select("documents", cx);
         });
+        let browser = cx.new(|cx| {
+            let mut browser = ColumnBrowser::new(
+                vec![
+                    BrowserNode::branch("home", "Home"),
+                    BrowserNode::leaf("readme", "Read Me"),
+                ],
+                cx,
+            );
+            browser.set_children(
+                "home",
+                vec![
+                    BrowserNode::branch("desktop", "Desktop"),
+                    BrowserNode::branch("documents", "Documents"),
+                    BrowserNode::leaf("notes", "Notes.txt"),
+                ],
+                cx,
+            );
+            browser.set_path(&["home".into(), "documents".into()], cx);
+            browser
+        });
         let secondary = cx.new(|cx| {
             let inbox = SourceNode::new("inbox", "Inbox");
             let sent = SourceNode::new("sent", "Sent");
@@ -472,6 +552,35 @@ impl CaptureView {
             Vec::new()
         };
 
+        let panels = if page == panel_page() {
+            let provider: std::rc::Rc<dyn silvestris::file_panel::FileProvider> =
+                std::rc::Rc::new(capture_file_provider());
+            let specs = [
+                (PanelMode::Open, true, FileViewMode::Columns, "Untitled.txt"),
+                (PanelMode::Open, true, FileViewMode::List, "Untitled.txt"),
+                (PanelMode::Save, true, FileViewMode::List, "Untitled.txt"),
+                (PanelMode::Save, false, FileViewMode::List, "Untitled.txt"),
+            ];
+            specs
+                .into_iter()
+                .map(|(mode, expanded, view, name)| {
+                    let mut options = PanelOptions::new(mode, "/".into());
+                    options.expanded = expanded;
+                    options.name = name.into();
+                    options.allowed_types = vec!["txt".into()];
+                    let panel = FilePanel::build(options, provider.clone(), window, cx);
+                    panel.update(cx, |panel, cx| {
+                        let model = panel.model();
+                        model.update(cx, |model, cx| model.set_view(view, cx));
+                        cx.notify();
+                    });
+                    panel
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         window.on_next_frame(move |window, cx| {
             capture(window, cx, &out, scale, page);
             cx.quit();
@@ -483,6 +592,8 @@ impl CaptureView {
             secondary,
             scroll: gpui::ScrollHandle::new(),
             table,
+            browser,
+            panels,
             menus,
             content: cx.theme().colors.content,
             row_alternate: cx.theme().colors.row_alternate,
@@ -754,6 +865,11 @@ impl CaptureView {
                     .into_any_element()
             }
             "table-view" => self.table.clone().into_any_element(),
+            "column-browser" => self.browser.clone().into_any_element(),
+            "open-panel-columns" => self.panels[0].clone().into_any_element(),
+            "open-panel-list" => self.panels[1].clone().into_any_element(),
+            "save-panel-expanded" => self.panels[2].clone().into_any_element(),
+            "save-panel-collapsed" => self.panels[3].clone().into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -804,6 +920,63 @@ impl Render for CaptureView {
         }
         root
     }
+}
+
+/// Deterministic provider for the panel captures.
+fn capture_file_provider() -> MemoryProvider {
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        vec![
+            FileEntry::folder("desktop", "Desktop"),
+            FileEntry::folder("documents", "Documents"),
+            FileEntry::document("readme", "Read Me.txt")
+                .size(4096)
+                .modified(1_700_000_000),
+            FileEntry::document("stacks", "About Stacks.pdf").size(1_048_576),
+            FileEntry::document("photo", "Photo.png").size(2_097_152),
+        ],
+    );
+    provider.add_location(
+        "/documents",
+        "Documents",
+        Icon::Documents,
+        Some("/".into()),
+        vec![FileEntry::document("notes", "Notes.txt")],
+    );
+    provider.set_places(vec![
+        FilePlace::new("/", "Macintosh HD", Icon::Volume, PlaceSection::Devices).eject(true),
+        FilePlace::new("/", "Desktop", Icon::Desktop, PlaceSection::Places),
+        FilePlace::new("/", "terezi", Icon::Home, PlaceSection::Places),
+        FilePlace::new(
+            "/documents",
+            "Documents",
+            Icon::Documents,
+            PlaceSection::Places,
+        ),
+        FilePlace::new(
+            "search:today",
+            "Today",
+            Icon::Search,
+            PlaceSection::SearchFor,
+        ),
+        FilePlace::new(
+            "search:yesterday",
+            "Yesterday",
+            Icon::Search,
+            PlaceSection::SearchFor,
+        ),
+        FilePlace::new(
+            "search:week",
+            "Past Week",
+            Icon::Search,
+            PlaceSection::SearchFor,
+        ),
+    ]);
+    provider
 }
 
 /// Register no-op commands and build a menu model from `(id, label)` rows;
