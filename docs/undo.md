@@ -46,7 +46,10 @@ because Control is pushed innermost.
 - composing changes are skipped, so IME updates do not create steps;
 - contiguous or cumulative typing amends one `Typing` entry. Platform input
   may send `"a"` then `"ab"` over `0..1`; both shapes coalesce.
-- a backspace or delete is its own `Delete` step.
+- a backspace or delete is its own `Delete` step;
+- undo or redo during an IME composition cancels the composition first. The
+  marked text was never recorded, so leaving it in the buffer would shift every
+  recorded range after it and the step would edit the wrong bytes.
 
 `TextField::history()`/`undo_entry()` and `TextArea::history()`/`undo_entry()`
 expose it. `after_history_change` emits the client's `Changed` event and asks
@@ -54,11 +57,16 @@ for a repaint.
 
 ## Apps with their own history
 
-chaus keeps a Ropey editor and its own undo. It does not need `TextHistory`: it
-pushes entries with `record` from its document model at Document scope, or
-implements an undo provider in the app. The manager only needs reversible
-closures, so a document can also group a drag or a multi-field form edit with
-`begin_group`.
+chaus keeps a Ropey editor and its own undo. Silvestris's stack is not imposed
+on it. There are two routes:
+
+- **Provider.** The editor implements `Responder` for `edit.undo` and
+  `edit.redo` over its own history, returns `Undo <name>` from `state`, and is
+  pushed at Document scope. The chain picks it over outer stacks and the menu
+  title comes from it. `UndoManager` is not involved.
+- **Built-in stack.** The document model pushes reversible closures with
+  `record`; a drag or multi-field edit can be grouped with `begin_group`.
+
 
 ## Tests
 
@@ -67,5 +75,9 @@ limit; titles and clear; responder claims and disabled state; limit floor 1.
 `TextField`: typing `ab` is one `Typing` entry, undo empties the field, redo
 restores it; a chain with a Document stack and a focused field's Control stack
 presents `Undo Typing` and leaves the document stack untouched.
+`undo.rs` also bridges an editor with its own history as a provider: the
+chain presents `Undo Rename` from it, dispatches to it and leaves the app's
+`UndoManager` untouched. `TextField`: undo during a composition cancels the
+marked text and undoes the typing; redo restores it.
 `TextArea`: typing coalesces, undo/redo restore the text, a backspace is a
 separate step and undoing it restores the character.

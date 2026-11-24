@@ -1277,6 +1277,55 @@ mod undo_tests {
         cx.run_until_parked();
     }
 
+    /// #39 trap: Undo during an IME composition. The marked text was never
+    /// recorded, so it is cancelled first; otherwise every recorded range after
+    /// it is shifted and Undo edits the wrong bytes.
+    #[test]
+    fn undo_during_a_composition_cancels_it_and_restores_the_recorded_text() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            bind_keys(cx);
+        });
+        let (view, cx) = app.add_window_view(|window, cx| {
+            let field = cx.new(|cx| TextField::new(window, cx));
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            Harness { field, focus }
+        });
+        draw(cx);
+        let field = view.read_with(cx, |view, _| view.field.clone());
+        let field_focus = field.read_with(cx, |field, cx| field.focus_handle(cx));
+        cx.update(|window, cx| window.focus(&field_focus, cx));
+        draw(cx);
+        cx.simulate_input("ab");
+        draw(cx);
+        cx.update(|window, cx| {
+            field.update(cx, |field, cx| {
+                field.set_selected_text_range(0..0, window, cx);
+                field.replace_and_mark_text_in_range(None, "\u{304b}", None, window, cx);
+            });
+        });
+        draw(cx);
+        assert_eq!(
+            field.read_with(cx, |f, _| f.text().to_string()),
+            "\u{304b}ab"
+        );
+        let history = field.read_with(cx, |f, _| f.history());
+        cx.update(|_, cx| assert!(history.update(cx, |h, cx| h.undo(cx))));
+        draw(cx);
+        let (text, marked) =
+            field.read_with(cx, |f, _| (f.text().to_string(), f.session.marked_range()));
+        assert_eq!(
+            text, "",
+            "the composition is cancelled and the typing undone"
+        );
+        assert_eq!(marked, None);
+        cx.update(|_, cx| assert!(history.update(cx, |h, cx| h.redo(cx))));
+        draw(cx);
+        assert_eq!(field.read_with(cx, |f, _| f.text().to_string()), "ab");
+    }
+
     #[test]
     fn typing_coalesces_and_undo_and_redo_restore_the_field() {
         let mut app = TestAppContext::single();

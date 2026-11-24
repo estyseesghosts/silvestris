@@ -14,6 +14,9 @@ M1 audit fixes. Behaviour changes a consumer must check:
   `(<context>) && !SilvestrisText`. Drop hand-written `!SilvestrisTextField`
   clauses; they still parse, but they missed `TextArea`, where bare-key
   commands used to fire while typing (#57).
+- Undo or redo during an IME composition now cancels the composition before
+  applying the step. Before, the unrecorded marked text stayed in the buffer
+  and shifted the recorded ranges, so the step edited the wrong bytes (#39).
 
 ## After 216de9b
 

@@ -383,6 +383,7 @@ impl TextHistory {
                 coalesce,
                 move |cx| {
                     undo_entity.update(cx, |host, cx| {
+                        cancel_composition(host.session_mut());
                         let start = undo_range.start;
                         let end = start + undo_text.len();
                         host.session_mut()
@@ -392,6 +393,7 @@ impl TextHistory {
                 },
                 move |cx| {
                     redo_entity.update(cx, |host, cx| {
+                        cancel_composition(host.session_mut());
                         let start = redo_range.start;
                         let end = start + redo_removed.len();
                         host.session_mut()
@@ -406,6 +408,18 @@ impl TextHistory {
     /// Forget the typing merge, for example after the caret moved.
     pub fn forget_typing(&mut self) {
         self.typing = None;
+    }
+}
+
+/// Drop an in-progress IME composition before history touches the buffer.
+/// Marked text is never recorded (`TextHistory::record` skips composing
+/// changes), so leaving it in place would shift every recorded range after it;
+/// removing it restores the buffer the history describes (#39 trap: undo during
+/// composition commits or cancels it first; Silvestris cancels).
+fn cancel_composition(session: &mut EditSession) {
+    if let Some(marked) = session.marked_range() {
+        session.replace_range(marked, "", false);
+        session.clear_marked();
     }
 }
 
@@ -594,6 +608,100 @@ mod tests {
             assert!(state.enabled);
             assert_eq!(state.title.as_deref(), Some("Undo Typing"));
         });
+    }
+
+    /// An editor with its own history (chaus's Ropey editor) is an undo
+    /// provider: it implements `Responder` for `edit.undo`/`edit.redo` and
+    /// never touches `UndoManager`. The chain picks it over the app's stack and
+    /// the menu title comes from it (#39 done-when: provider bridged in a test).
+    #[test]
+    fn an_editor_with_its_own_history_is_an_undo_provider() {
+        use crate::command::{CommandRegistry, Invocation};
+        use crate::responder::{ResponderChain, ResponderEntry};
+        use silvestris_core::command::CommandDescriptor;
+
+        struct OwnHistory {
+            done: Vec<&'static str>,
+            undone: Vec<&'static str>,
+        }
+        impl Responder for OwnHistory {
+            fn handles(&self, id: &CommandId) -> bool {
+                matches!(id.as_str(), "edit.undo" | "edit.redo")
+            }
+            fn state(&self, id: &CommandId, _: &App) -> ResponderState {
+                let top = match id.as_str() {
+                    "edit.undo" => self.done.last(),
+                    _ => self.undone.last(),
+                };
+                let verb = if id.as_str() == "edit.undo" {
+                    "Undo"
+                } else {
+                    "Redo"
+                };
+                match top {
+                    Some(name) => ResponderState::enabled().with_title(format!("{verb} {name}")),
+                    None => ResponderState::disabled().with_title(verb),
+                }
+            }
+            fn perform(&mut self, id: &CommandId, _: &mut gpui::Window, _: &mut Context<Self>) {
+                let (from, to) = if id.as_str() == "edit.undo" {
+                    (&mut self.done, &mut self.undone)
+                } else {
+                    (&mut self.undone, &mut self.done)
+                };
+                if let Some(step) = from.pop() {
+                    to.push(step);
+                }
+            }
+        }
+
+        let mut app = app();
+        let (editor, app_stack, registry) = app.update(|cx| {
+            let editor = cx.new(|_| OwnHistory {
+                done: vec!["Rename"],
+                undone: Vec::new(),
+            });
+            let app_stack = cx.new(|_| UndoManager::new());
+            app_stack.update(cx, |m, _| m.record("App step", None, |_| {}, |_| {}));
+            let registry = cx.new(|_| CommandRegistry::default());
+            registry.update(cx, |r, cx| {
+                for (id, label) in [("edit.undo", "Undo"), ("edit.redo", "Redo")] {
+                    r.register(CommandDescriptor::action(id, label), |_, _, _| {}, cx)
+                        .unwrap();
+                }
+            });
+            (editor, app_stack, registry)
+        });
+        let mut chain = ResponderChain::new();
+        chain.push(entry(&app_stack, ResponderScope::Application, "app"));
+        chain.push(ResponderEntry::new(
+            ResponderScope::Document,
+            "editor",
+            &editor,
+        ));
+        let cx = app.add_empty_window();
+        cx.update(|window, cx| {
+            let undo = chain
+                .present(&registry, &"edit.undo".into(), window, cx)
+                .expect("descriptor");
+            assert_eq!(undo.label, "Undo Rename");
+            assert_eq!(
+                chain.dispatch(&registry, &"edit.undo".into(), window, cx),
+                Invocation::Dispatched
+            );
+            let redo = chain
+                .present(&registry, &"edit.redo".into(), window, cx)
+                .expect("descriptor");
+            assert_eq!(redo.label, "Redo Rename");
+        });
+        assert_eq!(
+            editor.read_with(cx, |e, _| e.undone.clone()),
+            vec!["Rename"]
+        );
+        assert!(
+            app_stack.read_with(cx, |m, _| m.can_undo()),
+            "the built-in stack is not used"
+        );
     }
 
     #[test]
