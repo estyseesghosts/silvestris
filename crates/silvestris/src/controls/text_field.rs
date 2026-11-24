@@ -34,8 +34,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::ControlSize;
 use crate::convert::hsla;
 use crate::paint;
-use crate::text::{ClipboardPolicy, EditSession, Selection};
+use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
 use crate::theme::ActiveTheme;
+use crate::undo::{self, UndoManager};
 
 actions!(
     silvestris_text,
@@ -177,6 +178,9 @@ pub struct TextField {
     selecting: bool,
     caret_on: bool,
     blink_epoch: u64,
+    undo: Entity<UndoManager>,
+    typing: Option<(Range<usize>, String)>,
+    typing_serial: u64,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -218,12 +222,121 @@ impl TextField {
             selecting: false,
             caret_on: true,
             blink_epoch: 0,
+            undo: cx.new(|_| UndoManager::new()),
+            typing: None,
+            typing_serial: 0,
             _subscriptions: subscriptions,
         }
     }
 
     pub fn text(&self) -> &str {
         self.session.text()
+    }
+
+    /// The field's local undo stack. Register it at Control scope while the
+    /// field is focused; the chain picks it over the document's stack.
+    #[must_use]
+    pub fn history(&self) -> Entity<UndoManager> {
+        self.undo.clone()
+    }
+
+    /// A responder entry for this field's undo stack.
+    #[must_use]
+    pub fn undo_entry(&self) -> crate::responder::ResponderEntry {
+        undo::entry(
+            &self.undo,
+            crate::responder::ResponderScope::Control,
+            "text-field-undo",
+        )
+    }
+
+    fn record_change(&mut self, change: &Change, cx: &mut Context<Self>) {
+        if change.composing {
+            return;
+        }
+        let entity = cx.entity();
+        let insert = !change.inserted.is_empty();
+        let (contiguous, cumulative) =
+            self.typing
+                .as_ref()
+                .map_or((false, false), |(range, text)| {
+                    if !insert {
+                        return (false, false);
+                    }
+                    let contiguous = range.end == change.range.start && text.len() == range.len();
+                    // Platform input may send cumulative replacements: "a", then "ab"
+                    // over 0..1 rather than inserting "b" at 1.
+                    let cumulative = change.range.start <= range.start
+                        && change.inserted.starts_with(text.as_str());
+                    (contiguous, cumulative)
+                });
+        let (range, text, coalesce) = if contiguous || cumulative {
+            let previous = self.typing.take();
+            if cumulative {
+                (
+                    change.range.clone(),
+                    change.inserted.clone(),
+                    Some(self.typing_serial),
+                )
+            } else {
+                let (range, text) =
+                    previous.unwrap_or_else(|| (change.inserted_range(), change.inserted.clone()));
+                (
+                    range.start..range.start + text.len() + change.inserted.len(),
+                    format!("{text}{}", change.inserted),
+                    Some(self.typing_serial),
+                )
+            }
+        } else {
+            self.typing_serial += 1;
+            self.typing = insert.then(|| (change.inserted_range(), change.inserted.clone()));
+            (
+                change.range.clone(),
+                change.inserted.clone(),
+                insert.then_some(self.typing_serial),
+            )
+        };
+        self.typing = insert.then(|| {
+            let stored = if contiguous || cumulative {
+                range.clone()
+            } else {
+                change.inserted_range()
+            };
+            (stored, text.clone())
+        });
+        let name = if insert { "Typing" } else { "Delete" };
+        let undo_entity = entity.clone();
+        let undo_range = range.clone();
+        let undo_text = text.clone();
+        let redo_entity = entity;
+        let redo_range = range;
+        let redo_text = text;
+        self.undo.update(cx, |manager, _| {
+            manager.record(
+                name,
+                coalesce,
+                move |cx| {
+                    undo_entity.update(cx, |field, cx| {
+                        let start = undo_range.start;
+                        let end = start + undo_text.len();
+                        field.session.replace_range(start..end, "", false);
+                        field.typing = None;
+                        cx.emit(TextFieldEvent::Changed);
+                        cx.notify();
+                    });
+                },
+                move |cx| {
+                    redo_entity.update(cx, |field, cx| {
+                        field
+                            .session
+                            .replace_range(redo_range.clone(), &redo_text, false);
+                        field.typing = None;
+                        cx.emit(TextFieldEvent::Changed);
+                        cx.notify();
+                    });
+                },
+            );
+        });
     }
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
@@ -708,10 +821,12 @@ impl EntityInputHandler for TextField {
             .map(|r| self.range_from_utf16(r))
             .or(self.session.marked_range())
             .unwrap_or(self.session.selected_range());
-        self.session.replace_range(range, new_text, false);
-        window.notify_text_input_changed(&self.focus);
-        cx.emit(TextFieldEvent::Changed);
-        self.restart_blink(window, cx);
+        if let Some(change) = self.session.replace_range(range, new_text, false) {
+            self.record_change(&change, cx);
+            window.notify_text_input_changed(&self.focus);
+            cx.emit(TextFieldEvent::Changed);
+            self.restart_blink(window, cx);
+        }
     }
 
     fn replace_and_mark_text_in_range(
@@ -1206,5 +1321,93 @@ impl Element for TextElement {
             field.last_bounds = Some(clip);
             field.scroll_x = scroll_x;
         });
+    }
+}
+
+#[cfg(test)]
+mod undo_tests {
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::*;
+
+    struct Harness {
+        field: Entity<TextField>,
+        focus: FocusHandle,
+    }
+
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .track_focus(&self.focus)
+                .child(div().w(px(240.)).child(self.field.clone()))
+        }
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+    }
+
+    #[test]
+    fn typing_coalesces_and_undo_and_redo_restore_the_field() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            bind_keys(cx);
+        });
+        let (view, cx) = app.add_window_view(|window, cx| {
+            let field = cx.new(|cx| TextField::new(window, cx));
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            Harness { field, focus }
+        });
+        draw(cx);
+        let field_focus = view.read_with(cx, |view, cx| view.field.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&field_focus, cx));
+        draw(cx);
+        cx.simulate_input("ab");
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "ab"
+        );
+        let (can_undo, name, entries) = view.read_with(cx, |view, cx| {
+            let history = view.field.read(cx).history();
+            let history = history.read(cx);
+            (
+                history.can_undo(),
+                history.undo_name().map(str::to_string),
+                history.len(),
+            )
+        });
+        assert!(can_undo);
+        assert_eq!(name.as_deref(), Some("Typing"), "entries: {entries}");
+        assert_eq!(entries, 1, "typing coalesces into one entry");
+
+        let history = view.read_with(cx, |view, cx| view.field.read(cx).history());
+        cx.update(|_, cx| {
+            history.update(cx, |history, cx| {
+                assert!(history.undo(cx));
+            });
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            ""
+        );
+        cx.update(|_, cx| {
+            history.update(cx, |history, cx| {
+                assert!(history.redo(cx));
+            });
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "ab"
+        );
     }
 }
