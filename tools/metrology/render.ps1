@@ -9,6 +9,7 @@ param(
     [string]$Out = "target/goldens",
     [string[]]$Appearance = @("aqua-light", "aqua-dark", "geist-light", "geist-dark"),
     [string[]]$Scale = @("1.0", "1.25", "1.5", "1.75", "2.0"),
+    [int]$Pages = 3,
     [string]$PrependPath = "",
     [switch]$Accept,
     [string]$Reason = "",
@@ -28,9 +29,11 @@ foreach ($theme in $Appearance) {
     foreach ($factor in $Scale) {
         $target = Join-Path $Out "$theme\$($percent[$factor])"
         Write-Host "== $theme $($percent[$factor])%"
-        & cargo run -q -p silvestris-demo --features capture --bin capture -- $theme $factor $target
-        if ($LASTEXITCODE -ne 0) {
-            throw "capture failed for $theme $factor"
+        for ($page = 0; $page -lt $Pages; $page++) {
+            & cargo run -q -p silvestris-demo --features capture --bin capture -- $theme $factor $target $page
+            if ($LASTEXITCODE -ne 0) {
+                throw "capture failed for $theme $factor page $page"
+            }
         }
     }
 }
