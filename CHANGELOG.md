@@ -7,6 +7,22 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #39, undo. Additive:
+
+- `undo::UndoManager` with `record`, `begin_group`/`end_group`, `undo`,
+  `redo`, `clear`, `set_limit`, `undo_name`/`redo_name`, `can_undo`/`can_redo`;
+  `UndoCallback`.
+- `undo::TextHistory` and `undo::TextHost`, which record `text::Change` with
+  typing coalescing; `undo::entry(manager, scope, name)`.
+- `Responder for UndoManager`, claiming `edit.undo`/`edit.redo` with projected
+  titles.
+- `TextField::history`/`undo_entry` and `TextArea::history`/`undo_entry`.
+- `text::Change` gained `removed` so undo can restore deleted text.
+
+Behaviour: a focused control's Control-scope stack beats a Document-scope
+stack; composing text is not recorded; contiguous and cumulative typing is one
+entry; a change emits the client's Changed event when undone or redone.
+
 PR #58, shared text core. Additive:
 
 - `text::EditSession` with buffer, `Selection`, grapheme/word/line/paragraph

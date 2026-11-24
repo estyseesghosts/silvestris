@@ -28,8 +28,9 @@ use super::text_field::{
 };
 use crate::convert::hsla;
 use crate::paint;
-use crate::text::{ClipboardPolicy, EditSession, Selection};
+use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
 use crate::theme::ActiveTheme;
+use crate::undo::{TextHistory, TextHost, UndoManager};
 
 /// Events a text area emits. `Changed` is a user edit; setters do not emit it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,6 +59,7 @@ pub struct TextArea {
     last_origin: Option<Point<Pixels>>,
     last_bounds: Option<Bounds<Pixels>>,
     current_line_height: Pixels,
+    history: TextHistory,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -101,6 +103,7 @@ impl TextArea {
             last_origin: None,
             last_bounds: None,
             current_line_height: px(16.),
+            history: TextHistory::new(cx),
             _subscriptions: subscriptions,
         }
     }
@@ -115,6 +118,37 @@ impl TextArea {
         self.session.set_text(text);
         self.scroll_y = px(0.);
         cx.notify();
+    }
+
+    /// The area's local undo stack.
+    #[must_use]
+    pub fn history(&self) -> Entity<UndoManager> {
+        self.history.manager()
+    }
+
+    /// A responder entry for this area's undo stack.
+    #[must_use]
+    pub fn undo_entry(&self) -> crate::responder::ResponderEntry {
+        self.history
+            .entry(crate::responder::ResponderScope::Control, "text-area-undo")
+    }
+
+    fn record_change(&mut self, change: Option<Change>, cx: &mut Context<Self>) -> bool {
+        let Some(change) = change else {
+            return false;
+        };
+        let entity = cx.entity();
+        self.history.record(entity, &change, cx);
+        true
+    }
+
+    /// Record the edit, then emit Changed and notify.
+    fn after_edit(&mut self, change: Option<Change>, window: &mut Window, cx: &mut Context<Self>) {
+        if self.record_change(change, cx) {
+            window.notify_text_input_changed(&self.focus);
+            cx.emit(TextAreaEvent::Changed);
+            self.restart_blink(window, cx);
+        }
     }
 
     pub fn set_placeholder(
@@ -176,12 +210,6 @@ impl TextArea {
             }
         })
         .detach();
-    }
-
-    fn emit_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        window.notify_text_input_changed(&self.focus);
-        cx.emit(TextAreaEvent::Changed);
-        self.restart_blink(window, cx);
     }
 
     // --- movement ---------------------------------------------------------
@@ -395,19 +423,19 @@ impl TextArea {
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
-        if self.session.backspace().is_some() {
-            self.emit_changed(window, cx);
-        } else {
+        let change = self.session.backspace();
+        if change.is_none() {
             window.play_system_bell();
         }
+        self.after_edit(change, window, cx);
     }
 
     fn delete(&mut self, _: &Delete, window: &mut Window, cx: &mut Context<Self>) {
-        if self.session.delete().is_some() {
-            self.emit_changed(window, cx);
-        } else {
+        let change = self.session.delete();
+        if change.is_none() {
             window.play_system_bell();
         }
+        self.after_edit(change, window, cx);
     }
 
     fn delete_word_left(
@@ -416,9 +444,8 @@ impl TextArea {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.session.delete_word_left().is_some() {
-            self.emit_changed(window, cx);
-        }
+        let change = self.session.delete_word_left();
+        self.after_edit(change, window, cx);
     }
 
     fn delete_word_right(
@@ -427,9 +454,8 @@ impl TextArea {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.session.delete_word_right().is_some() {
-            self.emit_changed(window, cx);
-        }
+        let change = self.session.delete_word_right();
+        self.after_edit(change, window, cx);
     }
 
     fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
@@ -441,25 +467,22 @@ impl TextArea {
     fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = self.session.copy_text().filter(|text| !text.is_empty()) {
             cx.write_to_clipboard(ClipboardItem::new_string(text));
-            if self.session.replace_selection("").is_some() {
-                self.emit_changed(window, cx);
-            }
+            let change = self.session.replace_selection("");
+            self.after_edit(change, window, cx);
         }
     }
 
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
             let text = ClipboardPolicy::area().pasted(&text);
-            if self.session.replace_selection(&text).is_some() {
-                self.emit_changed(window, cx);
-            }
+            let change = self.session.replace_selection(&text);
+            self.after_edit(change, window, cx);
         }
     }
 
     fn newline(&mut self, _: &Newline, window: &mut Window, cx: &mut Context<Self>) {
-        if self.session.replace_selection("\n").is_some() {
-            self.emit_changed(window, cx);
-        }
+        let change = self.session.replace_selection("\n");
+        self.after_edit(change, window, cx);
     }
 
     fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
@@ -544,6 +567,21 @@ impl TextArea {
     }
 }
 
+impl TextHost for TextArea {
+    fn session(&self) -> &EditSession {
+        &self.session
+    }
+
+    fn session_mut(&mut self) -> &mut EditSession {
+        &mut self.session
+    }
+
+    fn after_history_change(&mut self, cx: &mut Context<Self>) {
+        cx.emit(TextAreaEvent::Changed);
+        cx.notify();
+    }
+}
+
 impl EntityInputHandler for TextArea {
     fn text_for_range(
         &mut self,
@@ -610,9 +648,8 @@ impl EntityInputHandler for TextArea {
             .map(|r| self.session.range_from_utf16(r))
             .or(self.session.marked_range())
             .unwrap_or(self.session.selected_range());
-        if self.session.replace_range(range, new_text, false).is_some() {
-            self.emit_changed(window, cx);
-        }
+        let change = self.session.replace_range(range, new_text, false);
+        self.after_edit(change, window, cx);
     }
 
     fn replace_and_mark_text_in_range(
@@ -631,11 +668,8 @@ impl EntityInputHandler for TextArea {
             .map(|r| self.session.range_from_utf16(r))
             .or(self.session.marked_range())
             .unwrap_or(self.session.selected_range());
-        if self
-            .session
-            .replace_range(range.clone(), new_text, false)
-            .is_none()
-        {
+        let change = self.session.replace_range(range.clone(), new_text, true);
+        if change.is_none() {
             return;
         }
         if new_text.is_empty() {
@@ -653,7 +687,7 @@ impl EntityInputHandler for TextArea {
             self.session
                 .set_selection(Selection::new(selected.start, selected.end));
         }
-        self.emit_changed(window, cx);
+        self.after_edit(change, window, cx);
     }
 
     fn bounds_for_range(
@@ -1197,6 +1231,56 @@ mod tests {
         assert_eq!(
             view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
             "abc\ndef\ngh"
+        );
+    }
+
+    #[test]
+    fn typing_and_backspace_record_and_undo_one_step_at_a_time() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            crate::controls::text_field::bind_keys(cx);
+        });
+        let (view, cx) = harness(&mut app);
+        draw(cx);
+        let focus = view.read_with(cx, |view, cx| view.area.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&focus, cx));
+        draw(cx);
+        cx.simulate_input("ab");
+        draw(cx);
+        let (entries, name) = view.read_with(cx, |view, cx| {
+            let history = view.area.read(cx).history();
+            let history = history.read(cx);
+            (history.len(), history.undo_name().map(str::to_string))
+        });
+        assert_eq!(entries, 1);
+        assert_eq!(name.as_deref(), Some("Typing"));
+        let history = view.read_with(cx, |view, app| view.area.read(app).history());
+        cx.update(|_, cx| history.update(cx, |history, cx| assert!(history.undo(cx))));
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
+            ""
+        );
+        cx.update(|_, cx| history.update(cx, |history, cx| assert!(history.redo(cx))));
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
+            "ab"
+        );
+
+        // A backspace is its own step, and undoing it restores the character.
+        cx.simulate_keystrokes("backspace");
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
+            "a"
+        );
+        cx.update(|_, cx| history.update(cx, |history, cx| assert!(history.undo(cx))));
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
+            "ab"
         );
     }
 

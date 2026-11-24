@@ -503,7 +503,23 @@ impl Render for Gallery {
                     .text_color(secondary)
                     .child(self.last_field.clone()),
             )
-            .child(div().w(px(360.)).child(self.composer.clone()));
+            .child(
+                div()
+                    .flex()
+                    .items_end()
+                    .gap(px(8.))
+                    .child(div().w(px(360.)).child(self.composer.clone()))
+                    .child(
+                        Button::new("composer-undo", "Undo")
+                            .size(ControlSize::Mini)
+                            .on_click(cx.listener(|g, _, _, cx| {
+                                let history = g.composer.read(cx).history();
+                                history.update(cx, |history, cx| {
+                                    history.undo(cx);
+                                });
+                            })),
+                    ),
+            );
         let routing_row = div()
             .flex()
             .flex_row()

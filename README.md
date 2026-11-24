@@ -55,6 +55,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Composition guide](docs/guide.md)
 - [Model bindings and list state](docs/bindings.md)
 - [Text editing core](docs/text.md)
+- [Undo and redo](docs/undo.md)
 - [Consumer pins and integration rules](docs/consumers.md)
 - [Public API changes by commit range](CHANGELOG.md)
 - [Shell composition](docs/shell.md)

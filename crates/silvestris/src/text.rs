@@ -108,6 +108,8 @@ impl Selection {
 pub struct Change {
     /// The range that was replaced, in the buffer before the edit.
     pub range: Range<usize>,
+    /// The text that was removed from `range`.
+    pub removed: String,
     /// The text inserted at `range.start`.
     pub inserted: String,
     /// Whether this edit was an IME composition update rather than a commit.
@@ -304,6 +306,7 @@ impl<B: Buffer> EditSession<B> {
         if start == end && text.is_empty() {
             return None;
         }
+        let removed = self.buffer.text()[start..end].to_string();
         self.buffer.replace(start..end, text);
         let head = start + text.len();
         self.selection = Selection::caret(head);
@@ -314,6 +317,7 @@ impl<B: Buffer> EditSession<B> {
         }
         Some(Change {
             range: start..end,
+            removed,
             inserted: text.to_string(),
             composing,
         })
@@ -708,6 +712,7 @@ mod tests {
             change,
             Change {
                 range: 1..4,
+                removed: "ell".into(),
                 inserted: "i".into(),
                 composing: false
             }

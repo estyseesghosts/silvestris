@@ -36,7 +36,7 @@ use crate::convert::hsla;
 use crate::paint;
 use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
 use crate::theme::ActiveTheme;
-use crate::undo::{self, UndoManager};
+use crate::undo::{TextHistory, TextHost, UndoManager};
 
 actions!(
     silvestris_text,
@@ -178,9 +178,7 @@ pub struct TextField {
     selecting: bool,
     caret_on: bool,
     blink_epoch: u64,
-    undo: Entity<UndoManager>,
-    typing: Option<(Range<usize>, String)>,
-    typing_serial: u64,
+    history: TextHistory,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -222,9 +220,7 @@ impl TextField {
             selecting: false,
             caret_on: true,
             blink_epoch: 0,
-            undo: cx.new(|_| UndoManager::new()),
-            typing: None,
-            typing_serial: 0,
+            history: TextHistory::new(cx),
             _subscriptions: subscriptions,
         }
     }
@@ -237,106 +233,19 @@ impl TextField {
     /// field is focused; the chain picks it over the document's stack.
     #[must_use]
     pub fn history(&self) -> Entity<UndoManager> {
-        self.undo.clone()
+        self.history.manager()
     }
 
     /// A responder entry for this field's undo stack.
     #[must_use]
     pub fn undo_entry(&self) -> crate::responder::ResponderEntry {
-        undo::entry(
-            &self.undo,
-            crate::responder::ResponderScope::Control,
-            "text-field-undo",
-        )
+        self.history
+            .entry(crate::responder::ResponderScope::Control, "text-field-undo")
     }
 
     fn record_change(&mut self, change: &Change, cx: &mut Context<Self>) {
-        if change.composing {
-            return;
-        }
         let entity = cx.entity();
-        let insert = !change.inserted.is_empty();
-        let (contiguous, cumulative) =
-            self.typing
-                .as_ref()
-                .map_or((false, false), |(range, text)| {
-                    if !insert {
-                        return (false, false);
-                    }
-                    let contiguous = range.end == change.range.start && text.len() == range.len();
-                    // Platform input may send cumulative replacements: "a", then "ab"
-                    // over 0..1 rather than inserting "b" at 1.
-                    let cumulative = change.range.start <= range.start
-                        && change.inserted.starts_with(text.as_str());
-                    (contiguous, cumulative)
-                });
-        let (range, text, coalesce) = if contiguous || cumulative {
-            let previous = self.typing.take();
-            if cumulative {
-                (
-                    change.range.clone(),
-                    change.inserted.clone(),
-                    Some(self.typing_serial),
-                )
-            } else {
-                let (range, text) =
-                    previous.unwrap_or_else(|| (change.inserted_range(), change.inserted.clone()));
-                (
-                    range.start..range.start + text.len() + change.inserted.len(),
-                    format!("{text}{}", change.inserted),
-                    Some(self.typing_serial),
-                )
-            }
-        } else {
-            self.typing_serial += 1;
-            self.typing = insert.then(|| (change.inserted_range(), change.inserted.clone()));
-            (
-                change.range.clone(),
-                change.inserted.clone(),
-                insert.then_some(self.typing_serial),
-            )
-        };
-        self.typing = insert.then(|| {
-            let stored = if contiguous || cumulative {
-                range.clone()
-            } else {
-                change.inserted_range()
-            };
-            (stored, text.clone())
-        });
-        let name = if insert { "Typing" } else { "Delete" };
-        let undo_entity = entity.clone();
-        let undo_range = range.clone();
-        let undo_text = text.clone();
-        let redo_entity = entity;
-        let redo_range = range;
-        let redo_text = text;
-        self.undo.update(cx, |manager, _| {
-            manager.record(
-                name,
-                coalesce,
-                move |cx| {
-                    undo_entity.update(cx, |field, cx| {
-                        let start = undo_range.start;
-                        let end = start + undo_text.len();
-                        field.session.replace_range(start..end, "", false);
-                        field.typing = None;
-                        cx.emit(TextFieldEvent::Changed);
-                        cx.notify();
-                    });
-                },
-                move |cx| {
-                    redo_entity.update(cx, |field, cx| {
-                        field
-                            .session
-                            .replace_range(redo_range.clone(), &redo_text, false);
-                        field.typing = None;
-                        cx.emit(TextFieldEvent::Changed);
-                        cx.notify();
-                    });
-                },
-            );
-        });
+        self.history.record(entity, change, cx);
     }
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
@@ -750,6 +659,21 @@ impl TextField {
         if self.selecting {
             self.select_to(self.index_for_position(event.position), window, cx);
         }
+    }
+}
+
+impl TextHost for TextField {
+    fn session(&self) -> &EditSession {
+        &self.session
+    }
+
+    fn session_mut(&mut self) -> &mut EditSession {
+        &mut self.session
+    }
+
+    fn after_history_change(&mut self, cx: &mut Context<Self>) {
+        cx.emit(TextFieldEvent::Changed);
+        cx.notify();
     }
 }
 
@@ -1329,6 +1253,7 @@ mod undo_tests {
     use gpui::{TestAppContext, VisualTestContext};
 
     use super::*;
+    use crate::command::CommandRegistry;
 
     struct Harness {
         field: Entity<TextField>,
@@ -1408,6 +1333,68 @@ mod undo_tests {
         assert_eq!(
             view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
             "ab"
+        );
+
+        // A focused field's Control-scope stack beats the document's stack.
+        let (document, registry) = cx.update(|_, cx| {
+            let document = cx.new(|_| UndoManager::new());
+            document.update(cx, |document, _| {
+                document.record("Document edit", None, |_| {}, |_| {});
+            });
+            let registry = cx.new(|_| CommandRegistry::default());
+            registry.update(cx, |registry, cx| {
+                registry
+                    .register(
+                        silvestris_core::command::CommandDescriptor::action("edit.undo", "Undo"),
+                        |_, _, _| {},
+                        cx,
+                    )
+                    .unwrap();
+                registry
+                    .register(
+                        silvestris_core::command::CommandDescriptor::action("edit.redo", "Redo"),
+                        |_, _, _| {},
+                        cx,
+                    )
+                    .unwrap();
+            });
+            (document, registry)
+        });
+        let field_history = view.read_with(cx, |view, app| view.field.read(app).history());
+        let field_focus = view.read_with(cx, |view, cx| view.field.read(cx).focus_handle(cx));
+        let mut chain = crate::responder::ResponderChain::new();
+        chain.push(crate::responder::ResponderEntry::new(
+            crate::responder::ResponderScope::Document,
+            "document",
+            &document,
+        ));
+        chain.push(
+            crate::responder::ResponderEntry::new(
+                crate::responder::ResponderScope::Control,
+                "field",
+                &field_history,
+            )
+            .when_focused(&field_focus),
+        );
+        cx.update(|window, cx| {
+            let descriptor = chain
+                .present(&registry, &"edit.undo".into(), window, cx)
+                .expect("descriptor");
+            assert_eq!(descriptor.label, "Undo Typing");
+            assert_eq!(
+                chain.dispatch(&registry, &"edit.undo".into(), window, cx),
+                crate::command::Invocation::Dispatched
+            );
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "",
+            "the field's stack handled Undo"
+        );
+        assert!(
+            document.read_with(cx, |document, _| document.can_undo()),
+            "the document's stack is untouched"
         );
     }
 }

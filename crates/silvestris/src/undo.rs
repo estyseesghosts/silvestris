@@ -15,12 +15,14 @@
 //! Document scope; the chain (#57) picks the innermost active one and the menu
 //! title comes from the same `state`.
 
+use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{App, Context, SharedString};
+use gpui::{App, AppContext, Context, Entity, SharedString};
 use silvestris_core::command::CommandId;
 
 use crate::responder::{Responder, ResponderScope, ResponderState};
+use crate::text::{Change, EditSession};
 
 /// One reversible step. `undo` and `redo` run with the app, after the manager's
 /// borrow has ended.
@@ -257,6 +259,153 @@ impl Responder for UndoManager {
             self.redo(cx);
         }
         cx.notify();
+    }
+}
+
+/// A text control that exposes its session to [`TextHistory`].
+pub trait TextHost: 'static {
+    fn session(&self) -> &EditSession;
+    fn session_mut(&mut self) -> &mut EditSession;
+    /// Emit the client's Changed event and ask for a repaint after an undo or
+    /// redo changed the buffer.
+    fn after_history_change(&mut self, cx: &mut Context<Self>)
+    where
+        Self: Sized;
+}
+
+/// The local stack of one text control: an [`UndoManager`] plus the merging
+/// state that turns a run of typing into one entry.
+pub struct TextHistory {
+    manager: Entity<UndoManager>,
+    typing: Option<(Range<usize>, String, String)>,
+    serial: u64,
+}
+
+impl TextHistory {
+    #[must_use]
+    pub fn new(cx: &mut App) -> Self {
+        Self {
+            manager: cx.new(|_| UndoManager::new()),
+            typing: None,
+            serial: 0,
+        }
+    }
+
+    #[must_use]
+    pub fn manager(&self) -> Entity<UndoManager> {
+        self.manager.clone()
+    }
+
+    #[must_use]
+    pub fn entry(
+        &self,
+        scope: ResponderScope,
+        name: impl Into<SharedString>,
+    ) -> crate::responder::ResponderEntry {
+        entry(&self.manager, scope, name)
+    }
+
+    /// Record one session change. Composing text is skipped; a contiguous or
+    /// cumulative insert amends the previous typing entry.
+    pub fn record<T: TextHost>(&mut self, entity: Entity<T>, change: &Change, cx: &mut App) {
+        if change.composing {
+            return;
+        }
+        let insert = !change.inserted.is_empty();
+        let (contiguous, cumulative) =
+            self.typing
+                .as_ref()
+                .map_or((false, false), |(range, text, _)| {
+                    if !insert {
+                        return (false, false);
+                    }
+                    let contiguous = range.end == change.range.start && text.len() == range.len();
+                    // Platform input may send cumulative replacements ("a", then
+                    // "ab" over 0..1) rather than inserting "b" at 1.
+                    let cumulative = change.range.start <= range.start
+                        && change.inserted.starts_with(text.as_str());
+                    (contiguous, cumulative)
+                });
+        let (range, removed, text, coalesce) = if contiguous || cumulative {
+            let previous = self.typing.take();
+            if cumulative {
+                (
+                    change.range.clone(),
+                    change.removed.clone(),
+                    change.inserted.clone(),
+                    Some(self.serial),
+                )
+            } else {
+                let (range, text, removed) = previous.unwrap_or_else(|| {
+                    (
+                        change.inserted_range(),
+                        change.inserted.clone(),
+                        String::new(),
+                    )
+                });
+                (
+                    range.start..range.start + text.len() + change.inserted.len(),
+                    removed,
+                    format!("{text}{}", change.inserted),
+                    Some(self.serial),
+                )
+            }
+        } else {
+            self.serial += 1;
+            (
+                change.range.clone(),
+                change.removed.clone(),
+                change.inserted.clone(),
+                None,
+            )
+        };
+        self.typing = insert.then(|| {
+            let stored = if contiguous || cumulative {
+                range.clone()
+            } else {
+                change.inserted_range()
+            };
+            (stored, text.clone(), removed.clone())
+        });
+        let name = if insert { "Typing" } else { "Delete" };
+        let coalesce = coalesce.or_else(|| insert.then_some(self.serial));
+        let undo_entity = entity.clone();
+        let undo_range = range.clone();
+        let undo_text = text.clone();
+        let undo_removed = removed.clone();
+        let redo_entity = entity;
+        let redo_range = range;
+        let redo_text = text;
+        let redo_removed = removed;
+        self.manager.update(cx, |manager, _| {
+            manager.record(
+                name,
+                coalesce,
+                move |cx| {
+                    undo_entity.update(cx, |host, cx| {
+                        let start = undo_range.start;
+                        let end = start + undo_text.len();
+                        host.session_mut()
+                            .replace_range(start..end, &undo_removed, false);
+                        host.after_history_change(cx);
+                    });
+                },
+                move |cx| {
+                    redo_entity.update(cx, |host, cx| {
+                        let start = redo_range.start;
+                        let end = start + redo_removed.len();
+                        host.session_mut()
+                            .replace_range(start..end, &redo_text, false);
+                        host.after_history_change(cx);
+                    });
+                },
+            );
+        });
+    }
+
+    /// Forget the typing merge, for example after the caret moved.
+    pub fn forget_typing(&mut self) {
+        self.typing = None;
     }
 }
 
