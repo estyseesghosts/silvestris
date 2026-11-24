@@ -508,15 +508,18 @@ pub fn aqua_light() -> Theme {
         text: BLACK,
     };
     let help_button = Help {
-        // M: the Appearance pane's help tag: purple ring and violet gloss.
+        // M: Dock pane help button (systempreferences-dock.png, rows
+        // 660..701 at x 1306): ring 552b80 top to 9780ae bottom, gloss
+        // fdfafd..ded0f7 over ded0f7..fef7fe split at the middle, black
+        // glyph, and a drop shadow acacac on the ededed window (alpha 70).
         states: BevelStates {
             normal: Bevel {
-                border: g(0x5d3a6b, 0x8b5a9b),
-                upper: g(0xf4e9fd, 0xe1d3fa),
-                lower: g(0xd2c3ed, 0xf0e4fd),
+                border: g(0x552b80, 0x9780ae),
+                upper: g(0xfdfafd, 0xded0f7),
+                lower: g(0xded0f7, 0xfef7fe),
                 split: 0.5,
-                emboss: BLACK.alpha(28),
-                text: c(0x5b3a6b),
+                emboss: BLACK.alpha(70),
+                text: BLACK,
             },
             pressed: Bevel {
                 upper: g(0xe1d3fa, 0xcdbbeb),
@@ -526,7 +529,7 @@ pub fn aqua_light() -> Theme {
             disabled: push_disabled,
             selected: radio_selected,
         },
-        glyph: c(0x5b3a6b),
+        glyph: BLACK,
     };
     let field = Field {
         // M: toolbar.search.column: 84 top, d8 inner shadow, white, e1 bottom.
@@ -755,10 +758,30 @@ pub fn aqua_light() -> Theme {
             progress: Progress {
                 track: progress_track,
                 fill: progress_fill,
-                // M: installer barber pole: 8 px period, #1784de blue against
-                // #e5e5e5 light, 45 degrees.
-                barber_light: c(0xe5e5e5),
-                barber_dark: c(0x1784de),
+                // M: vm-screenshots/indeterminate-barber-pole-installer.png
+                // (bar x 245..438, rows
+                // 326..342). Blue column: top 2e4cb6, 9ebae5..599ede, then
+                // 1583de..59b8ff from row 334. White column: top 8f9091,
+                // e1e1e1..d2d3d3, then d7d8d8..feffff.
+                barber_light: Bevel {
+                    border: g(0x8f9091, 0x8f9091),
+                    upper: g(0xe1e1e1, 0xd2d3d3),
+                    lower: g(0xd7d8d8, 0xfeffff),
+                    split: 0.5,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: BLACK,
+                },
+                barber_dark: Bevel {
+                    border: g(0x2e4cb6, 0x2e4cb6),
+                    upper: g(0x9ebae5, 0x599ede),
+                    lower: g(0x1583de, 0x59b8ff),
+                    split: 0.5,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: BLACK,
+                },
+                // M: one-pixel corners (indeterminate-barber-pole-installer.png, x 245..246 at
+                // rows 326 and 342).
+                radius: 1.0,
                 spinner: c(0x4c4c4c),
                 spinner_dim: BLACK.alpha(40),
             },
@@ -1275,8 +1298,25 @@ pub fn aqua_dark() -> Theme {
                     WHITE,
                 ),
                 fill: segment_selected,
-                barber_light: c(0x3a3a3a),
-                barber_dark: c(0x4f9df0),
+                // D: Aqua's measured barber profiles, darkened for the dark
+                // well.
+                barber_light: Bevel {
+                    border: g(0x1a1a1a, 0x1a1a1a),
+                    upper: g(0x4a4a4a, 0x3a3a3a),
+                    lower: g(0x363636, 0x505050),
+                    split: 0.5,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: WHITE,
+                },
+                barber_dark: Bevel {
+                    border: g(0x1e3f8a, 0x1e3f8a),
+                    upper: g(0x7aa6dc, 0x3f86d0),
+                    lower: g(0x1667b8, 0x4f9df0),
+                    split: 0.5,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: WHITE,
+                },
+                radius: 1.0,
                 spinner: c(0xd0d0d0),
                 spinner_dim: WHITE.alpha(40),
             },

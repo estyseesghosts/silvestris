@@ -231,8 +231,9 @@ pub fn geist_dark() -> Theme {
     let progress = Progress {
         track: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xededed)),
         fill: flat(c(0x0095ff), c(0x0095ff), c(0xededed)),
-        barber_light: c(0x3a3a3a),
-        barber_dark: c(0x4f9df0),
+        barber_light: flat(c(0x3a3a3a), c(0x3a3a3a), c(0xededed)),
+        barber_dark: flat(c(0x4f9df0), c(0x4f9df0), c(0xededed)),
+        radius: f32::MAX,
         spinner: c(0xd0d0d0),
         spinner_dim: c(0xffffff).alpha(40),
     };
@@ -449,8 +450,9 @@ pub fn geist_light() -> Theme {
     let progress = Progress {
         track: flat(c(0xe6e6e6), c(0xf2f2f2), c(0x171717)),
         fill: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
-        barber_light: c(0xf2f2f2),
-        barber_dark: c(0x0070f3),
+        barber_light: flat(c(0xf2f2f2), c(0xf2f2f2), c(0x171717)),
+        barber_dark: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
+        radius: f32::MAX,
         spinner: c(0x666666),
         spinner_dim: c(0xc9c9c9),
     };

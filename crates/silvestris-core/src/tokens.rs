@@ -280,12 +280,20 @@ pub struct Slider {
 
 /// Progress materials: the well, the determinate fill, the barber-pole stripe
 /// pair and the asynchronous spinner's two tones.
+///
+/// The barber stripes are two vertical gloss profiles. `border` is the
+/// stripe-tinted top row; `upper` and `lower` meet at `split` (fraction of
+/// the bar height). The bar alternates them in 45 degree stripes with short
+/// anti-aliased edges.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Progress {
     pub track: Bevel,
     pub fill: Bevel,
-    pub barber_light: Rgba8,
-    pub barber_dark: Rgba8,
+    pub barber_light: Bevel,
+    pub barber_dark: Bevel,
+    /// Corner radius of the bar; clamped to half its height, so a large
+    /// value draws a capsule.
+    pub radius: f32,
     pub spinner: Rgba8,
     pub spinner_dim: Rgba8,
 }

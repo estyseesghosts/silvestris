@@ -68,10 +68,16 @@ repeated here; they are listed in place next to the token.
 - Slider small and mini track/thumb sizes are designed; the regular 5 px
   track and 15 x 18 px pointed thumb are measured from the Dock capture.
   Tick labels use the small system font; their exact baseline is designed.
+  The round thumb is a circle (12 x 12 small thumb in the Finder status bar);
+  its regular 15 px diameter reuses the pointed thumb's measured width.
 - Progress small/mini heights, spinner sizes, and the barber-pole animation
-  period are designed. The regular 16 px bar, determinate fill and the 8 px
-  45-degree stripe pair are measured from the installer and Software Update
-  captures.
+  speed are designed. The regular 16 px bar, its one-pixel corners, the
+  determinate fill, and the barber pole's 32 px period, 45-degree slant,
+  and both gloss profiles are measured from
+  `indeterminate-barber-pole-installer.png` and the Software Update capture.
+  The 4 px stripe edge is an estimate: the capture is upscaled, so its blur
+  overstates the source's anti-aliasing. Dark Aqua's barber profiles are
+  designed.
 - Menu shadow offset (0/2 px) and 12 px blur are a designed fit to the 10.6
   menu captures; the menu body, selection and separator are measured.
 - The default-button throb breathes either side of the measured default

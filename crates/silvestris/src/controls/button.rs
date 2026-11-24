@@ -630,8 +630,13 @@ impl RenderOnce for Button {
             .when_some(icon, |el, icon| el.child(div().relative().child(icon)))
             .when(help, |el| {
                 el.child(
+                    // M: the Dock pane's glyph is 24 of the ring's 42 rows
+                    // (systempreferences-dock.png, x 1306, rows 670..693);
+                    // the inherited 13 pt face drew it 19 rows tall.
                     div()
                         .relative()
+                        .text_size(px(height * 13.0 * 24.0 / 19.0 / 21.0))
+                        .line_height(px(height))
                         .font_weight(gpui::FontWeight::BOLD)
                         .text_color(hsla(theme.controls.help.glyph))
                         .child("?"),

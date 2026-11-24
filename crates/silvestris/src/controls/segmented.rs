@@ -384,8 +384,14 @@ impl RenderOnce for SegmentedControl {
                             div()
                                 .id("icon")
                                 .relative()
+                                .flex()
                                 .flex_none()
+                                .items_center()
+                                .justify_center()
                                 .size(px(16.0))
+                                // A text glyph's line box is taller than the
+                                // 16 px slot; pin it so the glyph centres.
+                                .line_height(px(16.0))
                                 .when_some(icon_renderer.as_ref(), |el, render| {
                                     el.child(render(role, base.text))
                                 }),

@@ -187,13 +187,17 @@ fn thumb_points(
             (0.0, 0.22),
             (0.14, 0.05),
         ],
+        // M: Dock thumb outline (systempreferences-dock.png, x 720..749,
+        // rows 188..221): top edge 0.13..0.87, straight sides from 0.12 to
+        // 0.65, then a taper to a blunt tip 0.2 wide.
         ThumbStyle::Pointed => vec![
-            (0.16, 0.0),
-            (0.84, 0.0),
+            (0.13, 0.0),
+            (0.87, 0.0),
             (1.0, 0.12),
-            (1.0, 0.62),
-            (0.5, 1.0),
-            (0.0, 0.62),
+            (1.0, 0.65),
+            (0.6, 1.0),
+            (0.4, 1.0),
+            (0.0, 0.65),
             (0.0, 0.12),
         ],
     };
@@ -416,7 +420,13 @@ impl RenderOnce for Slider {
         let orientation = self.orientation;
         let thumb_style = self.thumb;
         let thumb_width = theme.metrics.slider_thumb_width[index];
-        let thumb_height = theme.metrics.slider_thumb_height[index];
+        // M: the round thumb is a circle (Finder status-bar slider, 12 x 12
+        // at x 711..722, rows 450..461 of the 2026-11-23 3.56.11 capture);
+        // only the pointed thumb is taller than it is wide.
+        let thumb_height = match thumb_style {
+            ThumbStyle::Round => thumb_width,
+            ThumbStyle::Pointed => theme.metrics.slider_thumb_height[index],
+        };
         let track_height = theme.metrics.slider_track_height[index];
         let tick_height = theme.metrics.slider_tick_height;
         let tick_gap = theme.metrics.slider_tick_gap;

@@ -1,5 +1,5 @@
 //! Progress indicators (HIG pp. 305–309; M: progress.determinate and the
-//! installer barber pole).
+//! 10.6 installer's barber pole).
 //!
 //! Three shapes share one type: the determinate/indeterminate bar, the
 //! asynchronous spinner and the circular determinate ring. The caller supplies
@@ -110,6 +110,16 @@ impl ProgressIndicator {
     }
 }
 
+// M: indeterminate-barber-pole-installer.png: stripe minima repeat every 32 px along row 334
+// and move one pixel right per row (45 degrees).
+const BARBER_PERIOD: f32 = 32.0;
+// Stripe edge width. The capture's soft edges are mostly upscaling; the
+// source stripes are near-solid with a short anti-aliased edge (observed by
+// the maintainer on the VM). Estimate, recorded in docs/exceptions.md.
+const BARBER_EDGE: f32 = 4.0;
+// Samples per stripe period; each span is one horizontal gradient.
+const BARBER_SPANS: usize = 16;
+
 fn bar_draw(
     window: &mut Window,
     bounds: Bounds<gpui::Pixels>,
@@ -120,16 +130,16 @@ fn bar_draw(
 ) {
     let controls = theme.controls.progress;
     let h = crate::convert::hairline(window);
-    let radius = bounds.size.height.as_f32() / 2.0;
+    let radius = controls.radius.min(bounds.size.height.as_f32() / 2.0);
     paint::bevel(window, bounds, radius, &controls.track);
     let inner = paint::inset(bounds, h);
     if inner.size.width <= px(0.0) || inner.size.height <= px(0.0) {
         return;
     }
-    window.with_content_mask(Some(ContentMask { bounds: inner }), |window| {
-        match fraction {
-            Some(f) => {
-                if f > 0.0 {
+    match fraction {
+        Some(f) => {
+            if f > 0.0 {
+                window.with_content_mask(Some(ContentMask { bounds: inner }), |window| {
                     let width = inner.size.width * f;
                     paint::bevel(
                         window,
@@ -137,37 +147,81 @@ fn bar_draw(
                         radius,
                         &controls.fill,
                     );
-                }
-            }
-            None => {
-                // M: installer barber pole: 8 px period, 45 degrees, blue
-                // #1784de against #e5e5e5. The phase scrolls one period.
-                let period = 8.0;
-                let stripe = 4.0;
-                let shift = if animate {
-                    phase * period
-                } else {
-                    period * 0.5
-                };
-                window.paint_quad(gpui::fill(
-                    inner,
-                    crate::convert::hsla(controls.barber_light),
-                ));
-                let mut x = inner.left().as_f32() - inner.size.height.as_f32() - period + shift;
-                let right = inner.right().as_f32();
-                while x < right {
-                    let points = [
-                        point(px(x), inner.top()),
-                        point(px(x + stripe), inner.top()),
-                        point(px(x + stripe + inner.size.height.as_f32()), inner.bottom()),
-                        point(px(x + inner.size.height.as_f32()), inner.bottom()),
-                    ];
-                    paint::polygon(window, &points, controls.barber_dark);
-                    x += period;
-                }
+                });
             }
         }
-    });
+        None => {
+            // The stripes tint the top border row too; the sides and bottom
+            // keep the well's border.
+            let field = Bounds::new(
+                point(inner.left(), bounds.top()),
+                size(inner.size.width, inner.bottom() - bounds.top()),
+            );
+            let shift = if animate { phase * BARBER_PERIOD } else { 0.0 };
+            window.with_content_mask(Some(ContentMask { bounds: field }), |window| {
+                barber(window, field, shift, &controls);
+            });
+        }
+    }
+}
+
+/// Colour of a barber profile at `t` (0 top, 1 bottom) of a bar `rows` tall.
+fn profile(b: &silvestris_core::tokens::Bevel, t: f32, rows: f32) -> silvestris_core::Rgba8 {
+    let top = 1.0 / rows;
+    if t < top {
+        b.border.from
+    } else if t < b.split {
+        b.upper.at((t - top) / (b.split - top).max(f32::EPSILON))
+    } else {
+        b.lower
+            .at((t - b.split) / (1.0 - b.split).max(f32::EPSILON))
+    }
+}
+
+/// Paints the barber pole one device row at a time. Each row blends the dark
+/// and light profiles by the distance from `x - y` to the nearest stripe, so
+/// the stripes run at 45 degrees with short anti-aliased edges.
+fn barber(
+    window: &mut Window,
+    field: Bounds<gpui::Pixels>,
+    shift: f32,
+    controls: &silvestris_core::tokens::Progress,
+) {
+    use gpui::{linear_color_stop, linear_gradient};
+    let row = crate::convert::hairline(window).as_f32();
+    let rows = (field.size.height.as_f32() / row).round().max(1.0);
+    let left = field.left().as_f32();
+    let right = field.right().as_f32();
+    let span = BARBER_PERIOD / BARBER_SPANS as f32;
+    let colour = |t: f32, u: f32| {
+        let light = profile(&controls.barber_light, t, rows);
+        let dark = profile(&controls.barber_dark, t, rows);
+        // Distance from the nearest blue centre; blue covers half the period
+        // and blends to white over BARBER_EDGE pixels.
+        let d = (u.rem_euclid(BARBER_PERIOD) - BARBER_PERIOD / 2.0).abs();
+        let x = ((d - BARBER_PERIOD / 4.0) / BARBER_EDGE + 0.5).clamp(0.0, 1.0);
+        light.mix(dark, x * x * (3.0 - 2.0 * x))
+    };
+    for i in 0..rows as usize {
+        let y = i as f32 * row;
+        let t = (i as f32 + 0.5) / rows;
+        // Stripe centres sit where (x - left - y - shift) is a multiple of
+        // the period; spans start on that grid so every row lines up.
+        let mut x = left - (-y - shift).rem_euclid(span);
+        while x < right {
+            let u = x - left - y - shift;
+            let b = Bounds::new(point(px(x), field.top() + px(y)), size(px(span), px(row)));
+            window.paint_quad(gpui::fill(
+                b,
+                linear_gradient(
+                    90.0,
+                    linear_color_stop(crate::convert::hsla(colour(t, u)), 0.0),
+                    linear_color_stop(crate::convert::hsla(colour(t, u + span)), 1.0),
+                ),
+            ));
+            x += span;
+        }
+    }
 }
 
 fn spinner_draw(
