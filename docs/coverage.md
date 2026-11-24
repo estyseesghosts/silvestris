@@ -71,7 +71,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Colour well, image well | none | missing | — | — | #44 |
 | Radio button | `RadioGroup`, `RadioOption` | measured | four | `radio-on`, `radio-off`, `radio-small` | #6 |
 | Checkbox, mixed state | `Checkbox`, `CheckState` | measured | four | `checkbox-on`, `checkbox-off`, `checkbox-mixed`, `checkbox-small`, `checkbox-mini` | #19 |
-| Placard | none | missing | — | — | #13 |
+| Placard | none | missing | — | — | #107 |
 
 ## Indicators and feedback
 

@@ -89,7 +89,7 @@ deferred.
 | chaus | Open/Save | [#29](https://github.com/estyseesghosts/silvestris/issues/29) |
 | chaus | Locally registered Geist Sans house font (`chaus-app/assets/fonts`) | [#71](https://github.com/estyseesghosts/silvestris/issues/71) (font overrides), then [#70](https://github.com/estyseesghosts/silvestris/issues/70) |
 | chaus | Ropey editor, Vim engine, highlighting | app-owned by design (may reuse [#58](https://github.com/estyseesghosts/silvestris/issues/58) IME/selection traits) |
-| johjoh | `heading`/`caption`/`group` helpers | `group` → `controls::GroupBox` (#13, adoption tracked in johjoh); `heading`/`caption` need typography roles (unfiled) |
+| johjoh | `heading`/`caption`/`group` helpers | `group` → `controls::GroupBox` (#13, adoption: estyseesghosts/johjoh#4); `heading`/`caption` need typography roles (unfiled) |
 | johjoh | Hand-built ROM list rows | [#32](https://github.com/estyseesghosts/silvestris/issues/32) |
 | johjoh | `prompt_for_paths` native dialogs | [#29](https://github.com/estyseesghosts/silvestris/issues/29), [#63](https://github.com/estyseesghosts/silvestris/issues/63) |
 | johjoh | `render_bottom` progress/status strip | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#8](https://github.com/estyseesghosts/silvestris/issues/8) |
