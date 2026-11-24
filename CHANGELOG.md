@@ -5,6 +5,16 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 44ed694
+
+M1 audit fixes. Behaviour changes a consumer must check:
+
+- `CommandRegistry::bindings` and `bindings_where` now scope every chord that
+  types (no Control, Option, Command or Fn, and not a function key) to
+  `(<context>) && !SilvestrisText`. Drop hand-written `!SilvestrisTextField`
+  clauses; they still parse, but they missed `TextArea`, where bare-key
+  commands used to fire while typing (#57).
+
 ## After 216de9b
 
 PR #59, application lifecycle. Additive:

@@ -26,10 +26,7 @@ use silvestris::transient::TransientLayer;
 use silvestris::window_role::{open_role, WindowRole};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
-actions!(
-    gallery,
-    [AquaLight, AquaDark, GeistLight, GeistDark, FocusNext, FocusPrev]
-);
+actions!(gallery, [FocusNext, FocusPrev]);
 
 /// One window opened from the gallery's role row. It draws the role's chrome so
 /// the title-bar buttons and resizability are visible rather than asserted.
@@ -302,28 +299,35 @@ impl Gallery {
                 )
                 .unwrap()
         });
-        let bindings = commands
-            .read(cx)
-            .bindings("Gallery && !SilvestrisTextField", cx)
-            .expect("gallery command bindings");
-        cx.bind_keys(bindings);
         cx.observe(&commands, |_, _, cx| cx.notify()).detach();
         commands.update(cx, |registry, cx| {
-            for (id, label, theme) in [
-                ("theme.aqua-light", "Aqua Light", ThemeId::AQUA_LIGHT),
-                ("theme.aqua-dark", "Aqua Dark", ThemeId::AQUA_DARK),
-                ("theme.geist-light", "Geist Light", ThemeId::GEIST_LIGHT),
-                ("theme.geist-dark", "Geist Dark", ThemeId::GEIST_DARK),
+            // Bare digits switch themes. The registry keeps typing keys away
+            // from text clients, so no `!SilvestrisText` here (#57).
+            for (id, label, key, theme) in [
+                ("theme.aqua-light", "Aqua Light", "1", ThemeId::AQUA_LIGHT),
+                ("theme.aqua-dark", "Aqua Dark", "2", ThemeId::AQUA_DARK),
+                (
+                    "theme.geist-light",
+                    "Geist Light",
+                    "3",
+                    ThemeId::GEIST_LIGHT,
+                ),
+                ("theme.geist-dark", "Geist Dark", "4", ThemeId::GEIST_DARK),
             ] {
                 registry
                     .register(
-                        CommandDescriptor::action(id, label),
+                        CommandDescriptor::action(id, label).shortcut(key),
                         move |_, _, cx| set(theme, cx),
                         cx,
                     )
                     .unwrap();
             }
         });
+        let bindings = commands
+            .read(cx)
+            .bindings(GALLERY_KEYS, cx)
+            .expect("gallery command bindings");
+        cx.bind_keys(bindings);
         let routing_field = cx.focus_handle();
         let routing_canvas = cx.focus_handle();
         let this = cx.entity();
@@ -745,7 +749,7 @@ impl Render for Gallery {
                                     Err(error) => format!("refused: {error:?}"),
                                 };
                                 if result.is_ok() {
-                                    let contexts = ["Gallery && !SilvestrisTextField"];
+                                    let contexts = [GALLERY_KEYS];
                                     let _ = command::apply_bindings(&commands, &contexts, cx);
                                 }
                                 view.update(cx, |gallery, cx| {
@@ -1496,10 +1500,6 @@ impl Render for Gallery {
                 chain.dispatch(&commands, &CommandId::new(&action.id), window, cx);
             })
             .track_focus(&self.focus)
-            .on_action(cx.listener(|_, _: &AquaLight, _, cx| set(ThemeId::AQUA_LIGHT, cx)))
-            .on_action(cx.listener(|_, _: &AquaDark, _, cx| set(ThemeId::AQUA_DARK, cx)))
-            .on_action(cx.listener(|_, _: &GeistLight, _, cx| set(ThemeId::GEIST_LIGHT, cx)))
-            .on_action(cx.listener(|_, _: &GeistDark, _, cx| set(ThemeId::GEIST_DARK, cx)))
             .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
             .on_action(|_: &FocusPrev, window, cx| window.focus_prev(cx))
             .child(
@@ -1652,9 +1652,9 @@ fn set(id: ThemeId, cx: &mut App) {
     silvestris::set_theme_preference(ThemePreference::explicit(id), cx);
 }
 
-/// Bare digits switch themes only while no text field has focus; `!` checks
-/// the whole context stack (gpui keymap/context.rs, `Not` arm of eval_inner).
-const THEME_KEYS: Option<&str> = Some("Gallery && !SilvestrisTextField");
+/// The gallery's command binding context. Text clients need no exclusion here:
+/// `CommandRegistry::bindings` scopes typing keys away from them (#57).
+const GALLERY_KEYS: &str = "Gallery";
 
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
@@ -1664,10 +1664,6 @@ fn main() {
             return;
         }
         cx.bind_keys([
-            KeyBinding::new("1", AquaLight, THEME_KEYS),
-            KeyBinding::new("2", AquaDark, THEME_KEYS),
-            KeyBinding::new("3", GeistLight, THEME_KEYS),
-            KeyBinding::new("4", GeistDark, THEME_KEYS),
             KeyBinding::new("tab", FocusNext, None),
             KeyBinding::new("shift-tab", FocusPrev, None),
         ]);

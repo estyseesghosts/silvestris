@@ -25,8 +25,16 @@ ButtonStyle/ControlSize. Tooltip/icon rendering remains separate work.
 CommandScope provides an explicit responder boundary for InvokeCommand
 actions. It consumes disabled and removed commands too, so those invocations
 do not fall through to a guest-input handler. It does not own a focus handle;
-focused descendants route actions through it. Transient menus and text fields
-must take precedence in the binding context.
+focused descendants route actions through it.
+
+Text clients need no exclusion in the context string. `bindings` and
+`bindings_where` scope every chord that types (no Control, Option, Command or
+Fn, and not a function key; Shift alone still types) to `(<context>) &&
+!SilvestrisText`, the context every text field, area, token field and editable
+cell carries. A bare-key command such as a digit theme switch therefore fires
+everywhere except inside text. Command chords bind in the given context as-is
+and reach the responder chain from inside a text client, where the client's
+own Control-scope responders (undo, copy) take precedence (#57).
 
 ## Responder chain
 

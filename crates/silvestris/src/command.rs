@@ -234,6 +234,15 @@ impl CommandRegistry {
             return Err("command bindings require an explicit focus context".into());
         }
         let predicate = KeyBindingContextPredicate::parse(context).map_err(|e| e.to_string())?;
+        // A chord that types text must not fire while a text client has focus
+        // (#57): the responder chain, not each consumer's context string, keeps
+        // bare keys with the field. Chords with Control, Option or Command, and
+        // function keys, are commands and reach the chain as usual.
+        let outside_text = KeyBindingContextPredicate::parse(&format!(
+            "({context}) && !{}",
+            crate::controls::text_field::KEY_CONTEXT
+        ))
+        .map_err(|e| e.to_string())?;
         let mut seen = BTreeMap::new();
         let mut bindings = Vec::new();
         for descriptor in self.descriptors.iter().filter(|d| include(d)) {
@@ -243,6 +252,7 @@ impl CommandRegistry {
             if keys.trim().is_empty() {
                 return Err(format!("empty shortcut: {}", descriptor.id));
             }
+            let types_text = types_text(keys, cx)?;
             let canonical = keys
                 .split_whitespace()
                 .map(|s| {
@@ -261,7 +271,11 @@ impl CommandRegistry {
                     Box::new(InvokeCommand {
                         id: descriptor.id.to_string(),
                     }),
-                    Some(Rc::new(predicate.clone())),
+                    Some(Rc::new(if types_text {
+                        outside_text.clone()
+                    } else {
+                        predicate.clone()
+                    })),
                     false,
                     None,
                     cx,
@@ -271,6 +285,26 @@ impl CommandRegistry {
         }
         Ok(bindings)
     }
+}
+
+/// Whether the first keystroke of `keys` is one a text client consumes as
+/// typing or editing: no Control, Option, Command or Fn, and not a function
+/// key. Shift alone still types (shift-a is "A").
+fn types_text(keys: &str, cx: &App) -> Result<bool, String> {
+    let Some(first) = keys.split_whitespace().next() else {
+        return Ok(false);
+    };
+    let keystroke =
+        gpui::Keystroke::parse_with_os(first, cx.platform_info().os).map_err(|e| e.to_string())?;
+    let m = keystroke.modifiers;
+    if m.control || m.alt || m.platform || m.function {
+        return Ok(false);
+    }
+    let function_key = keystroke
+        .key
+        .strip_prefix('f')
+        .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
+    Ok(!function_key)
 }
 
 /// Replace the GPUI command bindings from the registry while keeping every
@@ -488,7 +522,8 @@ impl RenderOnce for CommandScope {
 mod tests {
     use super::*;
     use gpui::{
-        div, px, Context, FocusHandle, Modifiers, Render, TestAppContext, VisualTestContext,
+        div, px, Context, FocusHandle, Focusable, Modifiers, Render, TestAppContext,
+        VisualTestContext,
     };
     use std::cell::Cell;
     struct Harness {
@@ -514,6 +549,87 @@ mod tests {
             window.draw(cx).clear(cx);
         });
     }
+    struct TextHarness {
+        registry: Entity<CommandRegistry>,
+        focus: FocusHandle,
+        area: Entity<crate::controls::TextArea>,
+    }
+    impl Render for TextHarness {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            CommandScope::new("scope", "CommandTest", self.registry.clone()).child(
+                div()
+                    .size_full()
+                    .track_focus(&self.focus)
+                    .child(div().w(px(200.)).child(self.area.clone())),
+            )
+        }
+    }
+
+    /// #57: no consumer writes `!SilvestrisTextField`. A bare-key command stays
+    /// out of every text client (field and area alike); a Command/Control chord
+    /// still reaches the chain from inside one.
+    #[test]
+    fn typing_keys_stay_in_text_clients_and_command_chords_pass_through() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            crate::controls::text_field::bind_keys(cx);
+        });
+        let bare = Rc::new(Cell::new(0));
+        let chord = Rc::new(Cell::new(0));
+        let registry = app.update(|cx| {
+            let registry = cx.new(|_| CommandRegistry::default());
+            let (b, c) = (bare.clone(), chord.clone());
+            registry.update(cx, |r, cx| {
+                r.register(
+                    CommandDescriptor::action("test.bare", "Bare").shortcut("1"),
+                    move |_, _, _| b.set(b.get() + 1),
+                    cx,
+                )
+                .unwrap();
+                r.register(
+                    CommandDescriptor::action("test.chord", "Chord").shortcut("secondary-k"),
+                    move |_, _, _| c.set(c.get() + 1),
+                    cx,
+                )
+                .unwrap();
+            });
+            let keys = registry.read(cx).bindings("CommandTest", cx).unwrap();
+            cx.bind_keys(keys);
+            registry
+        });
+        let (view, cx) = app.add_window_view(|window, cx| {
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            TextHarness {
+                registry: registry.clone(),
+                focus,
+                area: cx.new(|cx| crate::controls::TextArea::new(window, cx)),
+            }
+        });
+        draw(cx);
+        cx.simulate_keystrokes("1");
+        draw(cx);
+        assert_eq!(bare.get(), 1, "outside text the bare key is a command");
+
+        cx.update(|window, cx| {
+            let focus = view.read(cx).area.read(cx).focus_handle(cx);
+            window.focus(&focus, cx);
+        });
+        draw(cx);
+        cx.simulate_input("1");
+        cx.simulate_keystrokes("1");
+        draw(cx);
+        assert_eq!(bare.get(), 1, "inside a text area the bare key types");
+        cx.simulate_keystrokes(if cfg!(target_os = "macos") {
+            "cmd-k"
+        } else {
+            "ctrl-k"
+        });
+        draw(cx);
+        assert_eq!(chord.get(), 1, "a command chord still reaches the chain");
+    }
+
     #[test]
     fn button_shortcut_and_direct_invocation_share_handler_and_live_enabled_state() {
         let mut app = TestAppContext::single();
@@ -530,10 +646,7 @@ mod tests {
                 )
                 .unwrap()
             });
-            let keys = registry
-                .read(cx)
-                .bindings("CommandTest && !SilvestrisTextField", cx)
-                .unwrap();
+            let keys = registry.read(cx).bindings("CommandTest", cx).unwrap();
             cx.bind_keys(keys);
             registry
         });

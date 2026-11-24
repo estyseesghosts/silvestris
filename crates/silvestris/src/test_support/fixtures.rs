@@ -421,7 +421,7 @@ impl KeyIsolationFixture {
         });
         let bindings = registry
             .read(cx)
-            .bindings("FixtureShell && !SilvestrisTextField", cx)
+            .bindings("FixtureShell", cx)
             .expect("fixture bindings");
         cx.bind_keys(bindings);
         let field = cx.new(|cx| TextField::new(window, cx));

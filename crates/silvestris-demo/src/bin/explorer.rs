@@ -89,10 +89,7 @@ impl Explorer {
                 .unwrap();
             }
         });
-        let keys = commands
-            .read(cx)
-            .bindings("Explorer && !SilvestrisTextField", cx)
-            .unwrap();
+        let keys = commands.read(cx).bindings("Explorer", cx).unwrap();
         cx.bind_keys(keys);
         cx.observe(&commands, |_, _, cx| cx.notify()).detach();
         let focus = cx.focus_handle();
