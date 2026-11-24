@@ -2582,6 +2582,30 @@
    ]
   },
   {
+   "id": "groupbox.bottom",
+   "what": "box bottom edge: #e4e4e4 inner row, then a #dbdbdb edge lighter than the sides",
+   "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",
+   "sha256": "77193bbb8eecc3fb50e1363011592ba138eb493ffb8ab4677cfaac3ab5c901e8",
+   "kind": "column",
+   "x": 70,
+   "y": [
+    576,
+    585
+   ],
+   "srgb": [
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e6e6e6",
+    "#e4e4e4",
+    "#dbdbdb",
+    "#ededed",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
    "id": "prefs.pane.geometry",
    "what": "pane box 20 px from the window sides and bottom; its top line 34 px below the toolbar separator; the 22 px tab control is centred on the window and straddles the top line",
    "capture": "10-6-Snow-Leopard-System-Preferences-Desktop-and-Screen-Saver.png",

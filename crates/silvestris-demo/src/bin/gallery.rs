@@ -13,8 +13,8 @@ use silvestris::controls::{
     Disclosure, DisclosureStyle, GroupBox, Notice, Orientation, PopUpButton, PopupStyle,
     ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus, Scrollbar,
     Segment, SegmentMode, SegmentStyle, SegmentedControl, Separator, SeparatorAxis,
-    ShortcutRecorder, Slider, SourceList, SourceListEvent, SourceListStyle, Stepper, TextArea,
-    TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, Well,
+    ShortcutRecorder, Slider, SourceList, SourceListEvent, SourceListStyle, Stepper, TabView,
+    TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -62,6 +62,7 @@ struct Gallery {
     menu: Entity<PopupMenu>,
     commands: Entity<CommandRegistry>,
     selected_view: gpui::SharedString,
+    selected_tab: gpui::SharedString,
     sidebar: silvestris::core::layout::SidebarPreference,
     source_list: Entity<SourceList>,
     secondary_list: Entity<SourceList>,
@@ -426,6 +427,7 @@ impl Gallery {
             menu,
             commands,
             selected_view: "grid".into(),
+            selected_tab: "date".into(),
             sidebar: silvestris::core::layout::SidebarPreference {
                 expanded: true,
                 width: 240.,
@@ -1235,6 +1237,37 @@ impl Render for Gallery {
                                 .text_size(small_text)
                                 .child("Grouped content with a measured border."),
                         ),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Tab view",
+                div()
+                    .w(px(300.))
+                    .h(px(130.))
+                    .flex()
+                    .flex_col()
+                    .child(
+                        TabView::new("fidelity-tabs")
+                            .tabs(
+                                vec![
+                                    Segment::new("date", "Date & Time"),
+                                    Segment::new("zone", "Time Zone"),
+                                    Segment::new("clock", "Clock"),
+                                ],
+                                self.selected_tab.clone(),
+                            )
+                            .on_select(cx.listener(|g, tab: &gpui::SharedString, _, cx| {
+                                g.selected_tab = tab.clone();
+                                cx.notify();
+                            }))
+                            .child(div().text_size(small_text).child(
+                                match self.selected_tab.as_ref() {
+                                    "zone" => "Time Zone pane",
+                                    "clock" => "Clock pane",
+                                    _ => "Date & Time pane",
+                                },
+                            )),
                     )
                     .into_any_element(),
             ))

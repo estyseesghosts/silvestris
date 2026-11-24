@@ -7,7 +7,7 @@ use gpui::{
     point, px, quad, size, transparent_black, BorderStyle, Bounds, ContentMask, Corners, Pixels,
     Point, Window,
 };
-use silvestris_core::tokens::{Bevel, Chrome, Field, GripStyle, Selection};
+use silvestris_core::tokens::{Bevel, Chrome, Colors, Field, GripStyle, Selection};
 use silvestris_core::Rgba8;
 
 use crate::convert::{band, hairline, hsla, rows};
@@ -323,6 +323,60 @@ pub fn well(
         Bounds::new(point(x, inner.bottom() - h), size(w, h)),
         hsla(silvestris_core::Rgba8::hex(0xffffff).alpha(70)),
     ));
+}
+
+/// Group-box and tab-view box material (HIG pp. 338-344; M: groupbox.top,
+/// groupbox.left, groupbox.bottom). Outside in, 10.6 draws a side border with a lighter inner
+/// column, a darker top edge over three shadow rows, and a bottom edge lighter
+/// than the sides over one more highlight row. Each row is one device row
+/// per whole scale step, like every other Aqua edge.
+pub fn group_box(window: &mut Window, bounds: Bounds<Pixels>, c: &Colors) {
+    let bounds = snap_bounds(window, bounds);
+    let h = hairline(window);
+    let r = px(4.0_f32.min(bounds.size.height.as_f32() / 2.0));
+    let (x0, y0) = (bounds.origin.x, bounds.origin.y);
+    let (w, bottom) = (bounds.size.width, bounds.bottom());
+    let solid = |c: Rgba8| gpui::solid_background(hsla(c));
+    fill_rounded(window, bounds, r, solid(c.group_border));
+    fill_rounded(
+        window,
+        inset(bounds, h),
+        (r - h).max(px(0.)),
+        solid(c.group_highlight),
+    );
+    let body = Bounds::new(
+        point(x0 + h * 2.0, y0 + h),
+        size(
+            (w - h * 4.0).max(px(0.)),
+            (bounds.size.height - h * 2.0).max(px(0.)),
+        ),
+    );
+    fill_rounded(window, body, (r - h * 2.0).max(px(0.)), solid(c.group_fill));
+    // The top and bottom edges stop where the 4 px corner curve starts.
+    hline(window, x0 + px(2.0), y0, w - px(4.0), c.group_border_top);
+    for (i, row) in c.group_shadow.iter().enumerate() {
+        hline(
+            window,
+            x0 + h * 2.0,
+            y0 + h * (i as f32 + 1.0),
+            w - h * 4.0,
+            *row,
+        );
+    }
+    hline(
+        window,
+        x0 + px(2.0),
+        bottom - h,
+        w - px(4.0),
+        c.group_border_bottom,
+    );
+    hline(
+        window,
+        x0 + h * 2.0,
+        bottom - h * 2.0,
+        w - h * 4.0,
+        c.group_highlight_bottom,
+    );
 }
 
 /// Selection band: gradient body with a one-row line on top

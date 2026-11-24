@@ -135,6 +135,7 @@ fn manifest_contains_every_appearance_and_scale_for_every_m2_sample() {
         "disclosure-expanded",
         "disclosure-button",
         "groupbox",
+        "tab-view",
         "well",
         "separator",
         "source-list",

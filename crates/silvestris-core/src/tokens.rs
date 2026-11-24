@@ -138,6 +138,14 @@ pub struct Colors {
     pub group_border: Rgba8,
     /// Top edge of a group/tab-view box, darker than its sides in Aqua.
     pub group_border_top: Rgba8,
+    /// Bottom edge of a group/tab-view box, lighter than its sides in Aqua.
+    pub group_border_bottom: Rgba8,
+    /// Inner column beside each side border.
+    pub group_highlight: Rgba8,
+    /// Inner row above the bottom edge.
+    pub group_highlight_bottom: Rgba8,
+    /// Inner shadow rows under the top edge, outermost first.
+    pub group_shadow: [Rgba8; 3],
     /// Recessed content well (HIG pp. 361-363; M: groupbox.fill/left).
     pub well_fill: Rgba8,
     pub well_border: Rgba8,

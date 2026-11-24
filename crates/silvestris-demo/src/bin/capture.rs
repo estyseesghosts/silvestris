@@ -20,7 +20,7 @@ use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, DisclosureStyle, GroupBox,
     Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup, RadioOption, RowAccessory,
     RowStatus, Segment, SegmentStyle, SegmentedControl, Separator, Slider, SourceList,
-    SourceListStyle, TextField, ThumbStyle, Well,
+    SourceListStyle, TabView, TextField, ThumbStyle, Well,
 };
 use silvestris::core::source_list::SourceNode;
 use silvestris::window_role::WindowRole;
@@ -39,7 +39,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 46] = [
+const SAMPLES: [Sample; 47] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -269,6 +269,11 @@ const SAMPLES: [Sample; 46] = [
         id: "window-frame-edited",
         width: 244.,
         height: 108.,
+    },
+    Sample {
+        id: "tab-view",
+        width: 244.,
+        height: 110.,
     },
 ];
 
@@ -589,6 +594,24 @@ impl CaptureView {
                 .child(div().text_size(px(11.)).child("Recessed well"))
                 .into_any_element(),
             "separator" => Separator::horizontal().inset(8.0).into_any_element(),
+            // A flex column so the tab view's box fills the sample cell.
+            "tab-view" => div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(
+                    TabView::new("golden-tab-view")
+                        .tabs(
+                            vec![
+                                Segment::new("date", "Date & Time"),
+                                Segment::new("zone", "Time Zone"),
+                                Segment::new("clock", "Clock"),
+                            ],
+                            "date",
+                        )
+                        .child(div().text_size(px(11.)).child("Pane content")),
+                )
+                .into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),

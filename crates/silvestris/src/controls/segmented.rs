@@ -325,7 +325,12 @@ impl RenderOnce for SegmentedControl {
                     point(bounds.origin.x - px(before), bounds.origin.y),
                     size(px(total), bounds.size.height),
                 );
-                window.with_content_mask(Some(ContentMask { bounds }), |window| {
+                // One row taller than the segment so the emboss line under
+                // the bezel survives the clip (M: segmented.normal: 5e5e5e
+                // edge, then the b9b9b9 emboss row).
+                let mut mask = bounds;
+                mask.size.height += hairline(window);
+                window.with_content_mask(Some(ContentMask { bounds: mask }), |window| {
                     paint::bevel(window, all, radius, &bevel);
                     if i > 0 {
                         window.paint_quad(gpui::fill(

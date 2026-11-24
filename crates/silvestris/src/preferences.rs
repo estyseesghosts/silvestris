@@ -28,6 +28,7 @@ use gpui::{
     SharedString, Window,
 };
 
+pub use crate::controls::TabView;
 use crate::controls::{Button, ButtonStyle, ControlSize, Segment, SegmentedControl};
 use crate::convert::hsla;
 use crate::{paint, ActiveTheme};
@@ -441,237 +442,24 @@ pub fn pane_body() -> gpui::Div {
         .pb(px(PANE_MARGIN))
 }
 
-/// Group box with an optional tab control centred on its top edge
-/// (M: prefs.pane.geometry, groupbox.top/left; HIG pp. 290-292 tab views).
-#[derive(IntoElement)]
-pub struct TabView {
-    id: ElementId,
-    tabs: Vec<Segment>,
-    selected: Option<SharedString>,
-    on_select: Option<SelectFn>,
-    on_overflow: Option<OverflowFn>,
-    scroll: Option<gpui::ScrollHandle>,
-    content: Vec<AnyElement>,
+/// Places a [`TabView`] as a System Preferences pane does: the box's top line
+/// 34 px below the toolbar separator, the tab control straddling it
+/// (M: prefs.pane.geometry). Put the result inside [`pane_body`], which
+/// supplies the 20 px side and bottom margins.
+pub fn pane_tab_view(tab_view: TabView, cx: &App) -> gpui::Div {
+    let top = if tab_view.has_tabs() {
+        BOX_TOP - (cx.theme().metrics.segment_height / 2.0).floor()
+    } else {
+        BOX_TOP - 14.0
+    };
+    div()
+        .flex_1()
+        .min_h_0()
+        .flex()
+        .flex_col()
+        .pt(px(top))
+        .child(tab_view)
 }
-type OverflowFn = Rc<dyn Fn(gpui::Size<Pixels>, &mut Window, &mut App)>;
-impl TabView {
-    pub fn new(id: impl Into<ElementId>) -> Self {
-        Self {
-            id: id.into(),
-            tabs: Vec::new(),
-            selected: None,
-            on_select: None,
-            on_overflow: None,
-            scroll: None,
-            content: Vec::new(),
-        }
-    }
-    /// Use a caller-owned scroll position to reveal content within this pane.
-    pub fn scroll_handle(mut self, scroll: gpui::ScrollHandle) -> Self {
-        self.scroll = Some(scroll);
-        self
-    }
-    /// Reports each frame how much wider and taller (positive) or narrower
-    /// and shorter (negative) the view needs to be: height for the content,
-    /// width for the tab strip plus a 16 px inset each side. The window can
-    /// then resize to the pane as 10.6 System Preferences does. Content that
-    /// still does not fit scrolls with a [`Scrollbar`](crate::controls::Scrollbar).
-    pub fn on_overflow(
-        mut self,
-        f: impl Fn(gpui::Size<Pixels>, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_overflow = Some(Rc::new(f));
-        self
-    }
-    pub fn tabs(mut self, tabs: Vec<Segment>, selected: impl Into<SharedString>) -> Self {
-        self.tabs = tabs;
-        self.selected = Some(selected.into());
-        self
-    }
-    pub fn on_select(mut self, f: impl Fn(&SharedString, &mut Window, &mut App) + 'static) -> Self {
-        self.on_select = Some(Rc::new(f));
-        self
-    }
-}
-impl ParentElement for TabView {
-    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
-        self.content.extend(elements);
-    }
-}
-impl RenderOnce for TabView {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let c = &theme.colors;
-        let tab_height = theme.metrics.segment_height;
-        let has_tabs = !self.tabs.is_empty();
-        let half = (tab_height / 2.0).floor();
-        let pad_top = if has_tabs { half + 12.0 } else { 12.0 };
-        let content_height = Rc::new(std::cell::Cell::new(px(0.)));
-        let tabs_width = Rc::new(std::cell::Cell::new(px(0.)));
-        let viewport = Rc::new(std::cell::Cell::new(px(0.)));
-        let mut root = div()
-            .id(self.id.clone())
-            .relative()
-            .flex_1()
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .pt(px(if has_tabs {
-                BOX_TOP - half
-            } else {
-                BOX_TOP - 14.0
-            }));
-        let body = div()
-            .id("tab-view-box")
-            .debug_selector(|| "tab-view-box".into())
-            .relative()
-            .flex_1()
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .when(has_tabs, |el| el.mt(px(half)))
-            .bg(hsla(c.group_fill))
-            .border_1()
-            .border_color(hsla(c.group_border))
-            .border_t_1()
-            .rounded(px(4.0))
-            .child(
-                // Top edge is darker than the sides (M: groupbox.top vs .left).
-                gpui::canvas(|_, _, _| (), {
-                    let top = c.group_border_top;
-                    move |bounds, _, window, _| {
-                        let h = crate::convert::hairline(window);
-                        crate::paint::hline(
-                            window,
-                            bounds.origin.x,
-                            bounds.origin.y + h / 2.0,
-                            bounds.size.width,
-                            top,
-                        );
-                    }
-                })
-                .absolute()
-                .top(px(-1.0))
-                .left(px(2.0))
-                .right(px(2.0))
-                .h(crate::convert::hairline(window)),
-            )
-            .child({
-                let scroll = self.scroll.unwrap_or_else(|| {
-                    window
-                        .use_keyed_state(
-                            ElementId::Name(format!("{}-scroll", self.id).into()),
-                            cx,
-                            |_, _| gpui::ScrollHandle::new(),
-                        )
-                        .read(cx)
-                        .clone()
-                });
-                let measured = content_height.clone();
-                let measured_viewport = viewport.clone();
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .relative()
-                    .flex()
-                    .child(
-                        div()
-                            .id("tab-view-content")
-                            .flex_1()
-                            .min_h_0()
-                            // Without this the row sizes to the unwrapped text and
-                            // pushes the scroller out of the box.
-                            .min_w_0()
-                            .overflow_y_scroll()
-                            .track_scroll(&scroll)
-                            .pt(px(pad_top))
-                            .px(px(16.0))
-                            .pb(px(12.0))
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .w_full()
-                                    .relative()
-                                    .children(self.content)
-                                    .child(
-                                        canvas(
-                                            move |b, _, _| measured.set(b.size.height),
-                                            |_, _, _, _| {},
-                                        )
-                                        .absolute()
-                                        .inset_0(),
-                                    ),
-                            ),
-                    )
-                    .child(crate::controls::Scrollbar::new(
-                        ElementId::Name(format!("{}-scrollbar", self.id).into()),
-                        &scroll,
-                    ))
-                    .child(
-                        canvas(
-                            move |b, _, _| measured_viewport.set(b.size.height),
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .inset_0(),
-                    )
-            });
-        root = root.child(body);
-        if has_tabs {
-            let mut tabs = SegmentedControl::new(
-                ElementId::Name(format!("{}-tabs", self.id).into()),
-                "Tabs",
-                self.tabs,
-            )
-            // Tabs size to their labels with 12 px margins (HIG p. 341).
-            .fit_labels(12.0);
-            if let Some(selected) = self.selected {
-                tabs = tabs.selected(selected);
-            }
-            if let Some(f) = self.on_select {
-                tabs = tabs.on_select(move |id, w, cx| f(id, w, cx));
-            }
-            let measured = tabs_width.clone();
-            root = root.child(
-                div()
-                    .absolute()
-                    .top(px(BOX_TOP - half - half))
-                    .left_0()
-                    .right_0()
-                    .flex()
-                    .justify_center()
-                    .child(
-                        div().flex_none().relative().child(tabs).child(
-                            canvas(move |b, _, _| measured.set(b.size.width), |_, _, _, _| {})
-                                .absolute()
-                                .inset_0(),
-                        ),
-                    ),
-            );
-        }
-        if let Some(f) = self.on_overflow {
-            // Last child: prepaints after the content and tabs are measured.
-            root = root.child(
-                canvas(
-                    move |view, window, cx| {
-                        let width = if has_tabs {
-                            tabs_width.get() + px(32.0) - view.size.width
-                        } else {
-                            px(0.)
-                        };
-                        let height = content_height.get() + px(pad_top + 12.0) - viewport.get();
-                        f(gpui::size(width, height), window, cx);
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .inset_0(),
-            );
-        }
-        root
-    }
-}
-
 /// Two-column form (HIG pp. 347-349): labels right-aligned with a colon,
 /// controls left-aligned in one column, 8 px between rows.
 #[derive(IntoElement)]

@@ -18,6 +18,8 @@ pub use text_field::{TextField, TextFieldEvent};
 
 pub mod segmented;
 pub use segmented::{Segment, SegmentMode, SegmentStyle, SegmentedControl};
+pub mod tab_view;
+pub use tab_view::TabView;
 
 pub mod popup_button;
 pub use popup_button::{PopUpButton, PopupStyle};

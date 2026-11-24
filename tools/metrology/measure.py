@@ -177,6 +177,7 @@ row(DESKTOP, 113, 280, 300, "segmented.left_cap", "left cap of the selected segm
 
 column(DESKTOP, 70, 110, 120, "groupbox.top", "tab-view box top edge: #ababab line, then a soft inner row")
 row(DESKTOP, 160, 58, 64, "groupbox.left", "box left edge: #c8c8c8 line then #e2e2e2 inner row")
+column(DESKTOP, 70, 576, 586, "groupbox.bottom", "box bottom edge: #e4e4e4 inner row, then a #dbdbdb edge lighter than the sides")
 note("prefs.pane.geometry", "pane box 20 px from the window sides and bottom; its top line 34 px below "
      "the toolbar separator; the 22 px tab control is centred on the window and straddles the top line",
      DESKTOP, {"box_x": [60, 687], "box_y": [113, 582], "window_x": [40, 707], "window_bottom": 602,

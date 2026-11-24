@@ -19,6 +19,7 @@ use crate::{convert::hsla, paint, ActiveTheme};
 pub struct GroupBox {
     id: ElementId,
     title: Option<gpui::SharedString>,
+    title_control: Option<AnyElement>,
     content: Vec<AnyElement>,
     padding: f32,
 }
@@ -28,13 +29,24 @@ impl GroupBox {
         Self {
             id: id.into(),
             title: None,
+            title_control: None,
             content: Vec::new(),
             padding: 12.0,
         }
     }
 
+    /// Text title in the small system font, sentence-style (HIG p. 344).
     pub fn title(mut self, title: impl Into<gpui::SharedString>) -> Self {
         self.title = Some(title.into());
+        self
+    }
+
+    /// A checkbox or pop-up button as the title (HIG p. 344), replacing any
+    /// text title. With a checkbox title the contents are active only while
+    /// it is checked; the caller disables them from the same state it binds
+    /// to the checkbox.
+    pub fn title_control(mut self, control: impl IntoElement) -> Self {
+        self.title_control = Some(control.into_any_element());
         self
     }
 
@@ -53,56 +65,45 @@ impl ParentElement for GroupBox {
 }
 
 impl RenderOnce for GroupBox {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let colors = theme.colors.clone();
-        let line = crate::convert::hairline(window);
         let mut root = div()
             .debug_selector(|| self.id.to_string())
             .id(self.id)
             .relative()
             .flex()
             .flex_col();
-        if let Some(title) = self.title {
-            root = root.child(
+        let title = match (self.title_control, self.title) {
+            (Some(control), _) => Some(control),
+            // HIG p. 344: the default title font is the small system font.
+            (None, Some(text)) => Some(
                 div()
-                    .mb(px(4.0))
-                    .pl(px(2.0))
                     .font_family(theme.type_.ui)
                     .text_size(px(theme.type_.size_small))
-                    .font_weight(gpui::FontWeight::BOLD)
                     .text_color(hsla(colors.text))
-                    .child(title),
-            );
+                    .child(text)
+                    .into_any_element(),
+            ),
+            (None, None) => None,
+        };
+        if let Some(title) = title {
+            root = root.child(div().flex().mb(px(4.0)).pl(px(2.0)).child(title));
         }
         let body = div()
             .relative()
             .flex()
             .flex_col()
-            .bg(hsla(colors.group_fill))
-            .border_1()
-            .border_color(hsla(colors.group_border))
-            .rounded(px(4.0))
-            .p(px(self.padding))
+            // Content clears the painted edge row, as it cleared the 1 px
+            // CSS border this replaced.
+            .p(px(self.padding + 1.0))
             .child(
-                canvas(|_, _, _| (), {
-                    let top = colors.group_border_top;
-                    move |bounds, _, window, _| {
-                        let h = crate::convert::hairline(window);
-                        paint::hline(
-                            window,
-                            bounds.origin.x + px(2.0),
-                            bounds.origin.y + h / 2.0,
-                            bounds.size.width - px(4.0),
-                            top,
-                        );
-                    }
-                })
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| paint::group_box(window, bounds, &colors),
+                )
                 .absolute()
-                .top_0()
-                .left_0()
-                .right_0()
-                .h(line),
+                .inset_0(),
             )
             .children(self.content);
         root.child(body)
@@ -286,44 +287,5 @@ impl RenderOnce for Well {
                 .h(line),
             )
             .children(self.content)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use gpui::{Context, Render, TestAppContext, Window};
-
-    struct Harness;
-
-    impl Render for Harness {
-        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-            div()
-                .size_full()
-                .flex()
-                .flex_col()
-                .gap(px(8.))
-                .child(
-                    GroupBox::new("group")
-                        .title("Group")
-                        .child(div().child("Body")),
-                )
-                .child(Well::new("well").child(div().child("Well")))
-                .child(Separator::horizontal())
-                .child(div().h(px(40.)).flex().child(Separator::vertical()))
-        }
-    }
-
-    #[test]
-    fn containers_render_in_every_theme() {
-        for theme in crate::ThemeId::ALL {
-            let mut app = TestAppContext::single();
-            app.update(|cx| crate::theme::install(crate::ThemePreference::explicit(theme), cx));
-            let (_, cx) = app.add_window_view(|_, _| Harness);
-            cx.run_until_parked();
-            cx.update(|window, cx| {
-                window.draw(cx).clear(cx);
-            });
-        }
     }
 }

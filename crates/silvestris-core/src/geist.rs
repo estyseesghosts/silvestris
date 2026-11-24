@@ -279,6 +279,11 @@ pub fn geist_dark() -> Theme {
             group_fill: c(0x1a1a1a),
             group_border: c(0x2e2e2e),
             group_border_top: c(0x2e2e2e),
+            // Geist boxes are flat: one border colour, no inner shading.
+            group_border_bottom: c(0x2e2e2e),
+            group_highlight: c(0x1a1a1a),
+            group_highlight_bottom: c(0x1a1a1a),
+            group_shadow: [c(0x1a1a1a); 3],
             well_fill: c(0x111111),
             well_border: c(0x2e2e2e),
             well_shadow: c(0x0a0a0a),
@@ -498,6 +503,11 @@ pub fn geist_light() -> Theme {
             group_fill: c(0xffffff),
             group_border: c(0xe6e6e6),
             group_border_top: c(0xe6e6e6),
+            // Geist boxes are flat: one border colour, no inner shading.
+            group_border_bottom: c(0xe6e6e6),
+            group_highlight: c(0xffffff),
+            group_highlight_bottom: c(0xffffff),
+            group_shadow: [c(0xffffff); 3],
             well_fill: c(0xfafafa),
             well_border: c(0xe6e6e6),
             well_shadow: c(0xc9c9c9),

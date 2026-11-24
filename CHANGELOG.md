@@ -5,6 +5,28 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After e22e7bf
+
+M2 tab views and group boxes (#13):
+
+- Moved `TabView` to `controls::TabView`; `preferences::TabView` re-exports
+  it. The control no longer adds the System Preferences top offset: its top
+  edge is now the top of the tab control. Wrap it in
+  `preferences::pane_tab_view(tab_view, cx)` to keep the old placement (box
+  line 34 px below the toolbar separator).
+- Added `TabView::size` (regular, small, mini tabs with 12 / 10 / 8 px label
+  margins) and `GroupBox::title_control` for a checkbox or pop-up title.
+- Behaviour: `GroupBox` titles use the small system font, no longer bold
+  (HIG p. 344).
+- Visual: group boxes and tab views paint the measured 10.6 edges (darker top
+  over three shadow rows, lighter bottom, inner side highlight). Before, the
+  top showed a doubled line and the bottom matched the sides. Segmented
+  controls now show their measured emboss row, which the segment clip used to
+  cut off.
+- Added colour tokens `group_border_bottom`, `group_highlight`,
+  `group_highlight_bottom` and `group_shadow`. Themes built outside Silvestris
+  must set them.
+
 ## After 44ed694
 
 M1 audit fixes. Behaviour changes a consumer must check:

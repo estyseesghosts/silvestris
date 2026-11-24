@@ -581,10 +581,14 @@ pub fn aqua_light() -> Theme {
             // #738193 upper-case headings.
             source_secondary: c(0xdfe4e9),
             source_secondary_heading: c(0x738193),
-            row_alternate: c(0xedf3fe),    // M: table.header_and_rows
-            group_fill: c(0xe6e6e6),       // M: groupbox.fill
-            group_border: c(0xc8c8c8),     // M: groupbox.left
-            group_border_top: c(0xababab), // M: groupbox.top
+            row_alternate: c(0xedf3fe),       // M: table.header_and_rows
+            group_fill: c(0xe6e6e6),          // M: groupbox.fill
+            group_border: c(0xc8c8c8),        // M: groupbox.left
+            group_border_top: c(0xababab),    // M: groupbox.top
+            group_border_bottom: c(0xdbdbdb), // M: groupbox.bottom
+            group_highlight: c(0xe2e2e2),     // M: groupbox.left
+            group_highlight_bottom: c(0xe4e4e4), // M: groupbox.bottom
+            group_shadow: [c(0xc5c5c5), c(0xdbdbdb), c(0xe5e5e5)], // M: groupbox.top
             // M: groupbox.fill/left/top: a recessed well uses the same fill and
             // a 1 px inner top shadow one step darker than the border.
             well_fill: c(0xe6e6e6),
@@ -1092,6 +1096,16 @@ pub fn aqua_dark() -> Theme {
             group_fill: c(0x333333),
             group_border: c(0x474747),
             group_border_top: c(0x262626), // designed: dark mirror of the Aqua top edge
+            // designed: each row sits where its Aqua Light row sits between
+            // the edge and the fill (M: groupbox.top, .left, .bottom).
+            group_border_bottom: c(0x474747).mix(c(0x333333), 0.63),
+            group_highlight: c(0x474747).mix(c(0x333333), 0.87),
+            group_highlight_bottom: c(0x474747).mix(c(0x333333), 0.93),
+            group_shadow: [
+                c(0x262626).mix(c(0x333333), 0.44),
+                c(0x262626).mix(c(0x333333), 0.81),
+                c(0x262626).mix(c(0x333333), 0.98),
+            ],
             well_fill: c(0x333333),
             well_border: c(0x474747),
             well_shadow: c(0x202020),

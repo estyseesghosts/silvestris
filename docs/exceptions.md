@@ -99,6 +99,19 @@ repeated here; they are listed in place next to the token.
 - Recessed controls, textured pop-ups, round text buttons and group-box
   padding follow the measured layer order and the HIG; where no 10.6 crop
   exists the material is designed from the nearest measured token.
+- Group-box and tab-view edges are measured (M: groupbox.top, .left,
+  .bottom; the same rows appear in the Date & Time and Network captures).
+  Corner pixels inside the 4 px radius are GPUI's anti-aliasing, not the
+  capture's. Dark Aqua's edge rows are designed: each sits at the same
+  fraction between edge and fill as its Aqua Light row.
+- Under the tabs, 10.6 shows b9b9b9 then e4e4e4 before the box fill; the
+  segmented emboss token (black at alpha 48) gives bbbbbb and no second row.
+  The token is shared with every segmented control, so it is not retuned for
+  tabs.
+- Small and mini tabs use the segmented control's 18 and 15 px heights. The
+  HIG gives 17 and 15 px without saying whether the outline is included, and
+  no 10.6 small or mini tab view is in the corpus. Label margins (12 / 10 /
+  8 px) are the HIG's (p. 341).
 - Dark Aqua is an invented appearance (10.6 shipped no dark mode). It keeps
   Aqua Light geometry, layer order and hue identities; every surface, mixed
   state and focus ring is designed and named `designed:` in `aqua.rs`.
