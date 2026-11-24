@@ -83,7 +83,19 @@ pub fn open_window<V: 'static + Render>(
                 crate::theme::system_appearance_changed(window.appearance(), cx);
             })
             .detach();
-        build(window, cx)
+        let root = build(window, cx);
+        // App-level activation for `lifecycle::install` (#59).
+        root.update(cx, |_, cx| {
+            cx.observe_window_activation(window, |_, window, cx| {
+                crate::lifecycle::window_activation_changed(
+                    window.window_handle().window_id(),
+                    window.is_window_active(),
+                    cx,
+                );
+            })
+            .detach();
+        });
+        root
     })
 }
 

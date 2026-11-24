@@ -25,6 +25,12 @@ M1 audit fixes. Behaviour changes a consumer must check:
   steady and no timer runs until the window is active again (#58).
 - Behaviour: Undo after an IME commit restores the text from before composing,
   not the raw composition (#58).
+- Added `lifecycle::install`, `reopen`, `window_activation_changed`,
+  `is_app_active`, `ACTIVATION_GRACE` and `SharedDelegate`; `Rc<RefCell<D>>`
+  implements `AppDelegate`. Before, nothing called the delegate's launch,
+  activation or reopen hooks (#59).
+- Behaviour: `chrome::open_window` now observes each window's activation for
+  the installed delegate. Without `install` it does nothing.
 
 ## After 216de9b
 

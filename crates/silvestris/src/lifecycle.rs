@@ -14,9 +14,11 @@
 //! Single-instance IPC and dock integration belong to #63 host services; this
 //! module only receives the `reopen` callback.
 
-use std::collections::VecDeque;
+use std::cell::RefCell;
+use std::collections::{BTreeSet, VecDeque};
+use std::rc::Rc;
 
-use gpui::{App, SharedString, Task};
+use gpui::{App, Global, SharedString, Task, WindowId};
 
 use crate::document::{DocumentHandle, SaveResult};
 
@@ -37,6 +39,133 @@ pub trait AppDelegate: 'static {
     fn should_terminate(&mut self, _cx: &mut App) -> Terminate {
         Terminate::Now
     }
+}
+
+/// A delegate shared between [`install`] and a [`QuitCoordinator`]: pass
+/// `Box::new(shared.clone())` to `QuitCoordinator::new`.
+pub type SharedDelegate<D> = Rc<RefCell<D>>;
+
+impl<D: AppDelegate> AppDelegate for Rc<RefCell<D>> {
+    fn did_launch(&mut self, cx: &mut App) {
+        self.borrow_mut().did_launch(cx);
+    }
+    fn should_open_untitled(&mut self, cx: &App) -> bool {
+        self.borrow_mut().should_open_untitled(cx)
+    }
+    fn reopen(&mut self, cx: &mut App) {
+        self.borrow_mut().reopen(cx);
+    }
+    fn did_become_active(&mut self, cx: &mut App) {
+        self.borrow_mut().did_become_active(cx);
+    }
+    fn did_resign_active(&mut self, cx: &mut App) {
+        self.borrow_mut().did_resign_active(cx);
+    }
+    fn should_terminate(&mut self, cx: &mut App) -> Terminate {
+        self.borrow_mut().should_terminate(cx)
+    }
+}
+
+/// The installed delegate and the app-level activation derived from window
+/// activation. Desktop GPUI has no application activation event, so the app is
+/// active while any of its Silvestris windows is.
+struct Installed {
+    delegate: Rc<RefCell<dyn AppDelegate>>,
+    active_windows: BTreeSet<WindowId>,
+    app_active: bool,
+    pending: bool,
+}
+
+impl Global for Installed {}
+
+/// How long a window-activation change waits before it counts as an app-level
+/// change. Estimate: long enough to cover the deactivate/activate message pair
+/// of an in-app window switch, short of anything a person sees; see
+/// `docs/exceptions.md`.
+pub const ACTIVATION_GRACE: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Install the application delegate. Calls `did_launch` now; from then on
+/// every window opened through `chrome::open_window` (so every role window)
+/// reports activation, and the delegate sees `did_become_active` /
+/// `did_resign_active` once per app-level change. Wire OS reopen with
+/// `application.on_reopen(lifecycle::reopen)` before `run`.
+pub fn install<D: AppDelegate>(delegate: SharedDelegate<D>, cx: &mut App) {
+    let delegate: Rc<RefCell<dyn AppDelegate>> = delegate;
+    cx.set_global(Installed {
+        delegate: delegate.clone(),
+        active_windows: BTreeSet::new(),
+        app_active: false,
+        pending: false,
+    });
+    cx.on_window_closed(|cx, id| window_activation_changed(id, false, cx))
+        .detach();
+    delegate.borrow_mut().did_launch(cx);
+}
+
+/// Forward an OS reopen (dock click, second launch) to the installed delegate.
+pub fn reopen(cx: &mut App) {
+    let Some(delegate) = cx
+        .try_global::<Installed>()
+        .map(|installed| installed.delegate.clone())
+    else {
+        return;
+    };
+    delegate.borrow_mut().reopen(cx);
+}
+
+/// Record one window's activation. `chrome::open_window` calls this; an app
+/// that opens windows another way can call it from its own observer.
+///
+/// The app-level answer is settled after [`ACTIVATION_GRACE`]: switching
+/// between two of the app's windows deactivates one before activating the
+/// other, in separate platform messages, and that is not the app resigning.
+pub fn window_activation_changed(window: WindowId, active: bool, cx: &mut App) {
+    let Some(installed) = cx.try_global::<Installed>() else {
+        return;
+    };
+    let mut windows = installed.active_windows.clone();
+    if active {
+        windows.insert(window);
+    } else {
+        windows.remove(&window);
+    }
+    let schedule = !installed.pending;
+    {
+        let installed = cx.global_mut::<Installed>();
+        installed.active_windows = windows;
+        installed.pending = true;
+    }
+    if schedule {
+        cx.spawn(async move |cx| {
+            cx.background_executor().timer(ACTIVATION_GRACE).await;
+            cx.update(settle_activation);
+        })
+        .detach();
+    }
+}
+
+fn settle_activation(cx: &mut App) {
+    let Some(installed) = cx.try_global::<Installed>() else {
+        return;
+    };
+    let now = !installed.active_windows.is_empty();
+    let changed = now != installed.app_active;
+    let delegate = installed.delegate.clone();
+    {
+        let installed = cx.global_mut::<Installed>();
+        installed.pending = false;
+        installed.app_active = now;
+    }
+    if changed {
+        notify_activation(&mut *delegate.borrow_mut(), now, cx);
+    }
+}
+
+/// Whether any of the app's windows is active, per [`install`]'s tracking.
+#[must_use]
+pub fn is_app_active(cx: &App) -> bool {
+    cx.try_global::<Installed>()
+        .is_some_and(|installed| installed.app_active)
 }
 
 /// What the delegate says about termination.
@@ -349,9 +478,13 @@ mod tests {
         active: Rc<Cell<usize>>,
         resigned: Rc<Cell<usize>>,
         reopened: Rc<Cell<usize>>,
+        launched: Rc<Cell<usize>>,
     }
 
     impl AppDelegate for Delegate {
+        fn did_launch(&mut self, _: &mut App) {
+            self.launched.set(self.launched.get() + 1);
+        }
         fn reopen(&mut self, _: &mut App) {
             self.reopened.set(self.reopened.get() + 1);
         }
@@ -394,6 +527,7 @@ mod tests {
             active: Rc::new(Cell::new(0)),
             resigned: Rc::new(Cell::new(0)),
             reopened: Rc::new(Cell::new(0)),
+            launched: Rc::new(Cell::new(0)),
         }
     }
 
@@ -500,6 +634,87 @@ mod tests {
         app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
         let mut quit = coordinator(Mode::Cancel);
         assert_eq!(app.update(|cx| quit.request_quit(cx)), QuitStep::Cancelled);
+    }
+
+    struct Blank;
+    impl gpui::Render for Blank {
+        fn render(
+            &mut self,
+            _: &mut gpui::Window,
+            _: &mut Context<Self>,
+        ) -> impl gpui::IntoElement {
+            gpui::div()
+        }
+    }
+
+    /// `install` drives the delegate: launch once, app activation derived from
+    /// its windows with no flicker when focus moves between two of them, a
+    /// resign when the last one deactivates, and reopen.
+    #[test]
+    fn install_drives_launch_activation_and_reopen() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let d = delegate(Mode::Now);
+        let (launched, active, resigned, reopened) = (
+            d.launched.clone(),
+            d.active.clone(),
+            d.resigned.clone(),
+            d.reopened.clone(),
+        );
+        let shared = Rc::new(RefCell::new(d));
+        app.update(|cx| install(shared.clone(), cx));
+        assert_eq!(launched.get(), 1);
+
+        let open = |app: &mut TestAppContext| {
+            app.update(|cx| {
+                crate::chrome::open_window(gpui::WindowOptions::default(), cx, |_, cx| {
+                    cx.new(|_| Blank)
+                })
+                .unwrap()
+            })
+        };
+        let first = open(&mut app);
+        let second = open(&mut app);
+        app.run_until_parked();
+        let settle = |app: &mut TestAppContext| {
+            app.run_until_parked();
+            app.executor()
+                .advance_clock(ACTIVATION_GRACE + std::time::Duration::from_millis(1));
+            app.run_until_parked();
+        };
+        let activate = |app: &mut TestAppContext, w: gpui::WindowHandle<Blank>| {
+            w.update(app, |_, window, _| window.activate_window())
+                .unwrap();
+            settle(app);
+        };
+        activate(&mut app, first);
+        assert_eq!(active.get(), 1);
+        assert!(app.update(|cx| is_app_active(cx)));
+        activate(&mut app, second);
+        assert_eq!(
+            (active.get(), resigned.get()),
+            (1, 0),
+            "moving between the app's windows is not a resign"
+        );
+        app.update(|cx| {
+            second
+                .update(cx, |_, window, cx| {
+                    window_activation_changed(window.window_handle().window_id(), false, cx)
+                })
+                .unwrap()
+        });
+        settle(&mut app);
+        assert_eq!(resigned.get(), 1);
+        assert!(!app.update(|cx| is_app_active(cx)));
+
+        app.update(reopen);
+        assert_eq!(reopened.get(), 1);
+        // The quit coordinator shares the same delegate.
+        let mut quit = QuitCoordinator::new(Box::new(shared.clone()));
+        assert!(matches!(
+            app.update(|cx| quit.request_quit(cx)),
+            QuitStep::Terminate
+        ));
     }
 
     #[test]

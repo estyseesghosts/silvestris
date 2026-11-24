@@ -169,6 +169,11 @@ repeated here; they are listed in place next to the token.
   joins the parent's window group is a platform capability, not a role flag.
   `RoleSpec::hides_on_deactivate` records the intent; #50 owns per-platform
   verification.
+- App activation on desktop GPUI is derived from window activation, because
+  the pin has no application activation event. `lifecycle::ACTIVATION_GRACE`
+  (50 ms) is an estimate: an in-app window switch arrives as a deactivate and
+  an activate in separate platform messages, and the grace keeps that from
+  reading as the app resigning. No 10.6 capture can measure it.
 
 ## Visual goldens
 

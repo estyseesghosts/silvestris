@@ -27,10 +27,37 @@ impl AppDelegate for MyApp {
 }
 ```
 
-Every hook has a default. `did_become_active`/`did_resign_active` are called by
-`notify_activation`; the same signal is what panels (#27) and caret/animation
-timers use to stop while the window is inactive. `should_open_untitled` and
-`reopen` are for the app menu and OS reopen; the window policy stays the app's.
+Every hook has a default. `should_open_untitled` and `reopen` are for the app
+menu and OS reopen; the window policy stays the app's.
+
+## Installing the delegate
+
+```rust
+let app = Rc::new(RefCell::new(MyApp::default()));
+application.on_reopen(lifecycle::reopen);
+application.run(move |cx| {
+    silvestris::init(ThemePreference::default(), cx)?;
+    lifecycle::install(app.clone(), cx); // calls did_launch
+    let quit = QuitCoordinator::new(Box::new(app.clone()));
+    // ...
+});
+```
+
+`install` stores the delegate and calls `did_launch`. Desktop GPUI has no
+application activation event, so the app counts as active while any window
+opened through `chrome::open_window` (every role window) is active. Each of
+those windows reports its activation; after `ACTIVATION_GRACE` (50 ms, an
+estimate in `docs/exceptions.md`) the delegate gets `did_become_active` or
+`did_resign_active` once per app-level change. Moving focus between two of the
+app's windows is not a resign. `is_app_active(cx)` reads the same state. A
+window opened another way can report through `window_activation_changed`.
+
+`reopen(cx)` forwards an OS reopen (dock click, second launch) to the installed
+delegate; pass it to GPUI's `Application::on_reopen` before `run`.
+
+`Rc<RefCell<D>>` implements `AppDelegate`, so the same delegate drives
+`install` and `QuitCoordinator`. Caret blink does not need the app-level
+signal: text clients stop on their own window's deactivation (see `text.md`).
 
 `Terminate::Later(Task<()>)` is the async shutdown hook: sandcat awaits
 `StorageWorker::shutdown()` and saves its draft here; lotus flushes coalesced
@@ -81,7 +108,11 @@ Two dirty documents: review order, review name, Don't Save, then Cancel keeps
 both dirty. Saving with a panel waits and then terminates. Clean documents
 terminate; a failed save cancels. `Later` returns Deferred, then terminates;
 a timeout forces exit. A delegate Cancel aborts. Activation and reopen hooks
-fire once each.
+fire once each. `install` calls `did_launch` once; with two windows opened
+through `open_window`, activating the first makes the app active, switching to
+the second is not a resign, and the last deactivation resigns once; `reopen`
+reaches the delegate; the same `Rc<RefCell<_>>` delegate drives a
+`QuitCoordinator`.
 
 No gallery or golden: lifecycle has no visual surface. The dirty close button
 is covered by #37's `window-frame-edited` goldens.
