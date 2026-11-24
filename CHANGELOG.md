@@ -7,6 +7,21 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #61, bindings. Additive:
+
+- `binding::Binding<T>` with `new`, `field`, `value`, `set`; `checkbox`,
+  `radio`, `popup` and `slider` adapters (`BoundCheckbox`, `BoundRadio`,
+  `BoundPopUp`, `BoundSlider`).
+- `binding::TextBinding<T>` with `sync`, `commit`, `field` and `subscribe`.
+- `binding::ListController<T>` with `set_items`, `set_sort`, `set_filter`,
+  `visible`, `visible_ids`, `select`, `selected`, `index_of`, `source_nodes`
+  and `clear_selection`; `ItemId`.
+
+Behaviour: a programmatic `set`/`select` changes the model without firing a
+control callback; a control callback writes through the same setter; text
+synchronisation is silent because `set_text` emits no `Changed`; selection is
+by stable id and survives sort, filter and reload.
+
 PR #66, runtime rebinding. Additive:
 
 - `command::RESERVED_SHORTCUTS`, `RebindError`, `RebindWarning`,

@@ -5,6 +5,7 @@ use gpui::{
     actions, canvas, div, point, prelude::*, px, size, App, Bounds, Context, Entity, KeyBinding,
     Window,
 };
+use silvestris::binding::{Binding, ListController};
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
@@ -80,7 +81,15 @@ struct Gallery {
     transient: Entity<TransientLayer>,
     transient_status: gpui::SharedString,
     shortcut_status: gpui::SharedString,
+    bound: Entity<BoundModel>,
+    list: ListController<(u32, gpui::SharedString)>,
+    list_sorted: bool,
     modal: Option<ModalDemo>,
+}
+
+struct BoundModel {
+    primary: bool,
+    level: f32,
 }
 
 #[derive(Clone)]
@@ -294,6 +303,18 @@ impl Gallery {
                 )
                 .unwrap()
         });
+        let bound = cx.new(|_| BoundModel {
+            primary: true,
+            level: 0.4,
+        });
+        let mut list =
+            ListController::new(|item: &(u32, gpui::SharedString)| item.0.to_string().into());
+        list.set_items(vec![
+            (3, "Charlie".into()),
+            (1, "Alpha".into()),
+            (2, "Bravo".into()),
+        ]);
+        list.select("2");
         let transient = cx.new(|cx| TransientLayer::new(window, cx));
         cx.observe(&transient, |gallery, layer, cx| {
             gallery.transient_status = match (layer.read(cx).len(), layer.read(cx).top_kind()) {
@@ -358,6 +379,9 @@ impl Gallery {
             transient,
             transient_status: "none".into(),
             shortcut_status: "unchanged".into(),
+            bound,
+            list,
+            list_sorted: false,
             modal: None,
         }
     }
@@ -654,6 +678,94 @@ impl Render for Gallery {
                     .child(format!("shortcut: {}", self.shortcut_status)),
             );
 
+        let bound_primary = Binding::field(
+            &self.bound,
+            |model: &BoundModel| model.primary,
+            |model: &mut BoundModel, value| model.primary = value,
+        )
+        .checkbox("bound-primary", "Primary");
+        let bound_level = Binding::field(
+            &self.bound,
+            |model: &BoundModel| model.level,
+            |model: &mut BoundModel, value| model.level = value,
+        )
+        .slider("bound-level", "Level");
+        let bound_state = self.bound.read(cx);
+        let binding_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(12.))
+            .child(div().w(px(160.)).child(bound_primary))
+            .child(div().w(px(180.)).child(bound_level))
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(format!(
+                        "primary={} level={:.1}",
+                        bound_state.primary, bound_state.level
+                    )),
+            );
+
+        let list_ids = self.list.visible_ids().join(", ");
+        let list_selection = self
+            .list
+            .selection()
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "none".into());
+        let list_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(12.))
+            .child(
+                Button::new(
+                    "sort-list",
+                    if self.list_sorted {
+                        "Original order"
+                    } else {
+                        "Sort A–Z"
+                    },
+                )
+                .size(ControlSize::Small)
+                .on_click(cx.listener(|g, _, _, cx| {
+                    g.list_sorted = !g.list_sorted;
+                    if g.list_sorted {
+                        g.list.set_sort(Some(
+                            |a: &(u32, gpui::SharedString), b: &(u32, gpui::SharedString)| {
+                                a.1.cmp(&b.1)
+                            },
+                        ));
+                    } else {
+                        g.list.set_sort(
+                            None::<
+                                fn(
+                                    &(u32, gpui::SharedString),
+                                    &(u32, gpui::SharedString),
+                                ) -> std::cmp::Ordering,
+                            >,
+                        );
+                    }
+                    cx.notify();
+                })),
+            )
+            .child(
+                Button::new("filter-list", "Hide Alpha")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|g, _, _, cx| {
+                        g.list
+                            .set_filter(Some(|item: &(u32, gpui::SharedString)| item.0 != 1));
+                        cx.notify();
+                    })),
+            )
+            .child(
+                div()
+                    .text_size(small_text)
+                    .text_color(secondary)
+                    .child(format!("ids: {list_ids} · selected: {list_selection}")),
+            );
+
         let modal_sheet = self.modal.as_ref().and_then(|demo| {
             if !demo.session.read(cx).is_active() {
                 return None;
@@ -739,6 +851,8 @@ impl Render for Gallery {
                             .child(routing_row)
                             .child(transient_row)
                             .child(shortcut_row)
+                            .child(binding_row)
+                            .child(list_row)
                             .child(role_row)
                             .child(
                                 div()
