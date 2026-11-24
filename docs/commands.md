@@ -28,13 +28,12 @@ do not fall through to a guest-input handler. It does not own a focus handle;
 focused descendants route actions through it.
 
 Text clients need no exclusion in the context string. `bindings` and
-`bindings_where` scope every chord that types (no Control, Option, Command or
-Fn, and not a function key; Shift alone still types) to `(<context>) &&
+`bindings_where` bind every command shortcut in `(<context>) &&
 !SilvestrisText`, the context every text field, area, token field and editable
-cell carries. A bare-key command such as a digit theme switch therefore fires
-everywhere except inside text. Command chords bind in the given context as-is
-and reach the responder chain from inside a text client, where the client's
-own Control-scope responders (undo, copy) take precedence (#57).
+cell carries, so a focused text client gets every key first: no shell shortcut
+reaches the application while the user types (#57; sandcat's Ctrl+1-4 theme
+keys and lotus's key isolation rely on this). Before, consumers wrote
+`!SilvestrisTextField` by hand, which missed `TextArea`.
 
 ## Responder chain
 

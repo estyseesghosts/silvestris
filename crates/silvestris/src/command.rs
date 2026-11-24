@@ -233,11 +233,9 @@ impl CommandRegistry {
         if context.trim().is_empty() {
             return Err("command bindings require an explicit focus context".into());
         }
-        let predicate = KeyBindingContextPredicate::parse(context).map_err(|e| e.to_string())?;
-        // A chord that types text must not fire while a text client has focus
-        // (#57): the responder chain, not each consumer's context string, keeps
-        // bare keys with the field. Chords with Control, Option or Command, and
-        // function keys, are commands and reach the chain as usual.
+        // No command shortcut fires while a text client has focus (#57): the
+        // client gets every key first, as `!SilvestrisTextField` used to say by
+        // hand. `SilvestrisText` covers field, area, token field and cell.
         let outside_text = KeyBindingContextPredicate::parse(&format!(
             "({context}) && !{}",
             crate::controls::text_field::KEY_CONTEXT
@@ -252,7 +250,6 @@ impl CommandRegistry {
             if keys.trim().is_empty() {
                 return Err(format!("empty shortcut: {}", descriptor.id));
             }
-            let types_text = types_text(keys, cx)?;
             let canonical = keys
                 .split_whitespace()
                 .map(|s| {
@@ -271,11 +268,7 @@ impl CommandRegistry {
                     Box::new(InvokeCommand {
                         id: descriptor.id.to_string(),
                     }),
-                    Some(Rc::new(if types_text {
-                        outside_text.clone()
-                    } else {
-                        predicate.clone()
-                    })),
+                    Some(Rc::new(outside_text.clone())),
                     false,
                     None,
                     cx,
@@ -285,26 +278,6 @@ impl CommandRegistry {
         }
         Ok(bindings)
     }
-}
-
-/// Whether the first keystroke of `keys` is one a text client consumes as
-/// typing or editing: no Control, Option, Command or Fn, and not a function
-/// key. Shift alone still types (shift-a is "A").
-fn types_text(keys: &str, cx: &App) -> Result<bool, String> {
-    let Some(first) = keys.split_whitespace().next() else {
-        return Ok(false);
-    };
-    let keystroke =
-        gpui::Keystroke::parse_with_os(first, cx.platform_info().os).map_err(|e| e.to_string())?;
-    let m = keystroke.modifiers;
-    if m.control || m.alt || m.platform || m.function {
-        return Ok(false);
-    }
-    let function_key = keystroke
-        .key
-        .strip_prefix('f')
-        .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
-    Ok(!function_key)
 }
 
 /// Replace the GPUI command bindings from the registry while keeping every
@@ -565,11 +538,11 @@ mod tests {
         }
     }
 
-    /// #57: no consumer writes `!SilvestrisTextField`. A bare-key command stays
-    /// out of every text client (field and area alike); a Command/Control chord
-    /// still reaches the chain from inside one.
+    /// #57: no consumer writes `!SilvestrisTextField`. Command shortcuts stay
+    /// out of every text client, the multiline area included, which the
+    /// hand-written clause missed.
     #[test]
-    fn typing_keys_stay_in_text_clients_and_command_chords_pass_through() {
+    fn command_shortcuts_stay_out_of_every_text_client() {
         let mut app = TestAppContext::single();
         app.update(|cx| {
             crate::theme::install(crate::ThemePreference::default(), cx);
@@ -627,7 +600,15 @@ mod tests {
             "ctrl-k"
         });
         draw(cx);
-        assert_eq!(chord.get(), 1, "a command chord still reaches the chain");
+        assert_eq!(
+            chord.get(),
+            0,
+            "a chord does not leave the text area either"
+        );
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.area.read(cx).text().to_string()),
+            "11"
+        );
     }
 
     #[test]

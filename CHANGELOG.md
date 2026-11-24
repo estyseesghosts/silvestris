@@ -9,11 +9,10 @@ depend on focus, key routing and layout.
 
 M1 audit fixes. Behaviour changes a consumer must check:
 
-- `CommandRegistry::bindings` and `bindings_where` now scope every chord that
-  types (no Control, Option, Command or Fn, and not a function key) to
-  `(<context>) && !SilvestrisText`. Drop hand-written `!SilvestrisTextField`
-  clauses; they still parse, but they missed `TextArea`, where bare-key
-  commands used to fire while typing (#57).
+- `CommandRegistry::bindings` and `bindings_where` now bind every command
+  shortcut in `(<context>) && !SilvestrisText`. Drop hand-written
+  `!SilvestrisTextField` clauses; they still parse, but they missed
+  `TextArea`, where command shortcuts used to fire while typing (#57).
 - Undo or redo during an IME composition now cancels the composition before
   applying the step. Before, the unrecorded marked text stayed in the buffer
   and shifted the recorded ranges, so the step edited the wrong bytes (#39).
