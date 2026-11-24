@@ -49,6 +49,8 @@ pub mod responder;
 
 pub mod transient;
 
+pub mod undo;
+
 pub mod shell;
 
 pub mod window_role;

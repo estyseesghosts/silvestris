@@ -34,8 +34,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::ControlSize;
 use crate::convert::hsla;
 use crate::paint;
-use crate::text::{ClipboardPolicy, EditSession, Selection};
+use crate::text::{Change, ClipboardPolicy, EditSession, Selection};
 use crate::theme::ActiveTheme;
+use crate::undo::{TextHistory, TextHost, UndoManager};
 
 actions!(
     silvestris_text,
@@ -177,6 +178,7 @@ pub struct TextField {
     selecting: bool,
     caret_on: bool,
     blink_epoch: u64,
+    history: TextHistory,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -218,12 +220,32 @@ impl TextField {
             selecting: false,
             caret_on: true,
             blink_epoch: 0,
+            history: TextHistory::new(cx),
             _subscriptions: subscriptions,
         }
     }
 
     pub fn text(&self) -> &str {
         self.session.text()
+    }
+
+    /// The field's local undo stack. Register it at Control scope while the
+    /// field is focused; the chain picks it over the document's stack.
+    #[must_use]
+    pub fn history(&self) -> Entity<UndoManager> {
+        self.history.manager()
+    }
+
+    /// A responder entry for this field's undo stack.
+    #[must_use]
+    pub fn undo_entry(&self) -> crate::responder::ResponderEntry {
+        self.history
+            .entry(crate::responder::ResponderScope::Control, "text-field-undo")
+    }
+
+    fn record_change(&mut self, change: &Change, cx: &mut Context<Self>) {
+        let entity = cx.entity();
+        self.history.record(entity, change, cx);
     }
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
@@ -640,6 +662,21 @@ impl TextField {
     }
 }
 
+impl TextHost for TextField {
+    fn session(&self) -> &EditSession {
+        &self.session
+    }
+
+    fn session_mut(&mut self) -> &mut EditSession {
+        &mut self.session
+    }
+
+    fn after_history_change(&mut self, cx: &mut Context<Self>) {
+        cx.emit(TextFieldEvent::Changed);
+        cx.notify();
+    }
+}
+
 impl EntityInputHandler for TextField {
     fn text_for_range(
         &mut self,
@@ -708,10 +745,12 @@ impl EntityInputHandler for TextField {
             .map(|r| self.range_from_utf16(r))
             .or(self.session.marked_range())
             .unwrap_or(self.session.selected_range());
-        self.session.replace_range(range, new_text, false);
-        window.notify_text_input_changed(&self.focus);
-        cx.emit(TextFieldEvent::Changed);
-        self.restart_blink(window, cx);
+        if let Some(change) = self.session.replace_range(range, new_text, false) {
+            self.record_change(&change, cx);
+            window.notify_text_input_changed(&self.focus);
+            cx.emit(TextFieldEvent::Changed);
+            self.restart_blink(window, cx);
+        }
     }
 
     fn replace_and_mark_text_in_range(
@@ -1206,5 +1245,156 @@ impl Element for TextElement {
             field.last_bounds = Some(clip);
             field.scroll_x = scroll_x;
         });
+    }
+}
+
+#[cfg(test)]
+mod undo_tests {
+    use gpui::{TestAppContext, VisualTestContext};
+
+    use super::*;
+    use crate::command::CommandRegistry;
+
+    struct Harness {
+        field: Entity<TextField>,
+        focus: FocusHandle,
+    }
+
+    impl Render for Harness {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .track_focus(&self.focus)
+                .child(div().w(px(240.)).child(self.field.clone()))
+        }
+    }
+
+    fn draw(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+    }
+
+    #[test]
+    fn typing_coalesces_and_undo_and_redo_restore_the_field() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            bind_keys(cx);
+        });
+        let (view, cx) = app.add_window_view(|window, cx| {
+            let field = cx.new(|cx| TextField::new(window, cx));
+            let focus = cx.focus_handle();
+            window.focus(&focus, cx);
+            Harness { field, focus }
+        });
+        draw(cx);
+        let field_focus = view.read_with(cx, |view, cx| view.field.read(cx).focus_handle(cx));
+        cx.update(|window, cx| window.focus(&field_focus, cx));
+        draw(cx);
+        cx.simulate_input("ab");
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "ab"
+        );
+        let (can_undo, name, entries) = view.read_with(cx, |view, cx| {
+            let history = view.field.read(cx).history();
+            let history = history.read(cx);
+            (
+                history.can_undo(),
+                history.undo_name().map(str::to_string),
+                history.len(),
+            )
+        });
+        assert!(can_undo);
+        assert_eq!(name.as_deref(), Some("Typing"), "entries: {entries}");
+        assert_eq!(entries, 1, "typing coalesces into one entry");
+
+        let history = view.read_with(cx, |view, cx| view.field.read(cx).history());
+        cx.update(|_, cx| {
+            history.update(cx, |history, cx| {
+                assert!(history.undo(cx));
+            });
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            ""
+        );
+        cx.update(|_, cx| {
+            history.update(cx, |history, cx| {
+                assert!(history.redo(cx));
+            });
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "ab"
+        );
+
+        // A focused field's Control-scope stack beats the document's stack.
+        let (document, registry) = cx.update(|_, cx| {
+            let document = cx.new(|_| UndoManager::new());
+            document.update(cx, |document, _| {
+                document.record("Document edit", None, |_| {}, |_| {});
+            });
+            let registry = cx.new(|_| CommandRegistry::default());
+            registry.update(cx, |registry, cx| {
+                registry
+                    .register(
+                        silvestris_core::command::CommandDescriptor::action("edit.undo", "Undo"),
+                        |_, _, _| {},
+                        cx,
+                    )
+                    .unwrap();
+                registry
+                    .register(
+                        silvestris_core::command::CommandDescriptor::action("edit.redo", "Redo"),
+                        |_, _, _| {},
+                        cx,
+                    )
+                    .unwrap();
+            });
+            (document, registry)
+        });
+        let field_history = view.read_with(cx, |view, app| view.field.read(app).history());
+        let field_focus = view.read_with(cx, |view, cx| view.field.read(cx).focus_handle(cx));
+        let mut chain = crate::responder::ResponderChain::new();
+        chain.push(crate::responder::ResponderEntry::new(
+            crate::responder::ResponderScope::Document,
+            "document",
+            &document,
+        ));
+        chain.push(
+            crate::responder::ResponderEntry::new(
+                crate::responder::ResponderScope::Control,
+                "field",
+                &field_history,
+            )
+            .when_focused(&field_focus),
+        );
+        cx.update(|window, cx| {
+            let descriptor = chain
+                .present(&registry, &"edit.undo".into(), window, cx)
+                .expect("descriptor");
+            assert_eq!(descriptor.label, "Undo Typing");
+            assert_eq!(
+                chain.dispatch(&registry, &"edit.undo".into(), window, cx),
+                crate::command::Invocation::Dispatched
+            );
+        });
+        draw(cx);
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.field.read(cx).text().to_string()),
+            "",
+            "the field's stack handled Undo"
+        );
+        assert!(
+            document.read_with(cx, |document, _| document.can_undo()),
+            "the document's stack is untouched"
+        );
     }
 }
