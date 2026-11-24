@@ -206,6 +206,23 @@ row(ACTIVITY, 85, 45, 60, "table.header.divider", "column header divider", (40, 
 column(MENU, 60, 0, 50, "menu.bar_and_selection", "menu bar title selection and first item selection")
 column(MENU, 230, 20, 140, "menu.body", "menu body, selected item, separators")
 
+# Contextual and pop-down menus (VM captures, 1x). PopupMenu draws these kinds.
+NESTED = "../vm-screenshots/right-click-context-menu-nested.png"
+CONTEXT = "../vm-screenshots/expanded-contextual-menu.png"
+column(NESTED, 246, 50, 214, "menu.context.rows",
+       "pop-down menu: body from row 54, 4 px pad, 18 px items, 12 px separators (line on the 6th row), bottom edge 212")
+column(CONTEXT, 200, 58, 140, "menu.context.body",
+       "contextual menu over the desktop: translucent body, 4 px pad, separator, 18 px items")
+row(NESTED, 99, 70, 256, "menu.context.separator", "separator row: 1 px inset each side, body edge, parent edge")
+row(NESTED, 230, 250, 400, "menu.context.edge", "submenu at mid height: left shadow, left edge, body, right edge, right shadow")
+column(NESTED, 320, 150, 300, "menu.context.shadow", "submenu at mid width: shadow above, top edge, items, bottom edge, shadow below")
+row(NESTED, 167, 250, 390, "menu.context.corners",
+    "submenu top edge: square top-left corner beside the parent, rounded top-right")
+column(NESTED, 383, 160, 180, "menu.context.corner_column", "submenu right edge entering the top-right curve")
+row(NESTED, 181, 225, 256, "menu.context.arrow", "highlighted Arrange By row through the submenu arrow tip and the submenu edge")
+row(MENU, 147, 140, 250, "menu.bar.arrow_and_keys", "Services row: submenu arrow 19 px from the body edge")
+row(MENU, 66, 140, 250, "menu.bar.key_column", "Preferences row: command glyph 212-221, key 225 onward, body edge 247")
+
 json.dump({
     "tool": "tools/metrology/measure.py",
     "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",

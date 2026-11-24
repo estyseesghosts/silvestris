@@ -157,8 +157,11 @@ pub struct Colors {
     pub menu_text_disabled: Rgba8,
     pub menu_separator: Rgba8,
     pub menu_separator_highlight: Rgba8,
-    /// Outer hairline around a floating menu.
+    /// Outer hairline around a floating menu, painted outside the body over
+    /// the shadow.
     pub menu_border: Rgba8,
+    /// Floating-menu drop shadow (offset, blur and spread are metrics).
+    pub menu_shadow: Rgba8,
     pub tooltip: Rgba8,
     pub tooltip_border: Rgba8,
     pub tooltip_text: Rgba8,
@@ -528,9 +531,13 @@ pub struct Metrics {
     pub progress_height: [f32; 3],
     /// Asynchronous spinner diameter per size.
     pub spinner_size: [f32; 3],
-    /// Menu elevation: offset (x, y) and blur radius in logical pixels.
+    /// Menu elevation: offset (x, y), Gaussian sigma and spread in logical
+    /// pixels. GPUI uses `BoxShadow::blur_radius` as the sigma.
     pub menu_shadow_offset: [f32; 2],
     pub menu_shadow_blur: f32,
+    pub menu_shadow_spread: f32,
+    /// Vertical nudge for menu row text, negative is up.
+    pub menu_label_dy: f32,
     /// Recessed-well border and inner-shadow thickness.
     pub well_inset: f32,
     pub splitter_hot_zone: f32,

@@ -13,16 +13,20 @@
 use std::path::{Path, PathBuf};
 
 use gpui::{
-    div, point, prelude::*, px, size, App, Bounds, Context, Entity, Render, SharedString, Window,
+    deferred, div, point, prelude::*, px, size, App, Bounds, Context, Entity, Render, SharedString,
+    Window,
 };
 use silvestris::chrome::WindowFrame;
+use silvestris::command::CommandRegistry;
 use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, DisclosureStyle, GroupBox,
     Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup, RadioOption, RowAccessory,
     RowStatus, Segment, SegmentStyle, SegmentedControl, Separator, Slider, SourceList,
     SourceListStyle, TabView, TextField, ThumbStyle, Well,
 };
+use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
+use silvestris::menu::PopupMenu;
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
 
@@ -277,17 +281,45 @@ const SAMPLES: [Sample; 47] = [
     },
 ];
 
+/// Open menus are larger than a grid cell, so they get their own last page,
+/// laid out in one row. Appending a page keeps every other sample's
+/// position, so no existing golden moves.
+const MENU_SAMPLES: [Sample; 2] = [
+    Sample {
+        id: "menu-arrange-by",
+        width: 360.,
+        height: 390.,
+    },
+    Sample {
+        id: "menu-marks",
+        width: 260.,
+        height: 390.,
+    },
+];
+
+fn menu_page() -> usize {
+    SAMPLES.len().div_ceil(PAGE_SIZE)
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
 
 fn page_samples(page: usize) -> &'static [Sample] {
+    if page == menu_page() {
+        return &MENU_SAMPLES;
+    }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
     &SAMPLES[start..end]
 }
 
 fn root_size(page: usize) -> (f32, f32) {
+    if page == menu_page() {
+        let width = MENU_SAMPLES.iter().map(|s| s.width + GAP).sum::<f32>() - GAP;
+        let height = MENU_SAMPLES.iter().map(|s| s.height).fold(0., f32::max);
+        return (PAD + width + PAD, PAD + height + PAD);
+    }
     (
         PAD + COLUMNS as f32 * (CELL_WIDTH + GAP) - GAP + PAD,
         PAD + rows(page) as f32 * (CELL_HEIGHT + GAP) - GAP + PAD,
@@ -295,6 +327,17 @@ fn root_size(page: usize) -> (f32, f32) {
 }
 
 fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
+    if page == menu_page() {
+        let mut x = PAD;
+        return MENU_SAMPLES
+            .iter()
+            .map(|s| {
+                let rect = (s.id, x, PAD, s.width, s.height);
+                x += s.width + GAP;
+                rect
+            })
+            .collect();
+    }
     let samples = page_samples(page);
     let mut rects = Vec::with_capacity(samples.len());
     for (i, sample) in samples.iter().enumerate() {
@@ -311,6 +354,9 @@ struct CaptureView {
     field: Entity<TextField>,
     list: Entity<SourceList>,
     secondary: Entity<SourceList>,
+    menus: Vec<Entity<PopupMenu>>,
+    // Finder content white under the Arrange By menu.
+    content: silvestris::core::Rgba8,
     page: usize,
 }
 
@@ -366,6 +412,16 @@ impl CaptureView {
             list.select("inbox", cx);
         });
 
+        let menus = if page == menu_page() {
+            let rects = sample_rects(page);
+            vec![
+                arrange_by_menu(rects[0].1 + 10., rects[0].2, window, cx),
+                marks_menu(rects[1].1 + 10., rects[1].2 + 10., window, cx),
+            ]
+        } else {
+            Vec::new()
+        };
+
         window.on_next_frame(move |window, cx| {
             capture(window, cx, &out, scale, page);
             cx.quit();
@@ -375,6 +431,8 @@ impl CaptureView {
             field,
             list,
             secondary,
+            menus,
+            content: cx.theme().colors.content,
             page,
         }
     }
@@ -595,6 +653,11 @@ impl CaptureView {
                 .into_any_element(),
             "separator" => Separator::horizontal().inset(8.0).into_any_element(),
             // A flex column so the tab view's box fills the sample cell.
+            "menu-arrange-by" => div()
+                .size_full()
+                .bg(silvestris::convert::hsla(self.content))
+                .into_any_element(),
+            "menu-marks" => div().size_full().into_any_element(),
             "tab-view" => div()
                 .size_full()
                 .flex()
@@ -657,8 +720,130 @@ impl Render for CaptureView {
                     .child(self.sample(id)),
             );
         }
+        for menu in &self.menus {
+            root = root.child(deferred(menu.clone()).priority(1));
+        }
         root
     }
+}
+
+/// Register no-op commands and build a menu model from `(id, label)` rows;
+/// an empty id is a separator.
+fn menu_commands(
+    registry: &Entity<CommandRegistry>,
+    rows: &[(&str, &str)],
+    cx: &mut App,
+) -> Vec<MenuEntry> {
+    registry.update(cx, |registry, cx| {
+        rows.iter()
+            .map(|&(id, label)| {
+                if id.is_empty() {
+                    return MenuEntry::Separator;
+                }
+                registry
+                    .register(CommandDescriptor::action(id, label), |_, _, _| {}, cx)
+                    .expect("unique golden command");
+                MenuEntry::Command(id.into())
+            })
+            .collect()
+    })
+}
+
+/// The Finder Action menu with Arrange By open, as in
+/// `right-click-context-menu-nested.png` (M: menu.context.rows): a pop-down
+/// menu hanging from the toolbar, its submenu beside the highlighted row.
+fn arrange_by_menu(x: f32, y: f32, window: &mut Window, cx: &mut App) -> Entity<PopupMenu> {
+    let registry = cx.new(|_| CommandRegistry::default());
+    let sort = menu_commands(
+        &registry,
+        &[
+            ("sort.name", "Name"),
+            ("sort.modified", "Date Modified"),
+            ("sort.created", "Date Created"),
+            ("sort.size", "Size"),
+            ("sort.kind", "Kind"),
+            ("sort.label", "Label"),
+        ],
+        cx,
+    );
+    let mut entries = menu_commands(
+        &registry,
+        &[
+            ("file.new_folder", "New Folder"),
+            ("file.open", "Open"),
+            ("", ""),
+            ("file.info", "Get Info"),
+            ("file.burn", "Burn \u{201c}terezi\u{201d} to Disc\u{2026}"),
+            ("", ""),
+            ("view.clean_up", "Clean Up"),
+        ],
+        cx,
+    );
+    entries.push(MenuEntry::Submenu {
+        label: "Arrange By".into(),
+        entries: sort,
+    });
+    entries.extend(menu_commands(
+        &registry,
+        &[("view.options", "Show View Options")],
+        cx,
+    ));
+    let model = MenuModel {
+        label: "Action".into(),
+        entries,
+    };
+    let menu = cx.new(|cx| PopupMenu::new(model, registry, window, cx));
+    menu.update(cx, |menu, cx| {
+        menu.open_pop_down(point(px(x), px(y)), window, cx);
+        menu.highlight_path(&[7], window, cx);
+    });
+    menu
+}
+
+/// A contextual menu with a checked, a mixed and a disabled item and key
+/// equivalents, for the mark and key columns.
+fn marks_menu(x: f32, y: f32, window: &mut Window, cx: &mut App) -> Entity<PopupMenu> {
+    let registry = cx.new(|_| CommandRegistry::default());
+    registry.update(cx, |registry, cx| {
+        for descriptor in [
+            CommandDescriptor::toggle("format.bold", "Bold", true).shortcut("secondary-b"),
+            CommandDescriptor::toggle("format.italic", "Italic", false)
+                .mixed(true)
+                .shortcut("secondary-i"),
+            CommandDescriptor::toggle("format.underline", "Underline", false)
+                .shortcut("secondary-u"),
+            CommandDescriptor::action("format.copy_style", "Copy Style")
+                .shortcut("alt-secondary-c"),
+            CommandDescriptor::action("format.paste_style", "Paste Style")
+                .shortcut("alt-secondary-v")
+                .enabled(false),
+            CommandDescriptor::action("format.show_fonts", "Show Fonts").needs_input(),
+        ] {
+            registry
+                .register(descriptor, |_, _, _| {}, cx)
+                .expect("unique golden command");
+        }
+    });
+    let command = |id: &str| MenuEntry::Command(id.into());
+    let model = MenuModel {
+        label: "Format".into(),
+        entries: vec![
+            command("format.bold"),
+            command("format.italic"),
+            command("format.underline"),
+            MenuEntry::Separator,
+            command("format.copy_style"),
+            command("format.paste_style"),
+            MenuEntry::Separator,
+            command("format.show_fonts"),
+        ],
+    };
+    let menu = cx.new(|cx| PopupMenu::new(model, registry, window, cx));
+    menu.update(cx, |menu, cx| {
+        menu.open(point(px(x), px(y)), window, cx);
+        menu.highlight_path(&[2], window, cx);
+    });
+    menu
 }
 
 fn capture(window: &mut Window, cx: &mut App, out: &Path, scale: f32, page: usize) {

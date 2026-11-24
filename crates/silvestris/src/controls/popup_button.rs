@@ -432,35 +432,21 @@ impl RenderOnce for PopUpButton {
             let bounds = s.bounds;
             let highlight = s.highlight;
             let row = m.menu_item_height;
-            // Current row over the button (10.6 pop-up placement).
+            // Current row over the button (10.6 pop-up placement). The frame
+            // edge sits one hairline outside the padded body.
             let origin = point(
                 bounds.origin.x,
                 bounds.origin.y + (bounds.size.height - px(row)) / 2.0
                     - px(m.menu_padding)
+                    - px(1.0)
                     - px(row) * current as f32,
             );
             let sel = theme.lists.menu;
             let menu_text = theme.colors.menu_text;
-            let mut panel = div()
-                .id("popup-panel")
-                .debug_selector(|| "popup-panel".into())
-                .role(gpui::Role::ListBox)
-                .flex()
-                .flex_col()
-                .min_w(bounds.size.width)
-                .py(px(m.menu_padding))
-                .bg(hsla(theme.colors.menu))
-                .rounded(px(m.menu_radius))
-                .border_1()
-                .border_color(hsla(theme.colors.menu_border))
-                .shadow(vec![gpui::BoxShadow::new(
-                    px(m.menu_shadow_offset[0]),
-                    px(m.menu_shadow_offset[1]),
-                    hsla(theme.colors.shadow),
-                )
-                .blur_radius(px(m.menu_shadow_blur))])
-                .text_size(px(theme.type_.size_menu))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation());
+            // Same frame, body and elevation as PopupMenu (one menu material).
+            let mut panel = crate::menu::menu_body(&theme, Default::default())
+                .min_w(bounds.size.width - px(2.0))
+                .text_size(px(theme.type_.size_menu));
             for (index, item) in items.iter().enumerate() {
                 let choose = on_choose.clone();
                 let row_state = state.clone();
@@ -507,7 +493,12 @@ impl RenderOnce for PopUpButton {
                                 f(&index, window, cx);
                             }
                         })
-                        .child(div().relative().child(item.clone())),
+                        .child(
+                            div()
+                                .relative()
+                                .top(px(m.menu_label_dy))
+                                .child(item.clone()),
+                        ),
                 );
             }
             let key_state = state.clone();
@@ -555,7 +546,14 @@ impl RenderOnce for PopUpButton {
                 anchored()
                     .position(origin)
                     .snap_to_window_with_margin(px(4.))
-                    .child(panel),
+                    .child(
+                        crate::menu::menu_frame(&theme, Default::default())
+                            .id("popup-panel")
+                            .debug_selector(|| "popup-panel".into())
+                            .role(gpui::Role::ListBox)
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .child(panel),
+                    ),
             );
             deferred(shield).with_priority(2)
         });

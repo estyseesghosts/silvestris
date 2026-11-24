@@ -47,8 +47,8 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Menu bar composition | `menu::native_menus` (macOS only) | missing | — | — | #24 |
-| Menu items, state, submenus | `core::command::MenuModel`, `MenuEntry`, `PopupMenu` | functional | four | — | #16, #25 |
-| Contextual menu | `PopupMenu` | functional | four | — | #16 |
+| Menu items, state, submenus | `core::command::MenuModel`, `MenuEntry`, `PopupMenu` | measured | four | `menu-arrange-by`, `menu-marks` | #25 |
+| Contextual menu | `PopupMenu::open`, `open_pop_down` | measured | four | `menu-arrange-by`, `menu-marks` | #16 |
 | Transient surfaces | `TransientLayer`, `TransientHandle`, `CancelToken` | functional | four | — | #60 |
 
 ## Controls

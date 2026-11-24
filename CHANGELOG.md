@@ -7,6 +7,29 @@ depend on focus, key routing and layout.
 
 ## After e22e7bf
 
+M2 menus (#16):
+
+- Added `PopupMenu::open_pop_down` (square top corners, for menus hanging
+  from a control) and `PopupMenu::highlight_path` (preselect rows and open
+  submenus without invoking). `PopupMenu::open` is the contextual menu with
+  four rounded corners.
+- Added `CommandDescriptor::mixed`, the `mixed` builder and
+  `CommandSet::set_mixed` for the HIG dash state (pp. 170-171). It is
+  exclusive with `checked`. Struct literals of `CommandDescriptor` must set
+  the new field. GPUI's native menu items have no mixed state, so
+  `native_menus` shows a mixed item unchecked.
+- Added `menu::split_shortcut`, which splits a displayed shortcut into
+  modifiers and key for the key-equivalent column.
+- Added tokens `Colors::menu_shadow`, `Metrics::menu_shadow_spread` and
+  `Metrics::menu_label_dy`. Themes built outside Silvestris must set them.
+  `Metrics::menu_shadow_blur` is now documented as GPUI's Gaussian sigma.
+- Visual: Aqua menus use the measured contextual geometry: 18 px rows (was
+  19, a menu-bar value), translucent white body, an edge hairline over the
+  shadow, a shadow cast only outside the body, separators with 1 px insets,
+  a drawn submenu arrow, a left-aligned key column and no 160 px minimum
+  width. Submenus overlap the parent edge by 2 px and line their first row
+  up with the parent row. The pop-up button menu shares the frame and body.
+
 M2 tab views and group boxes (#13):
 
 - Moved `TabView` to `controls::TabView`; `preferences::TabView` re-exports

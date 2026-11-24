@@ -114,10 +114,13 @@ fn metrics() -> Metrics {
         // M: table.header_and_rows: 18 px rows, 17 px header + 1 px border.
         table_row_height: 18.0,
         table_header_height: 18.0,
-        // M: menu.bar_and_selection / menu.body: 19 px items, 12 px separator blocks, 4 px top pad.
-        menu_item_height: 19.0,
+        // M: menu.context.rows: 18 px items, 12 px separator blocks, 4 px pad
+        // in both contextual captures. Menu-bar menus use 19 px items
+        // (M: menu.body); Silvestris does not draw menu-bar menus.
+        menu_item_height: 18.0,
         menu_separator_height: 12.0,
         menu_padding: 4.0,
+        // M: menu.context.corners: the curve spans 5 rows and columns.
         menu_radius: 5.0,
         // M: scroller.track.row: 15 px bar + 1 px shared border.
         scroller_width: 15.0,
@@ -148,10 +151,14 @@ fn metrics() -> Metrics {
         progress_height: [16.0, 12.0, 10.0],
         // designed: spinner sizes scale with the bar.
         spinner_size: [16.0, 13.0, 11.0],
-        // M: menu.body: soft shadow directly under the panel, radius roughly
-        // one item height. Offset and blur are a designed fit to the capture.
-        menu_shadow_offset: [0.0, 2.0],
-        menu_shadow_blur: 12.0,
+        // M: menu.context.shadow: least-squares Gaussian fit to the submenu
+        // side, bottom and top profiles over white, max error 1/255.
+        menu_shadow_offset: [0.0, 10.0],
+        menu_shadow_blur: 6.5,
+        menu_shadow_spread: -2.0,
+        // M: menu.context.rows: centred Lato 13 puts the baseline one row
+        // below the 10.6 ink (Name: rows 4-12 of the item, Lato 4-13).
+        menu_label_dy: -1.0,
         // M: groupbox.top/left: 1 px border plus a 1 px inner shadow row.
         well_inset: 1.0,
         splitter_hot_zone: 2.0,
@@ -595,14 +602,21 @@ pub fn aqua_light() -> Theme {
             well_border: c(0xc8c8c8),
             well_shadow: c(0xd2d2d2),
             band_rule: c(0xd8d8d8), // M: prefs.overview.bands
-            menu: c(0xf2f2f2),      // M: menu.body
+            // M: menu.context.body: white at 0.953 reads fbfbfb over the toolbar
+            // and faf5f9 over the desktop in the two contextual captures.
+            menu: WHITE.alpha(243),
             menu_text: BLACK,
             menu_text_disabled: c(0xa3a3a3),
-            menu_separator: c(0xd7d7d8), // M: menu.body separator row
-            menu_separator_highlight: c(0xf4f4f5),
-            // M: menu.body outer row: a light grey hairline over content.
-            menu_border: c(0xa8a8a8),
-            tooltip: c(0xffffc6), // designed: help tags not captured
+            // M: menu.context.separator / .rows: one row darkening the body by
+            // 0.106 (e4e4e4 over white, dfe0e1 over f9fbfc), 1 px side insets, no
+            // highlight row.
+            menu_separator: BLACK.alpha(27),
+            menu_separator_highlight: WHITE.alpha(0),
+            // M: menu.context.edge: black at 0.105 over the shadow, the
+            // least-squares value for the top, side and bottom edge rows.
+            menu_border: BLACK.alpha(27),
+            menu_shadow: BLACK.alpha(84), // M: menu.context.shadow peak 0.33
+            tooltip: c(0xffffc6),         // designed: help tags not captured
             tooltip_border: c(0xb5b5a0),
             tooltip_text: BLACK,
             shadow: BLACK.alpha(90), // M: win.shadow.* peak alpha ~94 below the window
@@ -1110,12 +1124,14 @@ pub fn aqua_dark() -> Theme {
             well_border: c(0x474747),
             well_shadow: c(0x202020),
             band_rule: c(0x2a2a2a), // designed
-            menu: c(0x2c2c2e),
+            // designed: Aqua Light's translucency over the dark body.
+            menu: c(0x2c2c2e).alpha(243),
             menu_text: c(0xeeeeee),
             menu_text_disabled: c(0x777777),
             menu_separator: c(0x1a1a1a),
             menu_separator_highlight: c(0x3c3c3e),
             menu_border: c(0x0a0a0a),
+            menu_shadow: BLACK.alpha(170), // designed: dark window shadow
             tooltip: c(0x3a3a30),
             tooltip_border: c(0x5a5a48),
             tooltip_text: c(0xf0f0e0),

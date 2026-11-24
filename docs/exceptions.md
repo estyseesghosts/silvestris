@@ -78,8 +78,6 @@ repeated here; they are listed in place next to the token.
   The 4 px stripe edge is an estimate: the capture is upscaled, so its blur
   overstates the source's anti-aliasing. Dark Aqua's barber profiles are
   designed.
-- Menu shadow offset (0/2 px) and 12 px blur are a designed fit to the 10.6
-  menu captures; the menu body, selection and separator are measured.
 - The default-button throb breathes either side of the measured default
   bevel: lighter and less saturated, then deeper and more saturated, about 8%
   each way over a 1.1 s cycle. The two-sided swing was observed on a 10.6 VM
@@ -118,6 +116,41 @@ repeated here; they are listed in place next to the token.
   Geist Light and Dark are designed on the Geist role scale. They are not
   recoloured Aqua and are not claimed as historical.
 
+
+## Menus
+
+`PopupMenu` and the pop-up button menu follow the two contextual captures
+(`right-click-context-menu-nested.png`, `expanded-contextual-menu.png`;
+M: menu.context.*). Measured: 18 px rows, 12 px separators with the line on
+the 6th row, 4 px padding, the translucent body, the shadow fit, row and
+submenu placement, the arrow and the label inset.
+
+- Menu-bar menus use 19 px rows (M: menu.body). Silvestris does not draw
+  menu-bar menus, so `menu_item_height` is the contextual 18. No 10.6
+  capture shows an open pop-up button menu; it uses the contextual height.
+- The edge is one alpha for all four sides (black at 0.105, the
+  least-squares fit). 10.6's top edge is lighter and its bottom edge darker:
+  the reproduction is 6 levels too dark at the top and 10 too light at the
+  bottom.
+- Square corners on a submenu follow GPUI's flip rule, recomputed in
+  `submenu_opens_left`. If GPUI changes that rule, the square corner can land
+  on the wrong side.
+- The checkmark and dash column (6 px from the body edge) is an estimate: no
+  capture shows a checked menu item. The marks are font glyphs.
+- The 8 px gap between the longest label and the submenu arrow and the 20 px
+  gap before the key column are estimates. No capture has a label long
+  enough to reach either.
+- The key column is measured from a menu-bar capture (M: menu.bar.key_column)
+  and the arrow position in both kinds matches (19 px from the body edge),
+  so the key column is assumed to match too. On Windows and Linux the
+  modifiers are spelled out ("Ctrl+") with no gap before the key.
+- Row text moves up 1 px (`Metrics::menu_label_dy`), for the same reason as
+  push button labels: centred Lato 13 puts the baseline one row below the
+  10.6 ink.
+- No 10.6 capture shows a highlighted contextual row over a disabled one, a
+  scrolling menu or a menu in an inactive window.
+- Dark Aqua's menu body keeps Aqua Light's translucency over its own fill;
+  its edge and shadow are designed.
 
 ## Text fields
 

@@ -57,6 +57,9 @@ pub struct CommandDescriptor {
     pub kind: CommandKind,
     pub enabled: bool,
     pub checked: bool,
+    /// The attribute applies to part of the selection; menus show a dash
+    /// instead of a checkmark (HIG pp. 170-171). Exclusive with `checked`.
+    pub mixed: bool,
     pub destructive: bool,
     /// The command asks for more input before acting; menus append "…"
     /// (HIG pp. 131-132 via hig-09 text.md).
@@ -74,6 +77,7 @@ impl CommandDescriptor {
             kind: CommandKind::Action,
             enabled: true,
             checked: false,
+            mixed: false,
             destructive: false,
             needs_input: false,
         }
@@ -104,6 +108,14 @@ impl CommandDescriptor {
     }
     pub fn tooltip(mut self, tip: &str) -> Self {
         self.tooltip = Some(tip.to_string());
+        self
+    }
+    /// Mark the attribute as applying to part of the selection (HIG pp. 170-171).
+    pub fn mixed(mut self, mixed: bool) -> Self {
+        self.mixed = mixed;
+        if mixed {
+            self.checked = false;
+        }
         self
     }
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -289,6 +301,21 @@ impl CommandSet {
             }
         }
     }
+    /// Show a dash for an attribute that applies to part of the selection
+    /// (HIG pp. 170-171). Setting it clears `checked`.
+    pub fn set_mixed(&mut self, id: &str, mixed: bool) {
+        let Some(c) = self.commands.get_mut(&CommandId::new(id)) else {
+            return;
+        };
+        let changed = c.mixed != mixed || (mixed && c.checked);
+        c.mixed = mixed;
+        if mixed {
+            c.checked = false;
+        }
+        if changed {
+            self.version += 1;
+        }
+    }
     pub fn set_checked(&mut self, id: &str, checked: bool) {
         let id = CommandId::new(id);
         let group = match self.commands.get(&id).map(|c| c.kind.clone()) {
@@ -309,6 +336,10 @@ impl CommandSet {
         if let Some(c) = self.commands.get_mut(&id) {
             changed |= c.checked != checked;
             c.checked = checked;
+            if checked && c.mixed {
+                c.mixed = false;
+                changed = true;
+            }
         }
         if changed {
             self.version += 1;

@@ -76,6 +76,8 @@ pub struct PopupMenu {
     chain: Option<Entity<ResponderChain>>,
     focus: FocusHandle,
     position: Point<Pixels>,
+    // Opened from a control: the top edge hangs square from it.
+    pop_down: bool,
     layer: Entity<TransientLayer>,
     surface: Option<SurfaceId>,
     // One highlighted row per open menu column.
@@ -105,6 +107,7 @@ impl PopupMenu {
             chain: None,
             focus: cx.focus_handle(),
             position: point(px(0.), px(0.)),
+            pop_down: false,
             layer,
             surface: None,
             path: vec![None],
@@ -174,7 +177,28 @@ impl PopupMenu {
             cx.notify();
         }
     }
+    /// Open as a contextual menu with its top-left corner at `position`. All
+    /// four corners are rounded (M: menu.context.body).
     pub fn open(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        self.pop_down = false;
+        self.open_at(position, window, cx);
+    }
+
+    /// Open hanging from a control, with the frame's top-left corner at
+    /// `position` (usually the control's bottom-left). The top corners are
+    /// square and the bottom ones rounded, as under 10.6's toolbar Action
+    /// button (M: menu.context.rows).
+    pub fn open_pop_down(
+        &mut self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.pop_down = true;
+        self.open_at(position, window, cx);
+    }
+
+    fn open_at(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         if self.is_open_in(cx) {
             // Reposition the existing surface: closing and reopening would
             // record the menu's own focus as the return target.
@@ -284,6 +308,20 @@ impl PopupMenu {
             self.path.push(None);
         }
         cx.notify();
+    }
+    /// Highlight one row per column along `path`, opening each submenu row
+    /// it reaches, as pointer scanning would. Nothing is invoked. Disabled rows
+    /// stop the walk (HIG p. 168: disabled items are not highlighted).
+    pub fn highlight_path(&mut self, path: &[usize], window: &Window, cx: &mut Context<Self>) {
+        for (depth, &index) in path.iter().enumerate() {
+            if self.path.len() <= depth {
+                return;
+            }
+            self.highlight(depth, index, true, window, cx);
+            if self.path.get(depth) != Some(&Some(index)) {
+                return;
+            }
+        }
     }
     fn choose(view: &Entity<Self>, depth: usize, index: usize, window: &mut Window, cx: &mut App) {
         let command = view.update(cx, |menu, cx| {
@@ -406,36 +444,18 @@ impl PopupMenu {
         }
     }
 
-    fn panel(
-        &self,
-        entries: &[MenuEntry],
-        depth: usize,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    /// Body width: 21 px from the body edge to the label and 21 px after it
+    /// (M: menu.context.rows; the ink sits 22 px in from each body edge and
+    /// Lato has a one-pixel side bearing), widened for key equivalents and
+    /// submenu arrows. No minimum: the measured Arrange By submenu body is
+    /// 129 px wide.
+    fn panel_width(&self, entries: &[MenuEntry], window: &mut Window, cx: &App) -> f32 {
         let theme = cx.theme().clone();
-        let m = &theme.metrics;
-        let measure = |text: String| {
-            let run = gpui::TextRun {
-                len: text.len(),
-                font: gpui::font(theme.type_.ui),
-                color: hsla(theme.colors.menu_text),
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            window
-                .text_system()
-                .shape_line(text.into(), px(theme.type_.size_menu), &[run], None)
-                .width
-                .as_f32()
-        };
-        let width = entries
+        let rows: Vec<(String, Option<String>, bool)> = entries
             .iter()
-            .map(|entry| {
-                let (label, shortcut) = match entry {
-                    MenuEntry::Command(id) => self
-                        .registry
+            .filter_map(|entry| match entry {
+                MenuEntry::Command(id) => Some(
+                    self.registry
                         .read(cx)
                         .descriptors()
                         .get(id)
@@ -445,70 +465,82 @@ impl PopupMenu {
                                 d.shortcut
                                     .as_deref()
                                     .map(|k| display_shortcut(k, Platform::current())),
+                                false,
                             )
                         })
-                        .unwrap_or_else(|| (id.to_string(), None)),
-                    MenuEntry::Heading(label) | MenuEntry::Submenu { label, .. } => {
-                        (label.clone(), None)
-                    }
-                    MenuEntry::Separator => return 0.,
-                };
-                measure(label) + shortcut.map(|s| measure(s) + 20.).unwrap_or(0.) + 44.
+                        .unwrap_or_else(|| (id.to_string(), None, false)),
+                ),
+                MenuEntry::Heading(label) => Some((label.clone(), None, false)),
+                MenuEntry::Submenu { label, .. } => Some((label.clone(), None, true)),
+                MenuEntry::Separator => None,
             })
-            .fold(160., f32::max)
-            .min((window.viewport_size().width.as_f32() - 8.).max(0.));
-        let mut panel = div()
-            .id(("menu-panel", depth))
-            .debug_selector(|| format!("menu-panel-{depth}"))
-            .role(gpui::Role::Menu)
-            .aria_label(self.model.label.clone())
-            .relative()
-            .flex()
-            .flex_col()
-            .w(px(width))
-            .py(px(m.menu_padding))
-            .max_h((window.viewport_size().height - px(8.)).max(px(0.)))
+            .collect();
+        let key_column = key_column_width(&rows, &theme, window);
+        rows.iter()
+            .map(|(label, shortcut, submenu)| {
+                let label = measure_menu_text(label, &theme, window);
+                let tail = match shortcut {
+                    Some(text) => {
+                        let (mods, _) = split_shortcut(text);
+                        KEY_GAP
+                            + measure_menu_text(mods, &theme, window)
+                            + modifier_gap(mods)
+                            + key_column
+                            + KEY_RIGHT
+                    }
+                    None if *submenu => ARROW_ZONE + ARROW_GAP,
+                    None => TEXT_INSET,
+                };
+                TEXT_INSET + label + tail
+            })
+            .fold(0., f32::max)
+            // Whole pixels, so the edge hairlines stay on device rows.
+            .ceil()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn panel(
+        &self,
+        entries: &[MenuEntry],
+        depth: usize,
+        frame_x: f32,
+        square: SquareCorners,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme().clone();
+        let m = &theme.metrics;
+        let viewport = window.viewport_size().width.as_f32();
+        let body_width = self
+            .panel_width(entries, window, cx)
+            .min((viewport - 2. * VIEWPORT_MARGIN - 2.).max(0.))
+            .floor();
+        let frame_width = body_width + 2.;
+        let shortcuts: Vec<(String, Option<String>, bool)> = entries
+            .iter()
+            .filter_map(|entry| match entry {
+                MenuEntry::Command(id) => self.descriptor(id, window, cx).map(|d| {
+                    (
+                        String::new(),
+                        d.shortcut
+                            .as_deref()
+                            .map(|k| display_shortcut(k, Platform::current())),
+                        false,
+                    )
+                }),
+                _ => None,
+            })
+            .collect();
+        let key_column = key_column_width(&shortcuts, &theme, window);
+        let mut body = menu_body(&theme, square)
+            .id(("menu-body", depth))
+            .w(px(body_width))
+            .max_h((window.viewport_size().height - px(2. * VIEWPORT_MARGIN + 2.)).max(px(0.)))
             .overflow_y_scroll()
-            .track_scroll(&self.scroll[depth])
-            .bg(hsla(theme.colors.menu))
-            .rounded(px(m.menu_radius))
-            .border_1()
-            .border_color(hsla(theme.colors.menu_border))
-            .shadow(vec![BoxShadow::new(
-                px(m.menu_shadow_offset[0]),
-                px(m.menu_shadow_offset[1]),
-                hsla(theme.colors.shadow),
-            )
-            .blur_radius(px(m.menu_shadow_blur))])
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation());
+            .track_scroll(&self.scroll[depth]);
         for (i, entry) in entries.iter().enumerate() {
             if matches!(entry, MenuEntry::Separator) {
-                let separator = theme.colors.menu_separator;
-                panel = panel.child(
-                    div()
-                        .flex_none()
-                        .h(px(m.menu_separator_height))
-                        .relative()
-                        .child(
-                            canvas(
-                                |_, _, _| (),
-                                move |bounds, _, window, _| {
-                                    let h = crate::convert::hairline(window);
-                                    let y = bounds.origin.y + (bounds.size.height - h) / 2.0;
-                                    paint::hline(
-                                        window,
-                                        bounds.origin.x + px(1.),
-                                        y,
-                                        bounds.size.width - px(2.),
-                                        separator,
-                                    );
-                                },
-                            )
-                            .absolute()
-                            .inset_0(),
-                        ),
-                );
+                body = body.child(menu_separator(&theme));
                 continue;
             }
             let descriptor = match entry {
@@ -534,10 +566,13 @@ impl PopupMenu {
                 theme.colors.menu_text
             };
             let check = descriptor.as_ref().is_some_and(|d| d.checked);
+            let mixed = descriptor.as_ref().is_some_and(|d| d.mixed);
             let shortcut = descriptor
                 .as_ref()
                 .and_then(|d| d.shortcut.as_deref())
                 .map(|k| display_shortcut(k, Platform::current()));
+            let submenu = matches!(entry, MenuEntry::Submenu { .. });
+            let dy = m.menu_label_dy;
             let hover = cx.entity();
             let choose = cx.entity();
             let mut row = div()
@@ -551,6 +586,8 @@ impl PopupMenu {
                 .aria_selected(highlighted)
                 .aria_label(if check {
                     format!("{label}, checked")
+                } else if mixed {
+                    format!("{label}, mixed")
                 } else {
                     label.clone()
                 })
@@ -559,6 +596,14 @@ impl PopupMenu {
                 .flex_none()
                 .items_center()
                 .h(px(m.menu_item_height))
+                .pl(px(TEXT_INSET))
+                .pr(px(if shortcut.is_some() {
+                    KEY_RIGHT
+                } else if submenu {
+                    ARROW_ZONE + ARROW_GAP
+                } else {
+                    TEXT_INSET
+                }))
                 .font_family(theme.type_.ui)
                 .text_size(px(theme.type_.size_menu))
                 .text_color(hsla(foreground))
@@ -572,22 +617,51 @@ impl PopupMenu {
                         .inset_0(),
                     )
                 })
-                .child(div().relative().w(px(20.)).flex_none().child(if check {
-                    "✓"
-                } else {
-                    ""
-                }))
-                .child(div().relative().flex_1().min_w_0().truncate().child(label))
-                .when_some(shortcut, |el, text| {
-                    el.child(div().relative().ml(px(20.)).child(text))
+                .when(check || mixed, |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .left(px(MARK_X))
+                            .top(px(dy))
+                            .bottom(px(-dy))
+                            .flex()
+                            .items_center()
+                            .debug_selector(move || format!("menu-mark-{depth}-{i}"))
+                            .child(if check { "\u{2713}" } else { "\u{2013}" }),
+                    )
                 })
-                .child(div().relative().w(px(16.)).ml(px(8.)).child(
-                    if matches!(entry, MenuEntry::Submenu { .. }) {
-                        "▸"
-                    } else {
-                        ""
-                    },
-                ))
+                .child(
+                    div()
+                        .relative()
+                        .top(px(dy))
+                        .flex_1()
+                        .min_w_0()
+                        .truncate()
+                        .child(label),
+                )
+                .when_some(shortcut, |el, text| {
+                    let (mods, key) = split_shortcut(&text);
+                    let (mods, key) = (mods.to_string(), key.to_string());
+                    el.child(
+                        div()
+                            .relative()
+                            .flex_none()
+                            .top(px(dy))
+                            .ml(px(KEY_GAP))
+                            .mr(px(modifier_gap(&mods)))
+                            .child(mods),
+                    )
+                    .child(
+                        div()
+                            .relative()
+                            .flex_none()
+                            .top(px(dy))
+                            .w(px(key_column))
+                            .debug_selector(move || format!("menu-key-{depth}-{i}"))
+                            .child(key),
+                    )
+                })
+                .when(submenu, |el| el.child(submenu_arrow(foreground)))
                 .on_hover(move |over, window, cx| {
                     if *over {
                         hover.update(cx, |menu, cx| menu.highlight(depth, i, true, window, cx));
@@ -601,28 +675,327 @@ impl PopupMenu {
                 });
             if let MenuEntry::Submenu { entries, .. } = entry {
                 if highlighted && self.path.len() > depth + 1 {
-                    let child = self.panel(entries, depth + 1, window, cx);
+                    // M: menu.context.edge / menu.context.corners: the
+                    // submenu's edge column sits one column inside the
+                    // parent's, and its first item lines up with this row.
+                    let child_frame = self.panel_width(entries, window, cx) + 2.;
+                    let opens_left =
+                        submenu_opens_left(frame_x, frame_width, child_frame, viewport);
+                    let child_x = if opens_left {
+                        frame_x + SUBMENU_OVERLAP - child_frame
+                    } else {
+                        frame_x + frame_width - SUBMENU_OVERLAP
+                    };
+                    let child = self.panel(
+                        entries,
+                        depth + 1,
+                        child_x,
+                        SquareCorners {
+                            top_left: !opens_left,
+                            top_right: opens_left,
+                        },
+                        window,
+                        cx,
+                    );
+                    // The row spans the body; the frame edge is one hairline
+                    // outside it on each side.
+                    // Anchor from a zero-size box at the row's top-left, so the
+                    // target is in row space regardless of the flex flow.
                     row = row.child(
-                        deferred(
-                            anchored()
-                                .position_mode(AnchoredPositionMode::Local)
-                                .attach(
-                                    Bounds::new(
-                                        point(px(0.), px(0.)),
-                                        size(px(width), px(m.menu_item_height)),
-                                    ),
-                                    Anchor::TopRight,
-                                )
-                                .child(child),
-                        )
-                        .priority(depth + 2),
+                        div().absolute().top_0().left_0().child(
+                            deferred(
+                                anchored()
+                                    .position_mode(AnchoredPositionMode::Local)
+                                    .attach(
+                                        Bounds::new(
+                                            point(px(0.), px(0.)),
+                                            size(px(body_width), px(m.menu_item_height)),
+                                        ),
+                                        Anchor::TopRight,
+                                    )
+                                    .offset(point(
+                                        px(1. - SUBMENU_OVERLAP),
+                                        px(-(m.menu_padding + 1.)),
+                                    ))
+                                    .child(child),
+                            )
+                            .priority(depth + 2),
+                        ),
                     );
                 }
             }
-            panel = panel.child(row);
+            body = body.child(row);
         }
-        panel.into_any_element()
+        menu_frame(&theme, square)
+            .id(("menu-panel", depth))
+            .debug_selector(move || format!("menu-panel-{depth}"))
+            .role(gpui::Role::Menu)
+            .aria_label(self.model.label.clone())
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
+            .child(body)
+            .into_any_element()
     }
+}
+
+/// Corners of a menu frame that stay square: the top edge of a pop-down menu
+/// hanging from its control, and the top corner of a submenu on the parent's
+/// side (M: menu.context.corners, menu.context.rows).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SquareCorners {
+    pub top_left: bool,
+    pub top_right: bool,
+}
+
+// M: menu.context.rows: label ink 22 px inside each body edge.
+const TEXT_INSET: f32 = 21.;
+// M: menu.context.arrow / menu.bar.arrow_and_keys: arrow 19 px in from the
+// body edge, 10 rows tall, 4 rows below the item top, tip 7.5 px right.
+const ARROW_ZONE: f32 = 19.;
+const ARROW_WIDTH: f32 = 7.5;
+const ARROW_HEIGHT: f32 = 10.;
+// estimate: label-to-arrow and label-to-key gaps (no capture has a label
+// long enough to meet either).
+const ARROW_GAP: f32 = 8.;
+const KEY_GAP: f32 = 20.;
+// M: menu.bar.key_column: modifiers end 4 px before the key column, which
+// starts 22 px from the body edge; the widest key (delete) ends 7 px in.
+const MODIFIER_GAP: f32 = 4.;
+const KEY_RIGHT: f32 = 7.;
+const KEY_MIN: f32 = 15.;
+// estimate: no 10.6 capture shows a checked menu item.
+const MARK_X: f32 = 6.;
+// M: menu.context.edge: the submenu edge column overlaps the parent's frame
+// by two columns.
+const SUBMENU_OVERLAP: f32 = 2.;
+// designed: keep menus 4 px inside the window.
+const VIEWPORT_MARGIN: f32 = 4.;
+
+fn measure_menu_text(text: &str, theme: &silvestris_core::Theme, window: &mut Window) -> f32 {
+    if text.is_empty() {
+        return 0.;
+    }
+    let run = gpui::TextRun {
+        len: text.len(),
+        font: gpui::font(theme.type_.ui),
+        color: hsla(theme.colors.menu_text),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    window
+        .text_system()
+        .shape_line(
+            text.to_string().into(),
+            px(theme.type_.size_menu),
+            &[run],
+            None,
+        )
+        .width
+        .as_f32()
+}
+
+fn key_column_width(
+    rows: &[(String, Option<String>, bool)],
+    theme: &silvestris_core::Theme,
+    window: &mut Window,
+) -> f32 {
+    rows.iter()
+        .filter_map(|(_, shortcut, _)| shortcut.as_deref())
+        .map(|text| measure_menu_text(split_shortcut(text).1, theme, window))
+        .fold(KEY_MIN, f32::max)
+}
+
+/// Symbol modifiers keep the measured gap before the key; spelled-out
+/// modifiers ("Ctrl+") already end in a separator.
+fn modifier_gap(mods: &str) -> f32 {
+    if mods.ends_with(['⌃', '⌥', '⇧', '⌘']) {
+        MODIFIER_GAP
+    } else {
+        0.
+    }
+}
+
+/// Split a displayed shortcut into its modifiers and the key of its last
+/// stroke. The key is left-aligned in its own column and the modifiers are
+/// right-aligned against it (M: menu.bar.key_column; HIG p. 167).
+pub fn split_shortcut(text: &str) -> (&str, &str) {
+    let modifier = |c: char| matches!(c, '⌃' | '⌥' | '⇧' | '⌘');
+    let mut split = 0;
+    for (i, c) in text.char_indices() {
+        let end = i + c.len_utf8();
+        if modifier(c) || c == ' ' || (c == '+' && end < text.len()) {
+            split = end;
+        }
+    }
+    text.split_at(split)
+}
+
+/// Whether a submenu flips to the parent's left. Mirrors GPUI's attached
+/// placement: flip only when the right side overflows and the left side
+/// overflows less.
+fn submenu_opens_left(frame_x: f32, frame_width: f32, child: f32, viewport: f32) -> bool {
+    let right = frame_x + frame_width - SUBMENU_OVERLAP;
+    let over_right = (right + child - viewport).max(0.);
+    if over_right == 0. {
+        return false;
+    }
+    let left = frame_x + SUBMENU_OVERLAP - child;
+    (-left).max(0.) < over_right
+}
+
+/// The outer frame: drop shadow and the edge hairline, painted outside the
+/// body so the edge darkens the shadow, not the body (M: menu.context.edge).
+pub(crate) fn menu_frame(theme: &silvestris_core::Theme, square: SquareCorners) -> gpui::Div {
+    let m = &theme.metrics;
+    let r = px(m.menu_radius);
+    let radii = gpui::Corners {
+        top_left: if square.top_left { px(0.) } else { r },
+        top_right: if square.top_right { px(0.) } else { r },
+        bottom_right: r,
+        bottom_left: r,
+    };
+    let shadow = BoxShadow::new(
+        px(m.menu_shadow_offset[0]),
+        px(m.menu_shadow_offset[1]),
+        hsla(theme.colors.menu_shadow),
+    )
+    .blur_radius(px(m.menu_shadow_blur))
+    .spread_radius(px(m.menu_shadow_spread));
+    let reach = px(m.menu_shadow_blur * 3.
+        + m.menu_shadow_offset[0]
+            .abs()
+            .max(m.menu_shadow_offset[1].abs())
+        + m.menu_shadow_spread.max(0.)
+        + 1.);
+    let border = theme.colors.menu_border;
+    div()
+        .relative()
+        .flex()
+        .flex_col()
+        // Room for the edge hairline, painted by the canvas below.
+        .p(px(1.))
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |b, _, window, _| {
+                    // 10.6 casts no shadow under the translucent body: it
+                    // reads ffffff over white (M: menu.context.rows). Paint
+                    // the shadow only outside the frame and in the corner
+                    // squares a rounded corner leaves open. The edge ring
+                    // keeps the shadow under it (M: menu.context.edge).
+                    let body = paint::inset(b, px(1.));
+                    let mut masks = vec![
+                        Bounds::from_corners(
+                            point(body.left() - reach, body.top() - reach),
+                            point(body.right() + reach, body.top()),
+                        ),
+                        Bounds::from_corners(
+                            point(body.left() - reach, body.bottom()),
+                            point(body.right() + reach, body.bottom() + reach),
+                        ),
+                        Bounds::from_corners(
+                            point(body.left() - reach, body.top()),
+                            point(body.left(), body.bottom()),
+                        ),
+                        Bounds::from_corners(
+                            point(body.right(), body.top()),
+                            point(body.right() + reach, body.bottom()),
+                        ),
+                    ];
+                    for (radius, x, y) in [
+                        (radii.top_left, body.left(), body.top()),
+                        (radii.top_right, body.right() - r, body.top()),
+                        (radii.bottom_right, body.right() - r, body.bottom() - r),
+                        (radii.bottom_left, body.left(), body.bottom() - r),
+                    ] {
+                        if radius > px(0.) {
+                            masks.push(Bounds::new(point(x, y), size(r, r)));
+                        }
+                    }
+                    for mask in masks {
+                        window.with_content_mask(Some(gpui::ContentMask { bounds: mask }), |w| {
+                            w.paint_drop_shadows(b, radii, std::slice::from_ref(&shadow));
+                        });
+                    }
+                    window.paint_quad(gpui::quad(
+                        b,
+                        radii,
+                        gpui::transparent_black(),
+                        px(1.),
+                        hsla(border),
+                        gpui::BorderStyle::Solid,
+                    ));
+                },
+            )
+            .absolute()
+            .inset_0(),
+        )
+}
+
+/// The translucent body inside [`menu_frame`], with the vertical padding.
+pub(crate) fn menu_body(theme: &silvestris_core::Theme, square: SquareCorners) -> gpui::Div {
+    let m = &theme.metrics;
+    let r = px((m.menu_radius - 1.).max(0.));
+    div()
+        .relative()
+        .flex()
+        .flex_col()
+        .py(px(m.menu_padding))
+        .bg(hsla(theme.colors.menu))
+        .rounded(r)
+        .when(square.top_left, |el| el.rounded_tl(px(0.)))
+        .when(square.top_right, |el| el.rounded_tr(px(0.)))
+}
+
+/// A separator block: one hairline on the 6th row, inset 1 px at each side
+/// (M: menu.context.rows, menu.context.separator).
+pub(crate) fn menu_separator(theme: &silvestris_core::Theme) -> impl IntoElement {
+    let separator = theme.colors.menu_separator;
+    let highlight = theme.colors.menu_separator_highlight;
+    div()
+        .flex_none()
+        .h(px(theme.metrics.menu_separator_height))
+        .relative()
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    let h = crate::convert::hairline(window);
+                    let y = bounds.origin.y + px(5.);
+                    let x = bounds.origin.x + px(1.);
+                    let w = bounds.size.width - px(2.);
+                    paint::hline(window, x, y, w, separator);
+                    paint::hline(window, x, y + h, w, highlight);
+                },
+            )
+            .absolute()
+            .inset_0(),
+        )
+}
+
+/// The right-pointing submenu indicator, drawn as a triangle rather than a
+/// font glyph (M: menu.context.arrow).
+fn submenu_arrow(color: silvestris_core::color::Rgba8) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let x = bounds.right() - px(ARROW_ZONE);
+            // M: 4 rows down in both 18 and 19 px rows; centred otherwise.
+            let y = bounds.origin.y + ((bounds.size.height - px(ARROW_HEIGHT)) / 2.).floor();
+            paint::polygon(
+                window,
+                &[
+                    point(x, y),
+                    point(x + px(ARROW_WIDTH), y + px(ARROW_HEIGHT / 2.)),
+                    point(x, y + px(ARROW_HEIGHT)),
+                ],
+                color,
+            );
+        },
+    )
+    .absolute()
+    .inset_0()
 }
 impl Render for PopupMenu {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -631,7 +1004,20 @@ impl Render for PopupMenu {
         };
         self.scroll
             .resize_with(self.path.len(), gpui::ScrollHandle::new);
-        let panel = self.panel(&self.model.entries, 0, window, cx);
+        let viewport = window.viewport_size().width.as_f32();
+        let frame = self.panel_width(&self.model.entries, window, cx) + 2.;
+        let root_x = self
+            .position
+            .x
+            .as_f32()
+            .min(viewport - VIEWPORT_MARGIN - frame)
+            .max(VIEWPORT_MARGIN);
+        let square = SquareCorners {
+            top_left: self.pop_down,
+            top_right: self.pop_down,
+        };
+        let entries = self.model.entries.clone();
+        let panel = self.panel(&entries, 0, root_x, square, window, cx);
         let key = cx.entity();
         let action_view = cx.entity();
         let registry = self.registry.clone();

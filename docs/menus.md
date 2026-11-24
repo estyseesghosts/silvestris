@@ -35,15 +35,32 @@ menu dismisses first so a highlighted index never moves to another command.
   The text width can truncate at narrow viewport sizes. Popup size is bounded
   by the current window viewport with a designed 4 logical px margin.
 
-Materials come from the active theme's menu/selection tokens and metrics.
-Aqua Light's tokens cite measurements.json menu.body and menu.selection;
-the checkmark/submenu glyphs are font glyphs, not copied Apple artwork.
-The 160 px minimum width, 20 px check gutter, 16 px submenu gutter, 8 px gap,
-4 px window margin and immediate submenu opening are estimates or modern
-extensions pending visual/native review. Menu elevation is now a token
-(`Colors::menu_border`, `Metrics::menu_shadow_offset/blur`) painted as a
-`BoxShadow`; the offset and blur are a designed fit to the 10.6 menu captures,
-not a `shadow_lg` default.
+Materials and geometry come from the active theme's menu tokens. Aqua Light
+cites the contextual captures (M: menu.context.*, #16):
+
+- `open` draws a contextual menu with four rounded corners;
+  `open_pop_down` hangs the menu from a control with square top corners, as
+  under the Finder toolbar's Action button. A submenu's top corner on the
+  parent's side is square.
+- The frame is a 1 px edge around a translucent body. The edge and the drop
+  shadow are painted outside the body only, because 10.6 casts no shadow
+  under the menu.
+- Rows are 18 px, separators 12 px with the line on the 6th row and 1 px
+  side insets, and the label sits 21 px from each body edge. Menus are as
+  wide as their widest row; there is no minimum.
+- The submenu arrow is a drawn 7.5 x 10 px triangle 19 px in from the body
+  edge. A submenu's edge overlaps the parent's by 2 px and its first row
+  lines up with the parent row; it flips left by GPUI's rule.
+- Key equivalents are split by `split_shortcut`: the key is left-aligned in a
+  shared column and the modifiers end 4 px before it (HIG p. 167).
+- Checked items show a checkmark and mixed items a dash (HIG pp. 170-171).
+  GPUI's native menu items cannot show the dash.
+
+`highlight_path` highlights rows and opens submenus as pointer scanning
+would, without invoking. The capture tool uses it for the `menu-arrange-by`
+and `menu-marks` goldens. The 4 px window margin and immediate submenu
+opening are designed. Remaining estimates are listed in
+[exceptions](exceptions.md#menus).
 
 GPUI interaction tests cover pointer activation and live disabled-state
 rejection in all four themes, outside-click shielding, keyboard submenu

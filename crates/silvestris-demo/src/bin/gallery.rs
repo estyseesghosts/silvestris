@@ -60,6 +60,8 @@ impl gpui::Render for RoleWindow {
 
 struct Gallery {
     menu: Entity<PopupMenu>,
+    // Toolbar View button bounds, so its menu hangs from the button.
+    view_button: std::rc::Rc<std::cell::Cell<Bounds<gpui::Pixels>>>,
     commands: Entity<CommandRegistry>,
     selected_view: gpui::SharedString,
     selected_tab: gpui::SharedString,
@@ -300,6 +302,16 @@ impl Gallery {
                 )
                 .unwrap()
         });
+        commands.update(cx, |registry, cx| {
+            // Demonstrates the mixed (dash) menu state, HIG pp. 170-171.
+            registry
+                .register(
+                    CommandDescriptor::toggle("view.badges", "Row Badges", false).mixed(true),
+                    |_, _, _| {},
+                    cx,
+                )
+                .unwrap()
+        });
         cx.observe(&commands, |_, _, cx| cx.notify()).detach();
         commands.update(cx, |registry, cx| {
             // Bare digits switch themes. The registry keeps typing keys away
@@ -401,6 +413,7 @@ impl Gallery {
                     label: "View".into(),
                     entries: vec![
                         MenuEntry::Command("view.sidebar".into()),
+                        MenuEntry::Command("view.badges".into()),
                         MenuEntry::Separator,
                         MenuEntry::Submenu {
                             label: "Appearance".into(),
@@ -425,6 +438,7 @@ impl Gallery {
         menu.update(cx, |menu, cx| menu.set_chain(routing.clone(), cx));
         Gallery {
             menu,
+            view_button: Default::default(),
             commands,
             selected_view: "grid".into(),
             selected_tab: "date".into(),
@@ -1547,19 +1561,33 @@ impl Render for Gallery {
                                 "view.sidebar",
                                 self.commands.clone(),
                             ))
-                            .child(
-                                Button::new("view-menu", "View")
-                                    .style(ButtonStyle::Textured)
-                                    .on_click(cx.listener(
-                                        |g, event: &gpui::ClickEvent, window, cx| {
-                                            let position =
-                                                event.position() + point(px(0.), px(12.));
-                                            g.menu.update(cx, |menu, cx| {
-                                                menu.open(position, window, cx)
-                                            });
-                                        },
-                                    )),
-                            ),
+                            .child({
+                                let bounds = self.view_button.clone();
+                                div()
+                                    .relative()
+                                    .child(
+                                        Button::new("view-menu", "View")
+                                            .style(ButtonStyle::Textured)
+                                            .on_click(cx.listener(|g, _, window, cx| {
+                                                // A toolbar menu hangs from the
+                                                // button's bottom edge.
+                                                let b = g.view_button.get();
+                                                let position =
+                                                    point(b.left(), b.bottom());
+                                                g.menu.update(cx, |menu, cx| {
+                                                    menu.open_pop_down(position, window, cx)
+                                                });
+                                            })),
+                                    )
+                                    .child(
+                                        canvas(
+                                            move |b, _, _| bounds.set(b),
+                                            |_, _, _, _| {},
+                                        )
+                                        .absolute()
+                                        .inset_0(),
+                                    )
+                            }),
                         theme.metrics.toolbar_height,
                     )
                     .bottom_bar(div())
