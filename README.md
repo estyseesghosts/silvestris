@@ -57,6 +57,7 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Text editing core](docs/text.md)
 - [Undo and redo](docs/undo.md)
 - [Documents and the close decision](docs/documents.md)
+- [Application lifecycle and coordinated quit](docs/lifecycle.md)
 - [Consumer pins and integration rules](docs/consumers.md)
 - [Public API changes by commit range](CHANGELOG.md)
 - [Shell composition](docs/shell.md)

@@ -39,6 +39,8 @@ pub mod binding;
 
 pub mod command;
 
+pub mod lifecycle;
+
 pub mod menu;
 
 pub mod modal;
