@@ -49,6 +49,7 @@ Applications own domain models, session identity, preference persistence and
 command callbacks. The framework owns generic layout and interaction state.
 No crate imports Lotus, Azahar or an emulator worker.
 
+- [Consuming Silvestris: getting started, capability map and integration contract](docs/consumers.md)
 - [Coverage matrix](docs/coverage.md)
 - [Visual goldens and the render gate](docs/goldens.md)
 - [Device-pixel snapping](docs/snapping.md)
@@ -58,7 +59,6 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Undo and redo](docs/undo.md)
 - [Documents and the close decision](docs/documents.md)
 - [Application lifecycle and coordinated quit](docs/lifecycle.md)
-- [Consumer pins and integration rules](docs/consumers.md)
 - [Public API changes by commit range](CHANGELOG.md)
 - [Shell composition](docs/shell.md)
 - [Window roles and frame persistence](docs/windows.md)
