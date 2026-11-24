@@ -57,6 +57,7 @@ pub struct PopUpButton {
     size: ControlSize,
     style: PopupStyle,
     min_width: f32,
+    width: Option<f32>,
     arrow_only: bool,
     leading_icon: Option<gpui::AnyElement>,
     unselectable: Vec<usize>,
@@ -80,6 +81,7 @@ impl PopUpButton {
             size: ControlSize::Small,
             style: PopupStyle::Rounded,
             min_width: 0.0,
+            width: None,
             arrow_only: false,
             leading_icon: None,
             unselectable: Vec::new(),
@@ -114,6 +116,12 @@ impl PopUpButton {
     }
     pub fn min_width(mut self, width: f32) -> Self {
         self.min_width = width;
+        self
+    }
+
+    /// Exact body width (M: panel.path_popup: 219 px at 1x).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = Some(width);
         self
     }
 
@@ -257,7 +265,10 @@ impl RenderOnce for PopUpButton {
             ControlSize::Mini => m.push_mini_height,
         };
         let text_size = self.size.label_size(&theme);
-        let radius = m.push_radius.min(height / 2.0);
+        // M: panel.path_popup corners: the 10.6 pop-up has a ~4 px corner,
+        // unlike the capsule push button. The captured control is 22 rows
+        // high, so its ends are not semicircles.
+        let radius = m.textured_radius.min(height / 2.0);
         let cap_width = m.popup_cap[index];
         let tokens: PopUp = match self.style {
             PopupStyle::Rounded => theme.controls.popup,
@@ -310,9 +321,11 @@ impl RenderOnce for PopUpButton {
             .fold(0.0_f32, f32::max);
         let leading_icon = self.leading_icon;
         let leading_space = if leading_icon.is_some() { 18.0 } else { 0.0 };
-        let width = (longest + 8.0 + cap_width + 6.0 + leading_space)
-            .max(self.min_width)
-            .max(cap_width + 24.0);
+        let width = self.width.unwrap_or_else(|| {
+            (longest + 8.0 + cap_width + 6.0 + leading_space)
+                .max(self.min_width)
+                .max(cap_width + 24.0)
+        });
         let items = Rc::new(self.items);
         let unselectable = Rc::new(self.unselectable);
         let on_choose = self.on_choose;

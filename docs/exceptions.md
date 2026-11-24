@@ -250,12 +250,28 @@ submenu placement, the arrow and the label inset.
 
 ## File panels
 
-- Panel layout: the 4.15.47 AM Open capture gives 527 x 398 px, a 30 px
-  toolbar, a 157 px sidebar and a 37 px button row. The collapsed Save height
-  (160 px) is an estimate: no Save capture includes both window edges.
-- The search field is 180 px wide and the panel's sheet has no measured
-  shadow; `Sheet` reuses GPUI's large shadow and the theme's scrim. There is no
-  slide animation because no 10.6 timing evidence exists.
+- Panel layout is measured from the 4.15.47 AM Open capture (M:
+  `panel.outer`, `panel.geometry`): outer 527 x 398, title band 22, toolbar 42,
+  sidebar 160 to the divider, button row 46, history 43, view selector 69
+  (three 22-23 px segments), path pop-up 219, search 108, controls 22 rows and
+  regular buttons 21 rows. `file_panel/chrome.rs` states whether each constant
+  is the outer or content height.
+- The minimal Save content height (160 px) is an estimate: no 10.6 Save-sheet
+  capture with both window edges exists. The Save sheet is a document sheet
+  (HIG p. 247) but no corpus capture shows it; its 0.22 black shadow, 12 px
+  blur, 5 px downward offset, 200 ms emerge and 160 ms retract are estimates.
+  Do not claim measured fidelity for Save until the user supplies the captures
+  requested in NSSAVEPANEL-2 S0.
+- Grow-to-fit: GPUI exposes content resize but no window move. The sheet grows
+  the owner's content area from its existing origin and clamps the request to
+  the display's remaining space; it restores the exact previous content size
+  on dismissal. HIG p. 236's "moves the window away from the edge" is therefore
+  approximated rather than reproduced.
+- One sheet per window is implemented by refusal (HIG p. 236). The
+  replace-existing alert is application-modal (p. 251), not a second sheet.
+- The Open minimum (560 x 360) is an estimate: the toolbar's fixed controls
+  total 524 px including its margins, so below that they would clip. The Open
+  window's 527 x 398 outer frame and remembered frame are measured.
 - `browser.grip` is measured at `#5a5a5a`; the control reuses
   `colors.text_secondary` (Aqua `#4c4c4c`) rather than adding a browser-only
   token. `browser.divider` is the scroller track (`#dcdcdc` in the capture);
@@ -265,12 +281,20 @@ submenu placement, the arrow and the label inset.
   are estimates. The row height (19 px), branch triangle (7 x 6 px) and resize
   grip (two 1 px lines 3 px apart, 7 px tall, 5 px above the bottom) are
   measured.
-- The file-panel icons are original silhouettes designed for this project;
-  they are not traced or recoloured Apple artwork. Their 16 px and 12 px sizes
-  are design choices, not corpus measurements.
+- The file-panel icons are original full-colour 16 px artwork designed for this
+  project, with a designed 32 px grid rendering; they are not traced or
+  recoloured Apple artwork. The inactive/disabled variants desaturate rather
+  than switching to a second drawing. The icon set is a design choice, not a
+  corpus measurement.
+- The icon cell (88 x 76) and its 32 px icon are designed: no corpus capture
+  shows the Open panel in icon view.
 - The Save panel's inline rename commits through `FileProvider::rename`; the
   folder name suggestion "untitled folder" follows 10.6, but the numeric
   suffix pattern is our own.
+- The collapsed Save sheet's Where pop-up reuses `PathPopUp`; the expanded
+  state's Format list is derived from `allowed_types` unless the consumer adds
+  choices. The Format-to-extension policy is intentionally minimal: choosing
+  a format updates the allowed-type filter, not the typed name.
 
 ## Visual goldens
 

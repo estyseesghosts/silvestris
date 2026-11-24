@@ -457,6 +457,9 @@ pub fn cancel_owned(owner: AnyWindowHandle, cx: &mut App) -> usize {
             callback(ModalResult::Cancelled);
         }
     }
+    // A closing owner takes its sheet surface with it (the session policy
+    // above still delivers Cancelled).
+    crate::sheet::close_owner(id, cx);
     count
 }
 

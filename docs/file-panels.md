@@ -8,13 +8,13 @@ consumer does the I/O.
 
 ```
 SavePanel / OpenPanel
-├── Sheet or application-modal dialog   (sheet.rs, modal.rs)
-├── FileBrowserModel                    (location, history, selection)
-│   └── FileProvider                    (children, places, create, exists)
-├── SourceList sidebar                  (DEVICES / PLACES / SEARCH FOR)
-├── toolbar                             (history, view, PathPopUp, search)
-├── TableView list or ColumnBrowser columns
-├── name field, disclosure, accessory
+├── Sheet or application-modal Open window   (sheet.rs, modal.rs, window_role.rs)
+├── FileBrowserModel                          (location, history, selection)
+│   └── FileProvider                          (children, places, create, exists)
+├── SourceList sidebar                        (DEVICES / PLACES / SEARCH FOR)
+├── toolbar                                   (history, view, PathPopUp, search)
+├── TableView list, ColumnBrowser columns or IconGrid icons
+├── name field, Where/Format pop-ups, disclosure, accessory
 └── New Folder / Cancel / Save or Open
 ```
 
@@ -23,45 +23,56 @@ SavePanel / OpenPanel
 ```rust
 use std::rc::Rc;
 use silvestris::file_panel::{OpenPanel, SavePanel, StdFsProvider};
-use silvestris::window_role::WindowRole;
 
 let provider = Rc::new(StdFsProvider::new());
 
-// Save As in the current document window.
+// Save As is a document sheet (HIG p. 247).
 let panel = SavePanel::new(provider.clone())
     .directory(home_location)
     .name("Untitled.txt")
     .allowed_types(["txt"])
     .allows_other_types(false)
+    .state_store(panel_state_store.clone())
     .on_finish(|outcome, cx| {
         if let Some(path) = outcome.first_path() {
             my_document.save_to(path, cx);
         }
     })
-    .present(Some(owner_window), window, cx);
+    .begin_sheet(owner_window, window, cx);
 
-// Open, application-modal when there is no document window.
+// File > Open is application-modal (HIG p. 245).
 OpenPanel::new(provider)
     .directory(home_location)
+    .title("TextEdit: Open")
     .allows_multiple(true)
     .can_choose_files(true)
     .can_choose_directories(false)
+    .state_store(panel_state_store)
+    .frame_store(window_frames)
     .on_finish(|outcome, cx| {
         for path in &outcome.paths {
             my_app.open_document(path, cx);
         }
     })
-    .present(None, window, cx);
+    .run_modal(window, cx);
 ```
 
-`present(Some(owner), window, cx)` attaches the panel as a document sheet
-(`sheet::Sheet`, `ModalScope::Document`). `present(None, window, cx)` opens an
-application-modal `WindowRole::Dialog` window and runs its session with
-`ModalScope::Application`. Both return the panel entity, so a consumer can
-inspect it, but the callback is the supported result path.
+`SavePanel::begin_sheet(owner, …)` attaches Save/Save As to a document
+(`ModalScope::Document`). `OpenPanel::run_modal(window, …)` opens the framed
+`WindowRole::OpenPanel` window with `ModalScope::Application` and the measured
+527 x 398 outer frame; its title defaults to "Open" and accepts an app-supplied
+"TextEdit: Open". `OpenPanel::begin_sheet` is the Choose-style presentation
+(HIG p. 251). `SavePanel::run_modal` exists only for an application without a
+document window; it is named so it cannot be reached by accident.
 
-`SavePanel::new` and `OpenPanel::new` take `Rc<dyn FileProvider>` and must be
-called from code that has a `Window` (the name field is created there).
+Both builders take `Rc<dyn FileProvider>` and must be called from code that has
+a `Window` (the name field is created there).
+
+`PanelStateStore` remembers the view, expanded state, Hide extension and
+sidebar width. `MemoryPanelStateStore` serves tests and the gallery;
+`PreferencePanelStates<T>` adapts the application's versioned preferences
+entity. `FileProvider` frame persistence uses `window_role::FrameStore` so the
+next Open reopens at the user's size.
 
 ## Result
 
@@ -75,7 +86,8 @@ called from code that has a `Window` (the name field is created there).
 - `hide_extension`: the Save panel's checkbox.
 
 A Save panel returns only after the replace-existing alert resolves to
-Replace. Cancel on the alert returns to the panel, not to the document.
+Replace. The alert is application-modal (HIG p. 251), not a second sheet over
+the Save sheet. Cancel on the alert returns to the panel, not to the document.
 
 ## FileProvider
 
@@ -94,11 +106,19 @@ trait FileProvider {
         -> Task<Result<(), FileError>>;                      // default: error
     fn resolve(&self, location: &LocationId) -> Option<PathBuf>; // optional
     fn location_of(&self, path: &Path) -> Option<LocationId>;    // optional
+    fn label(&self, location: &LocationId, cx: &App) -> SharedString;
+    fn location_icon(&self, location: &LocationId) -> Icon;
 }
 ```
 
+`label` and `location_icon` feed the path pop-up's display name and icon, so a
+provider can return "Macintosh HD" rather than its raw id. The defaults fall
+back to the first ancestor's label and a folder icon.
+
 `MemoryProvider` is deterministic and belongs in tests and the gallery:
-`add_location`, `set_places`, `push_entry`, `set_entries`, `entries`.
+`add_location`, `set_places`, `push_entry`, `set_entries`, `entries`. Its
+locations keep distinct ids; two sidebar places may share a location but not a
+duplicate id.
 
 `StdFsProvider` is behind the `std-fs` feature so the core crate stays free of
 `std::fs`:
@@ -110,7 +130,23 @@ silvestris = { version = "0.1", features = ["std-fs"] }
 `FileEntry` carries the row metadata: id, name, kind, directory/package flags,
 size, modification epoch and hidden state. `size_label` and `modified_label`
 format for the table; modification labels are UTC because the core has no
-local-time dependency.
+local-time dependency. Fixtures must supply names, dates, sizes and kinds for
+every entry, including folders; a row of `--` makes a working control look
+broken.
+
+## Views
+
+- **Columns** is the default on first open, as in the 4.15.47 AM capture. The
+  last-used view persists through `PanelStateStore`. Selecting a branch opens
+  its children; selecting a file leaves the directory alone.
+- **List** shows Name and Date Modified by default. Size and Kind are available
+  columns, hidden by default. Name and Date fill the browser; no horizontal
+  scroller appears unless the user widens a column past the viewport.
+- **Icons** is `IconGrid`: fixed 88 x 76 cells, full-colour 32 px icons, click,
+  Shift-click, Command/Control-click, arrows and Return, virtualised rows.
+
+The toolbar's view selector has all three segments; a disabled or placeholder
+segment is not acceptable.
 
 ## Selection and filters
 
@@ -124,20 +160,24 @@ local-time dependency.
   branch navigates. `allowed_types` and the choose-selection flags apply to the
   selected row in the last column, and Open accepts that folder when
   `can_choose_directories(true)`.
-- An Open panel with `allows_multiple(true)` lets the table build a multiple
-  selection; Open reports every chosen location.
+- An Open panel with `allows_multiple(true)` lets list and icon views build a
+  multiple selection; Open reports every chosen location.
 - Double-clicking a folder enters it. Double-clicking a file accepts it.
   `Open` on a folder enters it when `can_choose_directories(false)`.
 
 ## Save details
 
+- The minimal state (HIG p. 247) is the Save As field, Where pop-up,
+  disclosure, Cancel and Save. It has no toolbar, sidebar, browser or New
+  Folder. Application content goes between Where and the buttons.
+- The expanded state adds the toolbar, sidebar, browser, Format slot, Hide
+  extension and New Folder (p. 248). The expanded state and Hide extension
+  persist through `PanelStateStore`.
 - The name field is preselected from the start to the last dot, so typing
   replaces the base name and leaves the extension. `.hidden` keeps the whole
-  name selected.
+  name selected. The selection is renewed on every open.
 - Save is disabled while the name is empty, `.`, `..`, or contains a path
   separator or a colon.
-- The disclosure hides and shows the sidebar and browser. `expanded(false)`
-  starts collapsed.
 - "Hide extension" travels in the outcome; the panel does not rename the file.
 - New Folder asks the provider for a unique `untitled folder`, reloads, selects
   the new row and starts an in-place rename. The list uses
@@ -149,26 +189,35 @@ local-time dependency.
 
 ## Keyboard
 
-- Tab and Shift-Tab cycle sidebar, browser (the active column in column mode),
-  name field, New Folder, Cancel and Save/Open. The list is the modal session's
-  focus stops, updated when the view mode changes.
+- Expanded Save: Tab cycles Save As field → source list → visible columns →
+  the field (HIG p. 248). Minimal Save cycles field → Cancel → Save. Open
+  cycles sidebar → browser → search → Cancel → Open.
 - Return accepts the default button while the name field is focused (the text
   field submits). Escape closes the sheet as `Rejected`.
 - Typing in the name field never reaches the table's type-select.
 
 Not implemented in this version, and listed as deferred: Cmd-Shift-G go to
-folder, the icon view, drag and drop (#36/#35), Spotlight search, and the
-column browser's preview column in the panel. The column browser itself
-supports a preview; the panel does not install one.
+folder, drag and drop (#36), Spotlight search, and the column browser's preview
+column in the panel. The column browser itself supports a preview; the panel
+does not install one.
 
 ## Geometry and evidence
 
-From the 4.15.47 AM Open capture: the panel is 527 x 398 px, the toolbar 30 px,
-the sidebar 157 px and the button row 37 px. Column pitch, branch arrow, grip
-and divider measurements are `browser.*` in `reference/measurements.json`.
-The collapsed Save height (160 px) and the 180 px search field are estimates;
-they are logged in `docs/exceptions.md`.
+From the 4.15.47 AM Open capture (M: `panel.outer`, `panel.geometry`): the
+outer window is 527 x 398 px with a 22 px title band, 42 px toolbar, 160 px
+sidebar to the divider and a 46 px button row. The history pair is 43 px, the
+three-segment view selector 69 px, the path pop-up 219 px, the search field
+108 px, the controls 22 rows and the regular buttons 21 rows. The column pitch,
+branch arrow, grip and divider are `browser.*` in
+`reference/measurements.json`.
 
-Goldens: the panel samples are listed in the gallery and capture harness. The
-appearance/scale matrix and any wet-signoff follow the same gate as the rest of
-Silvestris; this document does not claim goldens that have not been rendered.
+The collapsed Save content height (160 px), the Save sheet's shadow and its
+200/160 ms emerge/retract timings, the 560 x 360 Open minimum and the
+grow-to-fit adaptation are estimates; they are logged in
+`docs/exceptions.md`.
+
+Goldens: `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`,
+`save-sheet-expanded` and `save-sheet-grow` are rendered through the capture
+harness. The appearance/scale matrix and sign-off follow the same gate as the
+rest of Silvestris; this document does not claim goldens that have not been
+rendered.

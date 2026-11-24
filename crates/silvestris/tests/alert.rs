@@ -42,6 +42,7 @@ fn draw(cx: &mut VisualTestContext) {
 fn present_alert(app: &mut TestAppContext) -> (ResultSlot, &mut VisualTestContext) {
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
     app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
     let (_owner, cx) = app.add_window_view(|_, cx| Owner {
         body: cx.new(|_| Body),
     });
@@ -53,7 +54,7 @@ fn present_alert(app: &mut TestAppContext) -> (ResultSlot, &mut VisualTestContex
         Alert::replace_existing("report.txt")
             .icon(silvestris::icons::Icon::Document)
             .on_result(move |result, _, _| *slot.borrow_mut() = Some(result.clone()))
-            .present(owner, cx);
+            .begin_sheet(owner, cx);
     });
     draw(cx);
     (result, cx)
@@ -101,6 +102,7 @@ fn the_suppression_checkbox_travels_with_the_result() {
     let mut app = TestAppContext::single();
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
     app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
     let (_owner, cx) = app.add_window_view(|_, cx| {
         let body = cx.new(|_| Body);
         Owner { body }
@@ -122,7 +124,7 @@ fn the_suppression_checkbox_travels_with_the_result() {
                     .role(silvestris::controls::AlertRole::Default),
             )
             .on_result(move |result, _, _| *slot.borrow_mut() = Some(result.clone()))
-            .present(owner, cx);
+            .begin_sheet(owner, cx);
     });
     draw(cx);
     let checkbox = cx.debug_bounds("alert-suppress").expect("checkbox");

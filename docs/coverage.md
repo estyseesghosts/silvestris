@@ -35,8 +35,8 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Document window | `chrome::open_window`, `document::DocumentController` | functional | four | `window-frame` | #20, #37 |
 | Application window | `chrome::open_window` | functional | four | — | #20 |
 | Panel, inspector | `Shell` inspector, `Sidebar` | functional | four | — | #20, #27 |
-| Dialog, alert | `ConfirmationSheet` | provisional | four | — | #21, #23 |
-| Sheet | none | missing | — | — | #22 |
+| Dialog, alert | `Alert`, `ConfirmationSheet` | functional | four | `save-sheet-minimal` | #21, #23 |
+| Sheet | `sheet::Sheet` | functional | four | `save-sheet-minimal`, `save-sheet-expanded` | #22 |
 | Source list, sidebar | `SourceList`, `SourceListEvent`, `SourceListStyle`, `Sidebar` | measured | four | `source-list`, `source-list-secondary` | #3, #4 |
 | Source-list row accessories | `RowAccessory`, `RowStatus` | measured | four | `source-list-secondary` | #4 |
 | Find window | none | missing | — | — | #77 |
@@ -103,6 +103,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | List view | `virtual_table` | provisional | four | — | #32 |
 | Outline view | none | missing | — | — | #33 |
 | Column view | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | functional | four | `column-browser` | #34 |
+| Icon view | `IconGrid`, `IconGridEvent` | functional | four | `open-dialog-columns` (panel) | #35 |
 | Split view | `Shell` divider only | provisional | four | — | #53 |
 | Tab view | `TabView`, `preferences::pane_tab_view` | measured | four | `tab-view` | #13 |
 | Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
@@ -123,9 +124,9 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Alert | `Alert`, `AlertButton`, `AlertResult`, `AlertRole` | functional | four | — | #23 |
-| Sheet | `sheet::Sheet`, `sheet::present`, `sheet::overlay` | functional | four | — | #22 |
-| Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry` | functional | four | `open-panel-list`, `open-panel-columns`, `save-panel-collapsed`, `save-panel-expanded` | #29 |
+| Alert | `Alert`, `AlertButton`, `AlertResult`, `AlertRole` | functional | four | `save-sheet-minimal` (replace alert in modal window is behavioural) | #23 |
+| Sheet | `sheet::Sheet`, `sheet::present`, `sheet::dismiss`, `sheet::overlay`, `sheet::card_shell` | functional | four | `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #22 |
+| Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry`, `PanelStateStore` | functional | four | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #29 |
 | Print, Page Setup | none | missing | — | — | #47 |
 | About | none | missing | — | — | #47 |
 | Progress copy window | none | missing | — | — | #47 |

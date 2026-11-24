@@ -268,6 +268,57 @@ note("browser.geometry",
       "grip_x": [554, 557], "grip_y": [377, 383], "grip_inset_bottom": 5,
       "divider": "dc"})
 
+# --- Open panel window (VM capture, 1x) ------------------------------------
+# The brief supersedes the earlier browser-only samples: the whole window is
+# measured here so `file_panel/chrome.rs` can state outer versus content sizes.
+note("panel.outer",
+     "Open panel outer window: 527 x 398 logical px at 1x (the opaque extent "
+     "includes a 1 px highlight and shadow row, so the capture spans 35-434). "
+     "Title band 22 px per the brief; the sampled gradient body is 37-56, the "
+     "42-row toolbar 57-98, browser 100-387, button row 389-434",
+     OPEN_PANEL,
+     {"x": [217, 743], "capture_y": [35, 434], "width_px": 527, "height_px": 398,
+      "titlebar_px": 22, "titlebar_gradient_y": [37, 56],
+      "toolbar_y": [57, 98], "toolbar_px": 42, "browser_y": [100, 387],
+      "button_row_y": [389, 434], "button_row_px": 46})
+column(OPEN_PANEL, 650, 37, 57, "panel.titlebar",
+       "title-bar gradient from the top edge to the dark separator row")
+column(OPEN_PANEL, 400, 57, 100, "panel.toolbar",
+       "toolbar fill from the title separator to the browser separator")
+row(OPEN_PANEL, 70, 232, 734, "panel.toolbar.controls",
+    "toolbar row through the history pair, view selector, path pop-up and search field")
+column(OPEN_PANEL, 400, 100, 389, "panel.browser",
+       "browser column: white content, then the separator above the button row")
+row(OPEN_PANEL, 120, 217, 378, "panel.sidebar",
+    "sidebar at 1x: 144 px fill (217-360), 15 px scroller (361-375), divider 376, "
+    "browser starts 377")
+column(OPEN_PANEL, 650, 389, 434, "panel.button_row",
+       "button-row fill around the regular Cancel and Open buttons")
+row(OPEN_PANEL, 414, 580, 727, "panel.buttons",
+    "regular push buttons: Cancel 583-638 and Open 667-723, 21 rows tall")
+column(OPEN_PANEL, 610, 401, 422, "panel.button.cancel",
+       "Cancel button body from top border to bottom border, 21 rows")
+column(OPEN_PANEL, 690, 401, 422, "panel.button.open",
+       "Open button body from top border to bottom border, 21 rows")
+row(OPEN_PANEL, 70, 294, 363, "panel.segmented",
+    "view selector: three textured segments (icon, list, columns), 69 px wide, "
+    "the column segment selected")
+row(OPEN_PANEL, 70, 383, 602, "panel.path_popup",
+    "path pop-up, 219 px wide, folder icon then the display name 'Documents'")
+row(OPEN_PANEL, 70, 626, 734, "panel.search",
+    "search field, 108 px wide, magnifier at the left cap")
+note("panel.geometry",
+     "Open panel controls at 1x: history pair 43 px (232-274), view selector 69 px "
+     "(294-362) with three 22-23 px segments, path pop-up 219 px (383-601), search "
+     "108 px (626-733), all 22 rows (68-89); Cancel 583-638 and Open 667-723, 21 "
+     "rows (401-421); sidebar is 160 px to the divider (217-376)",
+     OPEN_PANEL,
+     {"history_px": [232, 274], "view_px": [294, 362], "path_px": [383, 601],
+      "search_px": [626, 733], "control_y": [68, 89], "button_y": [401, 421],
+      "cancel_px": [583, 638], "open_px": [667, 723],
+      "sidebar_px": [217, 376], "sidebar_fill_px": [217, 360],
+      "sidebar_scroller_px": [361, 375], "divider_px": 376})
+
 json.dump({
     "tool": "tools/metrology/measure.py",
     "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",

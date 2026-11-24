@@ -71,12 +71,15 @@ platform work (#50).
 Pinned GPUI: 6b720973027999bae402df23d469026f4cced988,
 uniform_list.rs and div.rs. No new artwork or font files are distributed.
 
-Section and icon extension: SourceNode::section creates a nonselectable,
-always-open heading; its children start at the regular row indentation.
+Section and icon extension: SourceNode::section creates a nonselectable
+heading with a disclosure triangle; new sections open by default and the user
+can collapse them. Their children start at the regular row indentation.
 Navigation skips headings and disabled items, including parent traversal.
 Labels are displayed uppercase with the heading typography/colour tokens.
-The 10 px heading inset, 16 px icon slot and existing 4/6 px row padding
-are estimates pending visual review. Equal row heights preserve virtualization.
+The panel wraps the list in a `ScrollView`, so an overflowing sidebar shows a
+vertical scroller. The 4 px heading inset, 16 px icon slot and existing 4/6 px
+row padding are estimates pending visual review. Equal row heights preserve
+virtualization.
 
 Optional icon and badge strings are presentation descriptors. The icon role
 is resolved through SourceList::set_icon_renderer for visible rows only;
@@ -85,7 +88,7 @@ disabled states. With a renderer installed, rows without an icon keep an empty
 slot. Badges are trailing, noninteractive text; consumers should keep them
 short. The gallery's blue folder is an original geometric fixture, not final
 period-faithful icon artwork. Section/icon-slot unit coverage is in
-source_list::tests::sections_are_open_but_never_selected_or_collapsed.
+source_list::tests::sections_open_by_default_and_collapse_without_being_selectable.
 
 Rows now distinguish selection eligibility from disabled state. Set
 SourceNode.selectable=false for a container that can disclose children but

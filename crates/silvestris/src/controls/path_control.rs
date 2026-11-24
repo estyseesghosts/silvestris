@@ -57,6 +57,7 @@ pub struct PathPopUp {
     current: Option<PathEntry>,
     ancestors: Vec<PathEntry>,
     recent: Vec<PathEntry>,
+    width: Option<f32>,
     layer: Option<Entity<TransientLayer>>,
     on_navigate: Option<NavigateFn>,
 }
@@ -68,9 +69,16 @@ impl PathPopUp {
             current: Some(current),
             ancestors: Vec::new(),
             recent: Vec::new(),
+            width: None,
             layer: None,
             on_navigate: None,
         }
+    }
+
+    /// Exact closed-button width (M: panel.path_popup: 219 px at 1x).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = Some(width);
+        self
     }
 
     /// Ancestors from the current location's parent to the root.
@@ -114,20 +122,23 @@ impl PathPopUp {
 }
 
 impl RenderOnce for PathPopUp {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let theme = cx.theme().clone();
+    fn render(self, _: &mut Window, _cx: &mut App) -> impl IntoElement {
         let (entries, headings) = self.entries();
         let labels: Vec<SharedString> = entries.iter().map(|entry| entry.label.clone()).collect();
-        let icon = self
-            .current
-            .as_ref()
-            .map(|entry| entry.icon.element(16.0, theme.colors.text));
+        let icon = self.current.as_ref().map(|entry| {
+            entry
+                .icon
+                .file_element(16.0, crate::icons::FileIconState::normal())
+        });
         let current = self.current.clone();
         let mut popup = PopUpButton::new(self.id, "Location", labels)
             .selected(Some(0))
             .size(ControlSize::Regular)
             .unselectable(headings.clone())
             .min_width(140.0);
+        if let Some(width) = self.width {
+            popup = popup.width(width);
+        }
         if let Some(layer) = self.layer {
             popup = popup.layer(layer);
         }
@@ -218,7 +229,11 @@ impl RenderOnce for PathControl {
                     .text_color(hsla(theme.colors.text))
                     .when(is_last, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                     .hover(|s| s.text_color(hsla(theme.colors.accent)))
-                    .child(entry.icon.element(12.0, theme.colors.text))
+                    .child(
+                        entry
+                            .icon
+                            .file_element(12.0, crate::icons::FileIconState::normal()),
+                    )
                     .child(entry.label.clone())
                     .on_click(move |_, window, cx| {
                         if let Some(f) = &handler {

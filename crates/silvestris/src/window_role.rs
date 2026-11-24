@@ -29,6 +29,9 @@ pub enum WindowRole {
     Preferences,
     /// Modeless dialog: close only, not resizable, centred on its parent.
     Dialog,
+    /// Application-modal Open panel (HIG p. 245): a normal resizable window
+    /// with the measured 527 x 398 frame, centred on its parent.
+    OpenPanel,
     /// Assistant: fixed size, close only, no minimize or zoom.
     Assistant,
     /// About: fixed size, close only.
@@ -36,12 +39,13 @@ pub enum WindowRole {
 }
 
 impl WindowRole {
-    pub const ALL: [WindowRole; 7] = [
+    pub const ALL: [WindowRole; 8] = [
         WindowRole::Document,
         WindowRole::Utility,
         WindowRole::Panel,
         WindowRole::Preferences,
         WindowRole::Dialog,
+        WindowRole::OpenPanel,
         WindowRole::Assistant,
         WindowRole::About,
     ];
@@ -54,6 +58,7 @@ impl WindowRole {
             WindowRole::Panel => "Panel",
             WindowRole::Preferences => "Preferences",
             WindowRole::Dialog => "Dialog",
+            WindowRole::OpenPanel => "Open Panel",
             WindowRole::Assistant => "Assistant",
             WindowRole::About => "About",
         }
@@ -120,6 +125,19 @@ impl WindowRole {
                 centers_on_parent: true,
                 hides_on_deactivate: false,
                 autosave: None,
+                small_titlebar: false,
+            },
+            // HIG p. 245: the Open dialog is a normal window with a resize
+            // control and a remembered frame.
+            WindowRole::OpenPanel => RoleSpec {
+                resizable: true,
+                close: true,
+                minimize: true,
+                zoom: true,
+                shows_title: true,
+                centers_on_parent: true,
+                hides_on_deactivate: false,
+                autosave: Some("open-panel"),
                 small_titlebar: false,
             },
             WindowRole::Assistant => RoleSpec {
@@ -196,7 +214,14 @@ pub fn role_options(
     let mut options = crate::chrome::window_options(title, bounds, default_minimum(), cx);
     options.is_resizable = spec.resizable;
     options.window_min_size = if spec.resizable {
-        Some(default_minimum())
+        Some(if role == WindowRole::OpenPanel {
+            // Estimate: the toolbar's fixed controls total 524 px including
+            // its margins, so 560 leaves room for the resize border; below
+            // that they would clip (docs/exceptions.md).
+            size(px(560.), px(360.))
+        } else {
+            default_minimum()
+        })
     } else {
         None
     };
@@ -522,7 +547,11 @@ mod tests {
 
         assert!(WindowRole::Panel.spec().hides_on_deactivate);
         assert!(WindowRole::Utility.spec().small_titlebar);
-        assert_eq!(WindowRole::ALL.len(), 7);
+        let open = WindowRole::OpenPanel.spec();
+        assert!(open.resizable && open.close && open.minimize && open.zoom);
+        assert!(open.centers_on_parent && !open.hides_on_deactivate);
+        assert_eq!(open.autosave, Some("open-panel"));
+        assert_eq!(WindowRole::ALL.len(), 8);
     }
 
     #[test]

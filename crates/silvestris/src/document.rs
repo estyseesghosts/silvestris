@@ -377,7 +377,7 @@ pub fn save_as_panel_with<T: Document>(
             };
             report(result, cx);
         })
-        .present(Some(owner), window, cx)
+        .begin_sheet(owner, window, cx)
 }
 
 /// Present the Open panel application-modal and call `on_open` for each chosen
@@ -396,7 +396,7 @@ pub fn open_panel(
                 on_open(path, cx);
             }
         })
-        .present(None, window, cx)
+        .run_modal(window, cx)
 }
 
 /// Keep the title in step with the document. Call it when the document emits a

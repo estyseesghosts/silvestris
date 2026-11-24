@@ -12,6 +12,7 @@
 use std::rc::Rc;
 
 use gpui::{App, AppContext, Context, Entity, EventEmitter, Task};
+use serde::{Deserialize, Serialize};
 
 use crate::binding::ListController;
 use crate::controls::path_control::{LocationId, PathEntry};
@@ -19,9 +20,11 @@ use crate::icons::Icon;
 
 use super::provider::{FileAncestor, FileEntry, FileError, FilePlace, FileProvider};
 
-/// List (Name, Date Modified, Size, Kind) or Columns (column browser).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Icons, list or columns. The order matches the toolbar segments in the
+/// 4.15.47 AM Open capture: icon, list, columns.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileViewMode {
+    Icons,
     #[default]
     List,
     Columns,

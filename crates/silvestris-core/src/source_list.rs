@@ -77,6 +77,9 @@ pub enum Navigation {
 pub struct SourceTree {
     nodes: Vec<SourceNode>,
     expanded: BTreeSet<String>,
+    /// Section ids seen in the previous replacement. New sections open by
+    /// default; an existing section keeps the user's collapsed/expanded state.
+    known_sections: BTreeSet<String>,
     selected: Option<String>,
     rows: Arc<Vec<SourceRow>>,
     // All nodes, including collapsed ones, for selection/reconciliation.
@@ -87,7 +90,6 @@ pub struct SourceTree {
 struct Availability {
     selectable: bool,
     expandable: bool,
-    branch: bool,
 }
 
 impl SourceTree {
@@ -99,6 +101,7 @@ impl SourceTree {
         fn index(
             nodes: &[SourceNode],
             out: &mut BTreeMap<String, Availability>,
+            sections: &mut BTreeSet<String>,
         ) -> Result<(), String> {
             for n in nodes {
                 if out
@@ -106,22 +109,34 @@ impl SourceTree {
                         n.id.clone(),
                         Availability {
                             selectable: n.selectable && !n.disabled && !n.section,
-                            expandable: !n.disabled && !n.section && !n.children.is_empty(),
-                            branch: !n.children.is_empty(),
+                            // Sections disclose their children just like
+                            // containers (HIG p. 245 shows triangles on
+                            // DEVICES / PLACES / SEARCH FOR).
+                            expandable: !n.disabled && !n.children.is_empty(),
                         },
                     )
                     .is_some()
                 {
                     return Err(format!("duplicate source-list ID: {}", n.id));
                 }
-                index(&n.children, out)?;
+                if n.section && !n.children.is_empty() {
+                    sections.insert(n.id.clone());
+                }
+                index(&n.children, out, sections)?;
             }
             Ok(())
         }
         let mut available = BTreeMap::new();
-        index(&nodes, &mut available)?;
+        let mut sections = BTreeSet::new();
+        index(&nodes, &mut available, &mut sections)?;
+        for id in &sections {
+            if !self.known_sections.contains(id) {
+                self.expanded.insert(id.clone());
+            }
+        }
+        self.known_sections = sections;
         self.expanded
-            .retain(|id| available.get(id).is_some_and(|s| s.branch));
+            .retain(|id| available.get(id).is_some_and(|s| s.expandable));
         self.selected = self
             .selected
             .take()
@@ -251,7 +266,7 @@ impl SourceTree {
             rows: &mut Vec<SourceRow>,
         ) {
             for n in nodes {
-                let open = !n.children.is_empty() && (n.section || expanded.contains(&n.id));
+                let open = !n.children.is_empty() && expanded.contains(&n.id);
                 rows.push(SourceRow {
                     id: n.id.clone(),
                     label: n.label.clone(),
@@ -387,7 +402,7 @@ mod tests {
         assert!(!Arc::ptr_eq(&snapshot, &t.rows_snapshot()));
     }
     #[test]
-    fn sections_are_open_but_never_selected_or_collapsed() {
+    fn sections_open_by_default_and_collapse_without_being_selectable() {
         let mut a = SourceNode::new("a", "Alpha");
         a.icon = Some("document".into());
         a.badge = Some("3".into());
@@ -400,7 +415,10 @@ mod tests {
         .unwrap();
         assert_eq!(t.rows().len(), 3);
         assert!(!t.select("group"));
-        assert!(!t.expand("group", false));
+        assert!(t.expand("group", false));
+        assert_eq!(t.rows().len(), 1);
+        assert!(t.expand("group", true));
+        assert_eq!(t.rows().len(), 3);
         assert_eq!(t.rows()[1].depth, 0);
         assert_eq!(t.rows()[1].icon.as_deref(), Some("document"));
         assert_eq!(t.rows()[1].badge.as_deref(), Some("3"));

@@ -203,9 +203,9 @@ all four appearances.
 | Source list | `SourceList`, `SourceListEvent`, `SourceListStyle`, `RowAccessory`, `RowStatus` | Sidebar tree with sections, badges, eject and status accessories. [source-list.md](source-list.md) |
 | Column browser | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | Hierarchical columns over provider-supplied children; late answers, Left/Right, resize grip, preview. [column-browser.md](column-browser.md) |
 | Path controls | `PathPopUp`, `PathControl`, `PathEntry` | Ancestors plus Recent Places, and the Finder breadcrumb. Emit a location id; the app navigates |
-| Open and Save panels | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel` | Save/Save As and Open as a sheet or app-modal dialog. Returns paths/locations; never writes files. [file-panels.md](file-panels.md) |
-| Sheet | `sheet::Sheet`, `sheet::present`, `sheet::overlay` | Document-owned surface under the title bar; modal policy stays in `modal` |
-| Alert | `Alert`, `AlertButton`, `AlertResult` | Icon, message, up to three buttons, suppression; replace-existing preset. Stacks over a sheet |
+| Open and Save panels | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `PanelStateStore` | `SavePanel::begin_sheet` for Save/Save As, `OpenPanel::run_modal` for File > Open, `OpenPanel::begin_sheet` for Choose. Returns paths/locations; never writes files. [file-panels.md](file-panels.md) |
+| Sheet | `sheet::Sheet`, `sheet::card_shell` | Document-owned surface flush with the band; one per window; modal policy stays in `modal` |
+| Alert | `Alert`, `AlertButton`, `AlertResult` | Icon, message, up to three buttons, suppression; replace-existing preset. `run_modal` for an application-modal alert, `begin_sheet` for a document confirmation |
 | Table rows | `table::virtual_table`, `table::code_row` | Virtualized alternating rows; you own the cell contents |
 | Help tags | `tooltip::attach`, `tooltip::attach_in` | Themed tooltips on the transient layer |
 | Notices | `Notice`, `notice::error_banner` | Empty and error states for a workspace |

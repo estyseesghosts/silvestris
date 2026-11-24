@@ -492,6 +492,22 @@ impl FileProvider for MemoryProvider {
         self.data.borrow().places.clone()
     }
 
+    fn label(&self, location: &LocationId, _: &App) -> SharedString {
+        self.data
+            .borrow()
+            .locations
+            .get(location)
+            .map_or_else(|| location.clone(), |found| found.label.clone())
+    }
+
+    fn location_icon(&self, location: &LocationId) -> Icon {
+        self.data
+            .borrow()
+            .locations
+            .get(location)
+            .map_or(Icon::Folder, |found| found.icon)
+    }
+
     fn create_folder(
         &self,
         parent: &LocationId,
@@ -740,7 +756,7 @@ impl FileProvider for StdFsProvider {
             out.push(FilePlace::new(
                 id,
                 label,
-                Icon::Search,
+                Icon::SmartSearch,
                 PlaceSection::SearchFor,
             ));
         }

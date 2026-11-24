@@ -10,19 +10,21 @@
 //!             save_document(path, cx);
 //!         }
 //!     })
-//!     .present(Some(owner), window, cx);
+//!     .begin_sheet(owner, window, cx);
 //! ```
 //!
-//! The panel returns a destination; it never writes a file. `present` uses a
-//! document sheet when `owner` is given, and an application-modal dialog when
-//! it is `None`.
+//! Save is a document sheet (HIG p. 247): [`SavePanel::begin_sheet`] is the
+//! primary path. [`SavePanel::run_modal`] exists for an application with no
+//! document window and is named so it cannot be reached by accident.
+//! The panel returns a destination; it never writes a file.
 
 use std::rc::Rc;
 
 use gpui::{AnyWindowHandle, App, Entity, Window};
 
-use super::panel::{self, FilePanel, PanelOptions, PanelOutcome};
+use super::panel::{self, FilePanel, FormatOption, PanelOptions, PanelOutcome};
 use super::provider::FileProvider;
+use super::state::PanelStateStore;
 
 pub struct SavePanel {
     provider: Rc<dyn FileProvider>,
@@ -67,17 +69,43 @@ impl SavePanel {
         self
     }
 
-    /// Start with "Hide extension" checked.
+    /// Start with "Hide extension" checked. The choice then persists through
+    /// the state store.
     #[must_use]
     pub fn hide_extension(mut self, hide: bool) -> Self {
         self.options.hide_extension = hide;
+        self.options.hide_extension_set = true;
         self
     }
 
-    /// Start with the file browser expanded (the disclosure).
+    /// Start with the file browser expanded. The choice then persists through
+    /// the state store.
     #[must_use]
     pub fn expanded(mut self, expanded: bool) -> Self {
         self.options.expanded = expanded;
+        self.options.expanded_set = true;
+        self
+    }
+
+    /// Add a Format choice (expanded Save, HIG p. 248). Choosing it applies
+    /// its extensions to the allowed-type policy.
+    #[must_use]
+    pub fn format(
+        mut self,
+        label: impl Into<gpui::SharedString>,
+        extensions: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.options
+            .formats
+            .push(FormatOption::new(label, extensions));
+        self
+    }
+
+    /// Persist the expanded state, Hide extension and sidebar width in the
+    /// application's preferences entity.
+    #[must_use]
+    pub fn state_store(mut self, store: Rc<dyn PanelStateStore>) -> Self {
+        self.options.state_store = Some(store);
         self
     }
 
@@ -99,15 +127,21 @@ impl SavePanel {
         self
     }
 
-    /// Show the panel. `owner` is the document window for a sheet; `None`
-    /// opens an application-modal dialog.
-    pub fn present(
+    /// Present Save as a sheet attached to a document window (HIG p. 247).
+    pub fn begin_sheet(
         self,
-        owner: Option<AnyWindowHandle>,
+        owner: AnyWindowHandle,
         window: &mut Window,
         cx: &mut App,
     ) -> Entity<FilePanel> {
         let panel = FilePanel::build(self.options, self.provider, window, cx);
-        panel::present(panel, owner, "Save", window, cx)
+        panel::begin_sheet(panel, owner, "Save", window, cx)
+    }
+
+    /// Fallback for an application with no document window. Open and Choose
+    /// use [`OpenPanel::run_modal`](super::OpenPanel::run_modal) instead.
+    pub fn run_modal(self, window: &mut Window, cx: &mut App) -> Entity<FilePanel> {
+        let panel = FilePanel::build(self.options, self.provider, window, cx);
+        panel::run_modal(panel, "Save", window, cx)
     }
 }

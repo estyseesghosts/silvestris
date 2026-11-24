@@ -11,22 +11,27 @@
 //!             open_document(path, cx);
 //!         }
 //!     })
-//!     .present(Some(owner), window, cx);
+//!     .run_modal(window, cx);
 //! ```
 //!
-//! Double-click enters a folder or accepts a file. Open is disabled while the
-//! selection contains anything the flags do not allow.
+//! File > Open is application-modal and is its own framed window (HIG p. 245):
+//! [`OpenPanel::run_modal`] is the primary path. [`OpenPanel::begin_sheet`]
+//! exists for Choose-style requests (p. 251), which are attached to a
+//! document. Double-click enters a folder or accepts a file. Open is disabled
+//! while the selection contains anything the flags do not allow.
 
 use std::rc::Rc;
 
-use gpui::{AnyWindowHandle, App, Entity, Window};
+use gpui::{AnyWindowHandle, App, Entity, SharedString, Window};
 
 use super::panel::{self, FilePanel, PanelOptions, PanelOutcome};
 use super::provider::FileProvider;
+use super::state::PanelStateStore;
 
 pub struct OpenPanel {
     provider: Rc<dyn FileProvider>,
     options: PanelOptions,
+    title: SharedString,
 }
 
 impl OpenPanel {
@@ -35,12 +40,21 @@ impl OpenPanel {
         Self {
             provider,
             options: PanelOptions::new(super::panel::PanelMode::Open, "".into()),
+            title: "Open".into(),
         }
     }
 
     #[must_use]
     pub fn directory(mut self, location: impl Into<super::LocationId>) -> Self {
         self.options.location = location.into();
+        self
+    }
+
+    /// The dialog title; default "Open", or an app-supplied "TextEdit: Open"
+    /// (HIG p. 245).
+    #[must_use]
+    pub fn title(mut self, title: impl Into<SharedString>) -> Self {
+        self.title = title.into();
         self
     }
 
@@ -80,6 +94,22 @@ impl OpenPanel {
         self
     }
 
+    /// Persist the view mode and sidebar width in the application's
+    /// preferences entity.
+    #[must_use]
+    pub fn state_store(mut self, store: Rc<dyn PanelStateStore>) -> Self {
+        self.options.state_store = Some(store);
+        self
+    }
+
+    /// Restore and persist the Open window's frame through the application's
+    /// frame store (HIG p. 245, "remember").
+    #[must_use]
+    pub fn frame_store(mut self, store: Rc<dyn crate::window_role::FrameStore>) -> Self {
+        self.options.frame_store = Some(store);
+        self
+    }
+
     /// Application-supplied content above the button row.
     #[must_use]
     pub fn accessory(
@@ -96,13 +126,22 @@ impl OpenPanel {
         self
     }
 
-    pub fn present(
+    /// File > Open: an application-modal framed window (HIG p. 245).
+    pub fn run_modal(self, window: &mut Window, cx: &mut App) -> Entity<FilePanel> {
+        let title = self.title.to_string();
+        let panel = FilePanel::build(self.options, self.provider, window, cx);
+        panel::run_modal(panel, &title, window, cx)
+    }
+
+    /// Choose-style presentation attached to a document (HIG p. 251).
+    pub fn begin_sheet(
         self,
-        owner: Option<AnyWindowHandle>,
+        owner: AnyWindowHandle,
         window: &mut Window,
         cx: &mut App,
     ) -> Entity<FilePanel> {
+        let title = self.title.to_string();
         let panel = FilePanel::build(self.options, self.provider, window, cx);
-        panel::present(panel, owner, "Open", window, cx)
+        panel::begin_sheet(panel, owner, &title, window, cx)
     }
 }

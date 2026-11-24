@@ -1,6 +1,7 @@
 //! Virtualized source list (#128/#130; handbook 09 section C).
 //! Owns presentation state only. Consumers subscribe to selection/expansion
 //! events and retain ownership of domain actions and persistence.
+use super::scroll_view::ScrollView;
 use super::Disclosure;
 use crate::{convert::hsla, paint, ActiveTheme};
 use gpui::{
@@ -421,15 +422,20 @@ impl Render for SourceList {
                 .map(|i| {
                     let row = &rows[i];
                     if row.section {
+                        let toggle_view = view.clone();
+                        let toggle_id = row.id.clone();
                         return div()
                             .id(gpui::SharedString::from(row.id.clone()))
+                            .debug_selector(|| format!("source-section-{}", row.id))
                             .role(gpui::Role::Heading)
                             .aria_label(row.label.clone())
+                            .aria_expanded(row.expanded)
                             .flex()
                             .items_center()
+                            .gap(px(4.))
                             .w_full()
                             .h(px(theme.metrics.source_row_height))
-                            .pl(px(10.))
+                            .pl(px(4.))
                             .font_family(theme.type_.ui)
                             .font_weight(gpui::FontWeight::BOLD)
                             .text_size(px(theme.type_.size_heading))
@@ -437,6 +443,31 @@ impl Render for SourceList {
                                 SourceListStyle::Primary => theme.colors.sidebar_heading,
                                 SourceListStyle::Secondary => theme.colors.source_secondary_heading,
                             }))
+                            .child(if row.branch {
+                                Disclosure::new(
+                                    gpui::SharedString::from(format!("disclose-{}", row.id)),
+                                    row.label.clone(),
+                                )
+                                .expanded(row.expanded)
+                                .selected(false)
+                                .on_toggle(move |expanded, _, cx| {
+                                    toggle_view.update(cx, |list, cx| {
+                                        if list.tree.expand(&toggle_id, *expanded) {
+                                            cx.emit(SourceListEvent::Expanded {
+                                                id: toggle_id.clone(),
+                                                expanded: *expanded,
+                                            });
+                                            cx.notify();
+                                        }
+                                    });
+                                })
+                                .into_any_element()
+                            } else {
+                                div()
+                                    .flex_none()
+                                    .size(px(theme.metrics.disclosure_size))
+                                    .into_any_element()
+                            })
                             .child(div().min_w_0().truncate().child(row.label.to_uppercase()))
                             .into_any_element();
                     }
@@ -641,7 +672,11 @@ impl Render for SourceList {
             .when(self.tree.rows().is_empty(), |el| {
                 el.child(div().p(px(12.)).child("No items"))
             })
-            .when(!self.tree.rows().is_empty(), |el| el.child(list))
+            .when(!self.tree.rows().is_empty(), |el| {
+                // The panel's sidebar shows a scroller when its groups overflow
+                // (4.15.47 AM capture).
+                el.child(ScrollView::new("source-list-scroll", &self.scroll).child(list))
+            })
     }
 }
 

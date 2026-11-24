@@ -5,8 +5,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, Context, Entity, Modifiers, TestAppContext, VisualContext, VisualTestContext,
-    Window,
+    div, prelude::*, px, Context, Entity, Modifiers, TestAppContext, VisualContext,
+    VisualTestContext, Window,
 };
 use silvestris::chrome::WindowFrame;
 use silvestris::file_panel::{FileEntry, FilePanel, MemoryProvider, OpenPanel, PanelOutcome};
@@ -98,6 +98,7 @@ fn present(
 ) -> (Entity<FilePanel>, Outcome, VisualTestContext) {
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
     app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
     let (_owner, cx) = app.add_window_view(|_, cx| Owner {
         body: cx.new(|_| Body),
     });
@@ -115,7 +116,7 @@ fn present(
         if let Some(types) = types {
             builder = builder.allowed_types(types.iter().copied());
         }
-        builder.present(Some(owner), window, cx)
+        builder.begin_sheet(owner, window, cx)
     });
     draw(&mut cx);
     (panel, outcome, cx.clone())
@@ -202,6 +203,11 @@ fn choosing_a_folder_returns_the_folder_when_directories_are_allowed() {
 fn multiple_selection_reports_every_chosen_location() {
     let mut app = TestAppContext::single();
     let (_panel, outcome, mut cx) = present(&mut app, true, false, None);
+    // Multiple selection is the list view's contract; column view selects the
+    // active column's row only.
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
     click_row(&mut cx, "note");
     let secondary = cx.update(|_, cx| Modifiers::secondary_key(cx));
     let photo = cx.debug_bounds("table-row-photo").expect("photo");
@@ -232,6 +238,11 @@ fn a_file_outside_the_allowed_types_cannot_be_opened() {
 fn switching_to_columns_keeps_the_location_and_selection() {
     let mut app = TestAppContext::single();
     let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    // Start in list view: column view opens a branch column when its row is
+    // selected, which is a navigation rather than a mode switch.
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
     click_row(&mut cx, "docs");
     let columns = cx.debug_bounds("segment-columns").expect("columns segment");
     cx.simulate_click(columns.center(), Modifiers::default());
@@ -313,6 +324,7 @@ fn a_thirty_thousand_entry_directory_builds_only_the_rows_in_view() {
     let mut app = TestAppContext::single();
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
     app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
     let provider = MemoryProvider::new();
     provider.add_location(
         "/",
@@ -330,7 +342,7 @@ fn a_thirty_thousand_entry_directory_builds_only_the_rows_in_view() {
     let panel = cx.update(|window, cx| {
         OpenPanel::new(Rc::new(provider))
             .directory("/")
-            .present(Some(owner), window, cx)
+            .begin_sheet(owner, window, cx)
     });
     draw(cx);
     assert!(cx.debug_bounds("table-row-0").is_some());
@@ -355,18 +367,192 @@ fn presenting_without_an_owner_uses_an_application_modal_window() {
     let mut app = TestAppContext::single();
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
     app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
     let (_owner, cx) = app.add_window_view(|_, cx| Owner {
         body: cx.new(|_| Body),
     });
     let panel = cx.update(|window, cx| {
         OpenPanel::new(Rc::new(provider()))
             .directory("/")
-            .present(None, window, cx)
+            .run_modal(window, cx)
     });
     draw(cx);
     assert_eq!(
         cx.read(|cx| panel.read(cx).session().read(cx).scope()),
         silvestris::modal::ModalScope::Application
+    );
+}
+
+#[test]
+fn open_starts_in_column_view() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).model().read(cx).view()),
+        silvestris::file_panel::FileViewMode::Columns,
+        "the 4.15.47 AM capture opens in column view"
+    );
+    assert!(cx.debug_bounds("column-browser").is_some());
+}
+
+#[test]
+fn icon_view_renders_and_activates_a_file() {
+    let mut app = TestAppContext::single();
+    let (_panel, outcome, mut cx) = present(&mut app, false, false, None);
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(cx.debug_bounds("icon-grid").is_some());
+    let cell = cx.debug_bounds("icon-cell-note").expect("note icon cell");
+    cx.simulate_click(cell.center(), Modifiers::default());
+    draw(&mut cx);
+    let open = cx.debug_bounds("panel-accept").expect("open button");
+    cx.simulate_click(open.center(), Modifiers::default());
+    draw(&mut cx);
+    let outcome = outcome.borrow().clone().expect("outcome");
+    assert_eq!(
+        outcome.first_location().map(ToString::to_string).as_deref(),
+        Some("/note")
+    );
+}
+
+#[test]
+fn the_sidebar_section_triangles_collapse_their_groups() {
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    assert!(cx.debug_bounds("source-section-devices").is_some());
+    assert!(cx.debug_bounds("source-row-/").is_some());
+    let disclosure = cx
+        .debug_bounds("disclose-devices")
+        .expect("devices triangle");
+    cx.simulate_click(disclosure.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.debug_bounds("source-row-/").is_none(),
+        "the device row collapses with its section"
+    );
+    let disclosure = cx
+        .debug_bounds("disclose-devices")
+        .expect("devices triangle");
+    cx.simulate_click(disclosure.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(cx.debug_bounds("source-row-/").is_some());
+}
+
+#[test]
+fn the_open_dialog_is_the_measured_size_resizable_and_not_clipped() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let _panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider()))
+            .directory("/")
+            .run_modal(window, cx)
+    });
+    let dialog = cx
+        .cx
+        .windows()
+        .into_iter()
+        .find(|window| *window != owner)
+        .expect("Open dialog window");
+    let mut dialog_cx = VisualTestContext::from_window(dialog, &cx.cx);
+    draw(&mut dialog_cx);
+    let bounds = dialog_cx.update(|window, _| window.bounds());
+    assert_eq!(
+        bounds.size,
+        gpui::size(px(527.), px(398.)),
+        "outer size from M: panel.outer"
+    );
+    assert!(
+        silvestris::window_role::WindowRole::OpenPanel
+            .spec()
+            .resizable
+    );
+    let panel = dialog_cx.debug_bounds("file-panel").expect("panel");
+    let buttons = dialog_cx.debug_bounds("panel-buttons").expect("buttons");
+    let viewport = dialog_cx.update(|window, _| window.viewport_size());
+    assert!(
+        buttons.bottom() <= viewport.height,
+        "the button row is inside the content area: {} <= {}",
+        buttons.bottom(),
+        viewport.height
+    );
+    assert_eq!(
+        buttons.bottom(),
+        panel.bottom(),
+        "the button row closes the panel"
+    );
+}
+
+#[test]
+fn the_open_dialog_frame_is_restored_from_the_store() {
+    use std::cell::RefCell;
+    use std::collections::BTreeMap;
+
+    use silvestris::window_role::FrameStore;
+
+    #[derive(Default)]
+    struct Frames(RefCell<BTreeMap<String, gpui::Bounds<gpui::Pixels>>>);
+    impl FrameStore for Frames {
+        fn load(&self, key: &str, _: &gpui::App) -> Option<gpui::Bounds<gpui::Pixels>> {
+            self.0.borrow().get(key).copied()
+        }
+        fn save(&self, key: &str, bounds: gpui::Bounds<gpui::Pixels>, _: &mut gpui::App) {
+            self.0.borrow_mut().insert(key.to_string(), bounds);
+        }
+    }
+
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let frames = Rc::new(Frames::default());
+    let _panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider()))
+            .directory("/")
+            .frame_store(frames.clone())
+            .run_modal(window, cx)
+    });
+    let dialog = cx
+        .cx
+        .windows()
+        .into_iter()
+        .find(|window| *window != owner)
+        .expect("Open dialog window");
+    let mut dialog_cx = VisualTestContext::from_window(dialog, &cx.cx);
+    draw(&mut dialog_cx);
+    dialog_cx.update(|window, _| window.resize(gpui::size(px(600.), px(500.))));
+    draw(&mut dialog_cx);
+    dialog_cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    let reopened = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider()))
+            .directory("/")
+            .frame_store(frames.clone())
+            .run_modal(window, cx)
+    });
+    let _ = reopened;
+    let dialog = cx
+        .cx
+        .windows()
+        .into_iter()
+        .find(|window| *window != owner)
+        .expect("reopened dialog");
+    let mut dialog_cx = VisualTestContext::from_window(dialog, &cx.cx);
+    draw(&mut dialog_cx);
+    assert_eq!(
+        dialog_cx.update(|window, _| window.bounds().size),
+        gpui::size(px(600.), px(500.)),
+        "the remembered Open window frame is restored"
     );
 }
 

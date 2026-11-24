@@ -13,6 +13,7 @@ pub mod open;
 pub mod panel;
 pub mod provider;
 pub mod save;
+pub mod state;
 
 pub use crate::controls::path_control::LocationId;
 pub use model::{
@@ -20,12 +21,15 @@ pub use model::{
     FileBrowserModel, FileViewMode,
 };
 pub use open::OpenPanel;
-pub use panel::{present, FilePanel, PanelMode, PanelOptions, PanelOutcome};
+pub use panel::{
+    begin_sheet, run_modal, FilePanel, FormatOption, PanelMode, PanelOptions, PanelOutcome,
+};
 pub use provider::{
     modified_seconds, FileAncestor, FileEntry, FileError, FileKind, FilePlace, FileProvider,
     MemoryProvider, PlaceSection,
 };
 pub use save::SavePanel;
+pub use state::{MemoryPanelStateStore, PanelState, PanelStateStore, PreferencePanelStates};
 
 #[cfg(feature = "std-fs")]
 pub use provider::StdFsProvider;

@@ -40,6 +40,7 @@ pub mod progress;
 pub use progress::{ProgressIndicator, ProgressStyle};
 pub mod column_browser;
 pub mod column_store;
+pub mod icon_grid;
 pub mod table;
 pub mod table_view;
 pub use column_browser::{
@@ -47,6 +48,7 @@ pub use column_browser::{
     ROOT as BROWSER_ROOT,
 };
 pub use column_store::{ColumnStore, MemoryColumns, PreferenceColumns, SavedColumns, SavedTables};
+pub use icon_grid::{IconGrid, IconGridEvent};
 pub use table_view::{
     icon_text, CellContext, ColumnAlign, GridLines, SortDirection, TableColumn, TableEvent,
     TableView,

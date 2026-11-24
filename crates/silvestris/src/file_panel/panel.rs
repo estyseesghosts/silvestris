@@ -17,7 +17,9 @@ use gpui::{
 use crate::binding::ItemId;
 use crate::chrome::WindowFrame;
 use crate::controls::column_browser::{BrowserEvent, BrowserNode, ColumnBrowser};
-use crate::controls::path_control::LocationId;
+use crate::controls::icon_grid::{IconGrid, IconGridEvent};
+use crate::controls::path_control::{LocationId, PathEntry, PathPopUp};
+use crate::controls::popup_button::PopUpButton;
 use crate::controls::source_list::{RowAccessory, SourceList, SourceListEvent, SourceListStyle};
 use crate::controls::table_view::{TableColumn, TableEvent, TableView};
 use crate::controls::text_field::{TextField, TextFieldEvent};
@@ -26,6 +28,7 @@ use crate::convert::hsla;
 use crate::file_panel::chrome::{self, PanelToolbar};
 use crate::file_panel::model::{choosable, FileBrowserEvent, FileBrowserModel, FileViewMode};
 use crate::file_panel::provider::{FileEntry, FileError, FilePlace, FileProvider, PlaceSection};
+use crate::file_panel::state::{PanelState, PanelStateStore};
 use crate::icons;
 use crate::modal::{self, ModalPhase, ModalResult, ModalScope, ModalSession};
 use crate::sheet;
@@ -70,6 +73,26 @@ impl PanelOutcome {
 type FinishFn = Rc<dyn Fn(&PanelOutcome, &mut App)>;
 type AccessoryFn = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
+/// One entry in the Save panel's Format pop-up. `extensions` are without the
+/// dot; choosing a format applies them to the allowed-type policy.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormatOption {
+    pub label: SharedString,
+    pub extensions: Vec<String>,
+}
+
+impl FormatOption {
+    pub fn new(
+        label: impl Into<SharedString>,
+        extensions: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            extensions: extensions.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct PanelOptions {
     pub mode: PanelMode,
@@ -78,10 +101,15 @@ pub struct PanelOptions {
     pub allowed_types: Vec<String>,
     pub allows_other_types: bool,
     pub hide_extension: bool,
+    pub hide_extension_set: bool,
     pub expanded: bool,
+    pub expanded_set: bool,
     pub allows_multiple: bool,
     pub can_choose_files: bool,
     pub can_choose_directories: bool,
+    pub formats: Vec<FormatOption>,
+    pub state_store: Option<Rc<dyn PanelStateStore>>,
+    pub frame_store: Option<Rc<dyn crate::window_role::FrameStore>>,
     pub accessory: Option<AccessoryFn>,
     pub on_finish: Option<FinishFn>,
 }
@@ -95,10 +123,15 @@ impl PanelOptions {
             allowed_types: Vec::new(),
             allows_other_types: true,
             hide_extension: false,
+            hide_extension_set: false,
             expanded: mode == PanelMode::Open,
+            expanded_set: false,
             allows_multiple: false,
             can_choose_files: true,
             can_choose_directories: false,
+            formats: Vec::new(),
+            state_store: None,
+            frame_store: None,
             accessory: None,
             on_finish: None,
         }
@@ -112,6 +145,7 @@ pub struct FilePanel {
     session: Entity<ModalSession>,
     sidebar: Entity<SourceList>,
     table: Entity<TableView<FileEntry>>,
+    icons: Option<Entity<IconGrid<FileEntry>>>,
     browser: Option<Entity<ColumnBrowser>>,
     /// Entries shown in the column browser, by id, with the location whose
     /// column produced them. The browser only carries the id and label, but
@@ -123,6 +157,13 @@ pub struct FilePanel {
     name_field: Option<Entity<TextField>>,
     expanded: bool,
     hide_extension: bool,
+    format: usize,
+    formats: Vec<FormatOption>,
+    state_store: Option<Rc<dyn PanelStateStore>>,
+    frame_store: Option<Rc<dyn crate::window_role::FrameStore>>,
+    panel_state: PanelState,
+    sidebar_width: f32,
+    resizing_sidebar: Option<(f32, f32)>,
     search_text: String,
     can_choose_files: bool,
     can_choose_directories: bool,
@@ -150,7 +191,8 @@ pub struct FilePanel {
 }
 
 impl FilePanel {
-    /// Build the panel. Called by `SavePanel::present` / `OpenPanel::present`.
+    /// Build the panel. Called by `begin_sheet` / `run_modal` through the
+    /// `SavePanel` and `OpenPanel` builders.
     pub fn build(
         options: PanelOptions,
         provider: Rc<dyn FileProvider>,
@@ -158,16 +200,48 @@ impl FilePanel {
         cx: &mut App,
     ) -> Entity<Self> {
         let mode = options.mode;
+        let remembered = options
+            .state_store
+            .as_ref()
+            .map_or_else(PanelState::default, |store| store.load(cx));
+        let expanded = if mode == PanelMode::Open {
+            true
+        } else if options.expanded_set {
+            options.expanded
+        } else {
+            remembered.expanded
+        };
+        let hide_extension = if options.hide_extension_set {
+            options.hide_extension
+        } else {
+            remembered.hide_extension
+        };
+        let view = remembered.view;
         let model =
             cx.new(|cx| FileBrowserModel::new(provider.clone(), options.location.clone(), cx));
         model.update(cx, |model, cx| {
             model.set_allowed_types(options.allowed_types.clone());
             model.set_allows_other_types(options.allows_other_types);
-            model.set_view(FileViewMode::List, cx);
+            model.set_view(view, cx);
         });
         let places = provider.places(cx);
         let sidebar = build_sidebar(&places, cx);
         let table = build_table(model.clone(), provider.clone(), options.clone(), cx);
+        let formats = if options.formats.is_empty() {
+            if options.allowed_types.is_empty() {
+                vec![FormatOption::new("Plain Text", ["txt"])]
+            } else {
+                options
+                    .allowed_types
+                    .iter()
+                    .map(|extension| {
+                        FormatOption::new(extension.to_uppercase(), [extension.clone()])
+                    })
+                    .collect()
+            }
+        } else {
+            options.formats.clone()
+        };
         // Name field.
         let name_field = (mode == PanelMode::Save).then(|| {
             let field = cx.new(|cx| {
@@ -201,12 +275,25 @@ impl FilePanel {
             session,
             sidebar,
             table,
+            icons: None,
             browser: None,
             browser_entries: HashMap::new(),
             search,
             name_field,
-            expanded: options.expanded,
-            hide_extension: options.hide_extension,
+            expanded,
+            hide_extension,
+            format: 0,
+            formats,
+            state_store: options.state_store.clone(),
+            frame_store: options.frame_store.clone(),
+            panel_state: PanelState {
+                view,
+                expanded,
+                hide_extension,
+                sidebar_width: remembered.sidebar_width,
+            },
+            sidebar_width: remembered.sidebar_width,
+            resizing_sidebar: None,
             search_text: String::new(),
             can_choose_files: options.can_choose_files,
             can_choose_directories: options.can_choose_directories,
@@ -318,7 +405,14 @@ impl FilePanel {
                 self.browser_navigation = false;
             }
             FileBrowserEvent::Loading { .. } | FileBrowserEvent::Failed { .. } => {}
-            FileBrowserEvent::ViewChanged { .. } => {}
+            FileBrowserEvent::ViewChanged { .. } => {
+                match self.model.read(cx).view() {
+                    FileViewMode::Icons => self.ensure_icon_grid(cx),
+                    FileViewMode::Columns => self.ensure_browser(cx),
+                    FileViewMode::List => {}
+                }
+                self.save_panel_state(cx);
+            }
         }
         cx.notify();
     }
@@ -353,32 +447,67 @@ impl FilePanel {
 
     fn refresh_stops(&self, cx: &mut Context<Self>) {
         let mut stops = Vec::new();
-        stops.push(self.sidebar.read(cx).focus_handle(cx));
-        match self.model.read(cx).view() {
-            FileViewMode::List => stops.push(self.table.read(cx).focus_handle(cx)),
-            FileViewMode::Columns => {
-                if let Some(browser) = &self.browser {
-                    if let Some(table) = browser.read(cx).column_table(0) {
-                        stops.push(table.read(cx).focus_handle(cx));
-                    } else {
-                        stops.push(browser.read(cx).focus_handle(cx));
-                    }
-                } else {
-                    stops.push(self.table.read(cx).focus_handle(cx));
+        let browser_stop = || match self.model.read(cx).view() {
+            FileViewMode::List => self.table.read(cx).focus_handle(cx),
+            FileViewMode::Icons => self.icons.as_ref().map_or_else(
+                || self.table.read(cx).focus_handle(cx),
+                |icons| icons.read(cx).focus_handle(),
+            ),
+            FileViewMode::Columns => self
+                .browser
+                .as_ref()
+                .and_then(|browser| browser.read(cx).column_table(0))
+                .map_or_else(
+                    || self.table.read(cx).focus_handle(cx),
+                    |table| table.read(cx).focus_handle(cx),
+                ),
+        };
+        match (self.mode, self.expanded) {
+            // HIG p. 248: Save As field -> source list -> visible columns ->
+            // back to the field.
+            (PanelMode::Save, true) => {
+                if let Some(name) = &self.name_focus {
+                    stops.push(name.clone());
                 }
+                stops.push(self.sidebar.read(cx).focus_handle(cx));
+                stops.push(browser_stop());
+            }
+            (PanelMode::Save, false) => {
+                if let Some(name) = &self.name_focus {
+                    stops.push(name.clone());
+                }
+                stops.push(self.cancel_focus.clone());
+                stops.push(self.accept_focus.clone());
+            }
+            (PanelMode::Open, _) => {
+                stops.push(self.sidebar.read(cx).focus_handle(cx));
+                stops.push(browser_stop());
+                stops.push(self.search.read(cx).focus_handle(cx));
+                stops.push(self.cancel_focus.clone());
+                stops.push(self.accept_focus.clone());
             }
         }
-        if let Some(name) = &self.name_focus {
-            stops.push(name.clone());
-        }
-        stops.push(self.new_folder_focus.clone());
-        stops.push(self.cancel_focus.clone());
-        stops.push(self.accept_focus.clone());
         self.session
             .update(cx, |session, _| session.set_focus_stops(stops));
     }
 
     fn table_activated(&mut self, cx: &mut Context<Self>) {
+        if self.model.read(cx).view() == FileViewMode::Columns {
+            let Some((parent, entry)) = self.browser_target(cx) else {
+                return;
+            };
+            if entry.is_dir && !entry.is_package {
+                let location = self.model.read(cx).location_of_child(&parent, &entry, cx);
+                if self.can_choose_directories {
+                    self.finish_open(&[(parent, entry)], cx);
+                } else {
+                    self.navigate(location, true, cx);
+                }
+            } else if self.mode == PanelMode::Open && self.choosable_now(&entry, cx) {
+                self.finish_open(&[(parent, entry)], cx);
+            }
+            return;
+        }
         let selected = self.model.read(cx).selected_entries(cx);
         let Some(entry) = selected.first() else {
             return;
@@ -442,14 +571,20 @@ impl FilePanel {
     }
 
     fn show_replace(&mut self, name: &str, entry: &FileEntry, cx: &mut Context<Self>) {
+        // Never overwrite without the alert. If no window can host it, leave
+        // the panel open (the session blocks a second Save meanwhile).
         let Some(owner) = self.owner() else {
-            self.accept_save(name, entry, cx);
+            self.closing = false;
+            cx.notify();
             return;
         };
+        // HIG p. 251 and windows.md: the collision alert is application-modal.
+        // It must not be a second sheet over the Save sheet (p. 236).
         let panel = cx.entity().downgrade();
         let name = name.to_string();
         let entry = entry.clone();
-        Alert::replace_existing(name.clone())
+        let alert = Alert::replace_existing(name.clone())
+            .window_title("Replace")
             .on_result(move |result: &AlertResult, _, cx| {
                 if result.choice.as_deref() == Some("alert-replace") {
                     if let Some(panel) = panel.upgrade() {
@@ -458,8 +593,10 @@ impl FilePanel {
                         });
                     }
                 }
-            })
-            .present(owner, cx);
+            });
+        let _ = owner.update(cx, |_, window, cx| {
+            alert.run_modal(window, cx);
+        });
     }
 
     fn accept_save(&mut self, name: &str, entry: &FileEntry, cx: &mut Context<Self>) {
@@ -541,7 +678,9 @@ impl FilePanel {
     }
 
     fn cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        modal::finish(self.session.clone(), ModalResult::Rejected, window, cx);
+        if !sheet::dismiss(self.session.clone(), ModalResult::Rejected, window, cx) {
+            modal::finish(self.session.clone(), ModalResult::Rejected, window, cx);
+        }
     }
 
     fn finish(&mut self, outcome: PanelOutcome, cx: &mut Context<Self>) {
@@ -560,11 +699,16 @@ impl FilePanel {
             };
             // The panel is often finishing from inside its own window update;
             // defer the modal finish so re-entering that window is safe.
+            let sheet_owned = self.owner.is_some();
             cx.defer(move |cx| {
                 let _ = handle.update(cx, |_, window, cx| {
-                    if !session.read(cx).is_ended() {
-                        modal::finish(session, result, window, cx);
+                    if session.read(cx).is_ended() {
+                        return;
                     }
+                    if sheet_owned && sheet::dismiss(session.clone(), result, window, cx) {
+                        return;
+                    }
+                    modal::finish(session, result, window, cx);
                 });
             });
         }
@@ -595,7 +739,18 @@ impl FilePanel {
             ..outcome
         };
         if let Some(window) = self.app_window {
-            let _ = window.update(cx, |_, window, _| window.remove_window());
+            let store = self.frame_store.clone();
+            let _ = window.update(cx, |_, window, cx| {
+                if let Some(store) = &store {
+                    crate::window_role::save_frame(
+                        WindowRole::OpenPanel,
+                        window,
+                        store.as_ref(),
+                        cx,
+                    );
+                }
+                window.remove_window();
+            });
         }
         if let Some(f) = &self.on_finish {
             f(&outcome, cx);
@@ -691,6 +846,67 @@ impl FilePanel {
     fn rebuild_browser(&mut self, cx: &mut Context<Self>) {
         self.browser = None;
         self.ensure_browser(cx);
+        cx.notify();
+    }
+
+    fn ensure_icon_grid(&mut self, cx: &mut Context<Self>) {
+        if self.icons.is_some() {
+            return;
+        }
+        let controller = self.model.read(cx).controller();
+        let model = self.model.clone();
+        let icon_model = model.clone();
+        let icons = cx.new(|cx| {
+            IconGrid::new(
+                controller,
+                move |entry: &FileEntry, selected, _active, window, cx| {
+                    let dim = !icon_model.read(cx).matches_types(entry);
+                    entry.icon.file_element(
+                        32.0,
+                        icons::FileIconState {
+                            selected,
+                            inactive: !window.is_window_active(),
+                            disabled: dim,
+                        },
+                    )
+                },
+                |entry: &FileEntry| entry.name.clone(),
+                cx,
+            )
+        });
+        icons.update(cx, |grid, cx| {
+            grid.set_multiple(self.allows_multiple, cx);
+        });
+        let subscription =
+            cx.subscribe(&icons, |panel, _, event: &IconGridEvent, cx| match event {
+                IconGridEvent::SelectionChanged => cx.notify(),
+                IconGridEvent::Activated(_) => panel.table_activated(cx),
+            });
+        self._subscriptions.push(subscription);
+        self.icons = Some(icons);
+        let _ = model;
+        self.refresh_stops(cx);
+    }
+
+    fn save_panel_state(&mut self, cx: &mut Context<Self>) {
+        self.panel_state = PanelState {
+            view: self.model.read(cx).view(),
+            expanded: self.expanded,
+            hide_extension: self.hide_extension,
+            sidebar_width: self.sidebar_width,
+        };
+        if let Some(store) = &self.state_store {
+            store.save(self.panel_state, cx);
+        }
+    }
+
+    fn choose_format(&mut self, index: usize, cx: &mut Context<Self>) {
+        let Some(format) = self.formats.get(index).cloned() else {
+            return;
+        };
+        self.format = index;
+        self.model
+            .update(cx, |model, _| model.set_allowed_types(format.extensions));
         cx.notify();
     }
 
@@ -876,20 +1092,23 @@ fn build_table(
     };
     let name_dims = Rc::new(dims);
     let columns = vec![
-        TableColumn::custom("name", "Name", move |entry: &FileEntry, cell, _, cx| {
+        TableColumn::custom("name", "Name", move |entry: &FileEntry, cell, window, _| {
             let dim = name_dims(entry);
-            let color = if dim && !cell.selected {
-                cx.theme().colors.text_disabled
-            } else {
-                cell.text
-            };
             let label = entry.name.clone();
+            let icon = entry.icon.file_element(
+                16.0,
+                icons::FileIconState {
+                    selected: cell.selected,
+                    inactive: !window.is_window_active(),
+                    disabled: dim,
+                },
+            );
             div()
                 .flex()
                 .items_center()
                 .gap(px(4.))
                 .overflow_hidden()
-                .child(div().flex_none().child(entry.icon.element(16.0, color)))
+                .child(div().flex_none().child(icon))
                 .child(div().truncate().child(label))
                 .into_any_element()
         })
@@ -923,12 +1142,14 @@ fn build_table(
         .sortable(|a: &FileEntry, b: &FileEntry| a.modified.cmp(&b.modified)),
         TableColumn::text("size", "Size", |entry: &FileEntry| entry.size_label())
             .width(64.0)
+            .hidden(true)
             .align(crate::controls::ColumnAlign::Trailing)
             .sortable(|a: &FileEntry, b: &FileEntry| a.size.cmp(&b.size)),
         TableColumn::text("kind", "Kind", |entry: &FileEntry| {
             SharedString::from(entry.kind.label())
         })
         .width(80.0)
+        .hidden(true)
         .sortable(|a: &FileEntry, b: &FileEntry| a.kind.cmp(&b.kind)),
     ];
     let controller = model.read(cx).controller();
@@ -936,20 +1157,28 @@ fn build_table(
         let mut table = TableView::new(controller, columns, cx);
         table.set_row_height(19.0, cx);
         table.set_allows_multiple(options.allows_multiple);
-        table.set_fill_width(false, cx);
+        table.set_fill_width(true, cx);
         table
     })
 }
 
-fn browser_node(entry: &FileEntry, cx: &App) -> BrowserNode {
+fn browser_node(entry: &FileEntry, _: &App) -> BrowserNode {
     let icon = entry.icon;
-    let color = cx.theme().colors.text;
     let node = if entry.is_dir && !entry.is_package {
         BrowserNode::branch(entry.id.clone(), entry.name.clone())
     } else {
         BrowserNode::leaf(entry.id.clone(), entry.name.clone())
     };
-    node.icon(move |_, _| icon.element(16.0, color))
+    node.icon(move |window, _| {
+        icon.file_element(
+            16.0,
+            icons::FileIconState {
+                selected: false,
+                inactive: !window.is_window_active(),
+                disabled: false,
+            },
+        )
+    })
 }
 
 impl Render for FilePanel {
@@ -1024,9 +1253,12 @@ impl Render for FilePanel {
             Rc::new(move |mode: FileViewMode, _: &mut Window, cx: &mut App| {
                 this.update(cx, |panel, cx| {
                     panel.model.update(cx, |model, cx| model.set_view(mode, cx));
-                    if mode == FileViewMode::Columns {
-                        panel.ensure_browser(cx);
+                    match mode {
+                        FileViewMode::Icons => panel.ensure_icon_grid(cx),
+                        FileViewMode::Columns => panel.ensure_browser(cx),
+                        FileViewMode::List => {}
                     }
+                    panel.save_panel_state(cx);
                     panel.refresh_stops(cx);
                     cx.notify();
                 });
@@ -1066,7 +1298,6 @@ impl Render for FilePanel {
             .id("file-panel")
             .debug_selector(|| "file-panel".into())
             .size_full()
-            .h(px(self.panel_height()))
             .w_full()
             .flex()
             .flex_col()
@@ -1085,14 +1316,28 @@ impl Render for FilePanel {
                         cx,
                     );
                 }
-            }))
-            .child(toolbar);
+            }));
         if self.mode == PanelMode::Save {
-            panel = panel.child(self.name_row(window, cx, expanded));
+            panel = panel.child(self.name_row(window));
+            if !expanded {
+                panel = panel.child(self.where_row(cx));
+            }
+        }
+        if self.mode == PanelMode::Open || expanded {
+            panel = panel.child(toolbar);
         }
         if expanded {
             let browser_area: AnyElement = match view {
                 FileViewMode::List => self.table.clone().into_any_element(),
+                FileViewMode::Icons => {
+                    if self.icons.is_none() {
+                        self.ensure_icon_grid(cx);
+                    }
+                    self.icons
+                        .clone()
+                        .map(IntoElement::into_any_element)
+                        .unwrap_or_else(|| self.table.clone().into_any_element())
+                }
                 FileViewMode::Columns => {
                     if self.browser.is_none() {
                         self.ensure_browser(cx);
@@ -1115,15 +1360,18 @@ impl Render for FilePanel {
                     .child(
                         div()
                             .debug_selector(|| "panel-sidebar".into())
+                            .relative()
                             .flex_none()
-                            .w(px(chrome::SIDEBAR_WIDTH))
+                            .w(px(self.sidebar_width))
                             .h_full()
-                            .border_r_1()
-                            .border_color(hsla(theme.colors.divider))
-                            .child(self.sidebar()),
+                            .child(self.sidebar())
+                            .child(self.sidebar_divider(window, cx)),
                     )
                     .child(div().flex_1().min_w_0().h_full().child(browser_area)),
             );
+            if self.mode == PanelMode::Save {
+                panel = panel.child(self.format_row(cx));
+            }
         }
         if let Some(accessory) = &self.accessory {
             panel = panel.child(
@@ -1140,21 +1388,10 @@ impl Render for FilePanel {
 }
 
 impl FilePanel {
-    fn name_row(&self, window: &mut Window, cx: &mut Context<Self>, expanded: bool) -> AnyElement {
+    fn name_row(&self, window: &mut Window) -> AnyElement {
         let field = self.name_field.clone();
-        let hide = self.hide_extension;
-        let toggle = {
-            let this = cx.entity();
-            Rc::new(move |next: &bool, _: &mut Window, cx: &mut App| {
-                let next = *next;
-                this.update(cx, |panel, cx| {
-                    panel.expanded = next;
-                    panel.refresh_stops(cx);
-                    cx.notify();
-                });
-            })
-        };
         let mut row = div()
+            .debug_selector(|| "save-name-row".into())
             .flex_none()
             .flex()
             .items_center()
@@ -1170,26 +1407,154 @@ impl FilePanel {
                     .text_size(px(12.))
                     .child(field.clone()),
             );
-            let this = cx.entity();
-            row = row.child(
+        }
+        let _ = window;
+        row.into_any_element()
+    }
+
+    /// The minimal Save dialog's Where pop-up (HIG p. 247): volumes, sidebar
+    /// places and recent places, all as display names, never a raw id.
+    fn where_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let model = self.model.read(cx);
+        let current = model.current_entry(cx);
+        let ancestors = model.path_ancestors(cx);
+        let recent: Vec<PathEntry> = model
+            .places(cx)
+            .iter()
+            .map(|place| PathEntry::new(place.id.clone(), place.label.clone(), place.icon))
+            .collect();
+        let this = cx.entity();
+        div()
+            .debug_selector(|| "save-where-row".into())
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .px(px(12.))
+            .pb(px(8.))
+            .child(div().flex_none().text_size(px(12.)).child("Where:"))
+            .child(
+                div().w(px(280.)).child(
+                    PathPopUp::new("save-where", current)
+                        .ancestors(ancestors)
+                        .recent(recent)
+                        .on_navigate(move |id, _, cx| {
+                            let id = id.clone();
+                            this.update(cx, |panel, cx| panel.navigate(id, false, cx));
+                        }),
+                ),
+            )
+            .into_any_element()
+    }
+
+    /// Expanded Save: the Format slot and Hide extension (HIG p. 248).
+    fn format_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let labels: Vec<SharedString> = self.formats.iter().map(|f| f.label.clone()).collect();
+        let this = cx.entity();
+        let popup = PopUpButton::new("save-format", "Format", labels)
+            .selected(Some(self.format))
+            .size(ControlSize::Regular)
+            .min_width(140.0)
+            .on_choose(move |index, _, cx| {
+                let index = *index;
+                this.update(cx, |panel, cx| panel.choose_format(index, cx));
+            });
+        let hide = self.hide_extension;
+        let this = cx.entity();
+        div()
+            .debug_selector(|| "save-format-row".into())
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .px(px(12.))
+            .py(px(6.))
+            .child(div().flex_none().text_size(px(12.)).child("Format:"))
+            .child(popup)
+            .child(div().flex_1())
+            .child(
                 Checkbox::new("hide-extension", "Hide extension")
                     .size(ControlSize::Small)
                     .checked(hide)
                     .on_change(move |state, _, cx| {
                         this.update(cx, |panel, cx| {
                             panel.hide_extension = *state == CheckState::On;
+                            panel.save_panel_state(cx);
                             cx.notify();
                         });
                     }),
-            );
-        }
-        row = row.child(
-            Disclosure::new("save-disclosure", "Show file browser")
-                .expanded(expanded)
-                .on_toggle(move |next, window, cx| toggle(next, window, cx)),
-        );
-        let _ = window;
-        row.into_any_element()
+            )
+            .into_any_element()
+    }
+
+    fn sidebar_divider(&self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let this = cx.entity();
+        let divider = cx.theme().colors.divider;
+        div()
+            .id("panel-sidebar-divider")
+            .debug_selector(|| "panel-sidebar-divider".into())
+            .absolute()
+            .right_0()
+            .top_0()
+            .bottom_0()
+            .w(px(5.))
+            .flex()
+            .justify_center()
+            .cursor(gpui::CursorStyle::ResizeLeftRight)
+            .child(
+                gpui::canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        crate::paint::vline(
+                            window,
+                            bounds.center().x,
+                            bounds.origin.y,
+                            bounds.size.height,
+                            divider,
+                        );
+                    },
+                )
+                .w_full()
+                .h_full(),
+            )
+            .on_mouse_down(gpui::MouseButton::Left, move |event, window, cx| {
+                let start_x = f32::from(event.position.x);
+                this.update(cx, |panel, cx| {
+                    panel.resizing_sidebar = Some((start_x, panel.sidebar_width));
+                    cx.notify();
+                });
+                let moving = this.clone();
+                window.on_mouse_event(move |event: &gpui::MouseMoveEvent, phase, _, cx| {
+                    if phase != gpui::DispatchPhase::Capture {
+                        return;
+                    }
+                    let x = f32::from(event.position.x);
+                    moving.update(cx, |panel, cx| {
+                        let Some((start, width)) = panel.resizing_sidebar else {
+                            return;
+                        };
+                        let next = (width + (x - start)).clamp(120.0, 320.0);
+                        if (next - panel.sidebar_width).abs() >= 0.5 {
+                            panel.sidebar_width = next;
+                            cx.notify();
+                        }
+                    });
+                });
+                let finished = this.clone();
+                window.on_mouse_event(move |_: &gpui::MouseUpEvent, phase, _, cx| {
+                    if phase != gpui::DispatchPhase::Capture {
+                        return;
+                    }
+                    finished.update(cx, |panel, cx| {
+                        if panel.resizing_sidebar.take().is_some() {
+                            panel.save_panel_state(cx);
+                            cx.notify();
+                        }
+                    });
+                });
+                cx.stop_propagation();
+            })
+            .into_any_element()
     }
 
     fn button_row(
@@ -1229,7 +1594,8 @@ impl FilePanel {
         let new_folder = {
             let this = cx.entity();
             Button::new("panel-new-folder", "New Folder")
-                .size(ControlSize::Small)
+                .size(ControlSize::Regular)
+                .min_width(80.0)
                 .focus_handle(self.new_folder_focus.clone())
                 .on_click(move |_, _, cx| {
                     this.update(cx, |panel, cx| panel.new_folder(cx));
@@ -1238,7 +1604,8 @@ impl FilePanel {
         let cancel = {
             let this = cx.entity();
             Button::new("panel-cancel", "Cancel")
-                .size(ControlSize::Small)
+                .size(ControlSize::Regular)
+                .min_width(58.0)
                 .cancel_button(true)
                 .focus_handle(self.cancel_focus.clone())
                 .on_click(move |_, window, cx| {
@@ -1252,7 +1619,8 @@ impl FilePanel {
         let accept = {
             let this = cx.entity();
             Button::new("panel-accept", accept_label)
-                .size(ControlSize::Small)
+                .size(ControlSize::Regular)
+                .min_width(58.0)
                 .default_button(true)
                 .disabled(!accept_enabled)
                 .focus_handle(self.accept_focus.clone())
@@ -1260,6 +1628,26 @@ impl FilePanel {
                     this.update(cx, |panel, cx| panel.accept_focused(cx));
                 })
         };
+        let disclosure = if self.mode == PanelMode::Save {
+            let expanded = self.expanded;
+            let this = cx.entity();
+            Some(
+                Disclosure::new("save-disclosure", "Show file browser")
+                    .expanded(expanded)
+                    .on_toggle(move |next, _, cx| {
+                        let next = *next;
+                        this.update(cx, |panel, cx| {
+                            panel.expanded = next;
+                            panel.save_panel_state(cx);
+                            panel.refresh_stops(cx);
+                            cx.notify();
+                        });
+                    }),
+            )
+        } else {
+            None
+        };
+        let show_new_folder = self.mode == PanelMode::Save && self.expanded;
         let status = error
             .map(|error| error.message.to_string())
             .or_else(|| loading.then(|| "Loading\u{2026}".to_string()));
@@ -1273,7 +1661,8 @@ impl FilePanel {
             .gap(px(8.))
             .h(px(chrome::BUTTON_ROW_HEIGHT))
             .px(px(12.))
-            .child(new_folder)
+            .children(disclosure)
+            .when(show_new_folder, |el| el.child(new_folder))
             .when_some(status, |el, status| {
                 el.child(
                     div()
@@ -1301,98 +1690,124 @@ impl Render for PanelWindow {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let title = self.panel.read(cx).title.clone();
         WindowFrame::new(title)
-            .role(WindowRole::Dialog)
-            .fixed_size()
+            .role(WindowRole::OpenPanel)
             .child(self.panel.clone())
     }
 }
 
-/// Present a panel: a document sheet over `owner`, or an application-modal
-/// dialog when there is no owner. Returns the panel entity.
-pub fn present(
+/// Present a panel as a document sheet: Save/Save As, or Choose-style open
+/// requests (HIG pp. 247, 251). One sheet per window; a second request is
+/// cancelled rather than stacked.
+pub fn begin_sheet(
     panel: Entity<FilePanel>,
-    owner: Option<AnyWindowHandle>,
+    owner: AnyWindowHandle,
     title: &str,
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<FilePanel> {
     let session = panel.read(cx).session.clone();
-    let _ = window;
-    match owner {
-        Some(owner) => {
-            panel.update(cx, |panel, cx| {
-                panel.owner = Some(owner);
-                panel.title = title.to_string().into();
+    let height = panel.read(cx).preferred_height();
+    panel.update(cx, |panel, cx| {
+        panel.owner = Some(owner);
+        panel.title = title.to_string().into();
+        panel.session.update(cx, |session, _| {
+            session.set_scope(ModalScope::Document);
+        });
+        cx.notify();
+    });
+    let sheet = sheet::Sheet::new_sized(
+        title.to_string(),
+        chrome::PANEL_WIDTH,
+        height,
+        session.clone(),
+        {
+            let panel = panel.clone();
+            move |_, _| panel.clone().into_any_element()
+        },
+        cx,
+    );
+    if !sheet::present(owner, sheet, cx) {
+        modal::finish(session, ModalResult::Cancelled, window, cx);
+    }
+    panel
+}
+
+/// Present a panel in its own application-modal window. Open uses this by
+/// default (HIG p. 245); Save uses it only when the application has no
+/// document window. The title accepts an app name, e.g. "TextEdit: Open".
+pub fn run_modal(
+    panel: Entity<FilePanel>,
+    title: &str,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<FilePanel> {
+    let width = chrome::PANEL_WIDTH;
+    let height = chrome::PANEL_HEIGHT;
+    let parent = window.bounds();
+    let store = panel.read(cx).frame_store.clone();
+    let bounds = crate::window_role::restore_bounds(
+        WindowRole::OpenPanel,
+        gpui::Bounds::new(
+            gpui::point(px(0.), px(0.)),
+            gpui::size(px(width), px(height)),
+        ),
+        Some(parent),
+        store
+            .as_deref()
+            .map(|store| store as &dyn crate::window_role::FrameStore),
+        cx,
+    );
+    let panel_for_window = panel.clone();
+    let window_title = title.to_string();
+    let opened = open_role(
+        WindowRole::OpenPanel,
+        window_title.clone(),
+        bounds,
+        cx,
+        move |window, cx| {
+            let handle = window.window_handle();
+            panel_for_window.update(cx, |panel, cx| {
+                panel.app_window = Some(handle);
+                panel.title = window_title.clone().into();
                 panel.session.update(cx, |session, _| {
-                    session.set_scope(ModalScope::Document);
+                    session.set_scope(ModalScope::Application);
                 });
                 cx.notify();
             });
-            let sheet = sheet::Sheet::new(
-                title.to_string(),
-                chrome::PANEL_WIDTH,
-                session,
-                {
-                    let panel = panel.clone();
-                    move |_, _| panel.clone().into_any_element()
-                },
-                cx,
-            );
-            sheet::present(owner, sheet, cx);
+            let session = panel_for_window.read(cx).session.clone();
+            modal::present(session, window, cx);
+            window.on_window_should_close(cx, |window, cx| {
+                modal::cancel_owned(window.window_handle(), cx);
+                true
+            });
+            cx.new(|_| PanelWindow {
+                panel: panel_for_window,
+            })
+        },
+    );
+    match opened {
+        Ok(handle) => {
+            let any = *handle;
+            panel.update(cx, |panel, _| panel.app_window = Some(any));
         }
-        None => {
-            let panel_for_window = panel.clone();
-            let window_title = title.to_string();
-            let height = panel.read(cx).panel_height();
-            let bounds = gpui::Bounds::new(
-                gpui::point(px(0.), px(0.)),
-                gpui::size(px(chrome::PANEL_WIDTH), px(height)),
-            );
-            let opened = open_role(
-                WindowRole::Dialog,
-                window_title.clone(),
-                bounds,
-                cx,
-                move |window, cx| {
-                    let handle = window.window_handle();
-                    panel_for_window.update(cx, |panel, cx| {
-                        panel.app_window = Some(handle);
-                        panel.title = window_title.clone().into();
-                        panel.session.update(cx, |session, _| {
-                            session.set_scope(ModalScope::Application);
-                        });
-                        cx.notify();
-                    });
-                    let session = panel_for_window.read(cx).session.clone();
-                    modal::present(session, window, cx);
-                    cx.new(|_| PanelWindow {
-                        panel: panel_for_window,
-                    })
-                },
-            );
-            match opened {
-                Ok(handle) => {
-                    let any = *handle;
-                    panel.update(cx, |panel, _| panel.app_window = Some(any));
-                }
-                Err(_) => {
-                    panel.update(cx, |panel, cx| {
-                        let session = panel.session.clone();
-                        modal::finish(session, ModalResult::Cancelled, window, cx);
-                    });
-                }
-            }
+        Err(_) => {
+            panel.update(cx, |panel, cx| {
+                let session = panel.session.clone();
+                modal::finish(session, ModalResult::Cancelled, window, cx);
+            });
         }
     }
     panel
 }
 
 impl FilePanel {
-    fn panel_height(&self) -> f32 {
-        if self.expanded {
-            chrome::PANEL_HEIGHT
-        } else {
+    /// Content height in the panel's host: the Open window's content area,
+    /// or the sheet's content.
+    fn preferred_height(&self) -> f32 {
+        if self.mode == PanelMode::Save && !self.expanded {
             chrome::COLLAPSED_HEIGHT
+        } else {
+            chrome::PANEL_CONTENT_HEIGHT
         }
     }
 
@@ -1449,6 +1864,26 @@ impl FilePanel {
                 .browser
                 .as_ref()
                 .is_some_and(|browser| browser.read(cx).is_editing(cx))
+    }
+
+    /// Switch presentation without a toolbar click. The location, controller
+    /// and selection stay; the choice is written to the state store.
+    pub fn set_view(&mut self, view: FileViewMode, cx: &mut Context<Self>) {
+        self.model.update(cx, |model, cx| model.set_view(view, cx));
+        match view {
+            FileViewMode::Icons => self.ensure_icon_grid(cx),
+            FileViewMode::Columns => self.ensure_browser(cx),
+            FileViewMode::List => {}
+        }
+        self.save_panel_state(cx);
+        self.refresh_stops(cx);
+        cx.notify();
+    }
+
+    /// The remembered sidebar width in logical pixels (M: panel.geometry).
+    #[must_use]
+    pub fn sidebar_width(&self) -> f32 {
+        self.sidebar_width
     }
 
     #[must_use]

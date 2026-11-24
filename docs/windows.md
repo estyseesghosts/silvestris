@@ -19,12 +19,13 @@ sheets), p. 244 (preferences).
 | `Panel` | yes | yes | no | no | no | yes | `panel` |
 | `Preferences` | no | yes | yes | no | yes | no | `preferences` |
 | `Dialog` | no | yes | no | no | yes | no | none |
+| `OpenPanel` | yes | yes | yes | yes | yes | no | `open-panel` |
 | `Assistant` | no | yes | no | no | yes | no | none |
 | `About` | no | yes | no | no | no (screen-centred) | no | none |
 
 `RoleSpec` is the table as data; `WindowRole::spec()` returns it and the tests
 assert the rows that matter (document and preferences, dialog and about, panel
-and utility). `WindowRole::ALL` lists every role so a gallery or a test can
+and utility, OpenPanel). `WindowRole::ALL` lists every role so a gallery or a test can
 iterate.
 
 `Utility` and `Document` differ in the title bar: a utility window uses a
@@ -36,7 +37,9 @@ a known scale.
 disabled: the 10.6 System Preferences capture shows that, and HIG p. 244 only
 removes the resize control and zoom. `Dialog`, `Assistant` and `About` are not
 resizable and draw only the close button (HIG p. 235: most application-modal
-dialogs omit close/minimize/zoom). `Panel` is resizable and closable but not minimizable or
+dialogs omit close/minimize/zoom). `OpenPanel` is the File > Open dialog
+(HIG p. 245): a normal resizable window with a remembered 527 x 398 frame and
+a 560 x 360 minimum (estimate). `Panel` is resizable and closable but not minimizable or
 zoomable (HIG p. 227: an inspector belongs to its window). It records that it
 hides on deactivation; whether the platform can float it above other
 applications is a capability question (#50), not a role question.

@@ -19,12 +19,14 @@ use silvestris::controls::{
     TextFieldEvent, ThumbStyle, TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
+use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
 use silvestris::menu::PopupMenu;
 use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
 use silvestris::transient::TransientLayer;
+use silvestris::window_role::FrameStore;
 use silvestris::window_role::{open_role, WindowRole};
 use silvestris::{paint, ActiveTheme, ThemeId, ThemePreference};
 
@@ -97,6 +99,117 @@ struct Gallery {
     list: ListController<(u32, gpui::SharedString)>,
     list_sorted: bool,
     modal: Option<ModalDemo>,
+    panel_state: std::rc::Rc<MemoryPanelStateStore>,
+    panel_frames: std::rc::Rc<GalleryFrames>,
+}
+
+#[derive(Default)]
+struct GalleryFrames(std::cell::RefCell<std::collections::BTreeMap<String, Bounds<gpui::Pixels>>>);
+
+impl FrameStore for GalleryFrames {
+    fn load(&self, key: &str, _: &App) -> Option<Bounds<gpui::Pixels>> {
+        self.0.borrow().get(key).copied()
+    }
+
+    fn save(&self, key: &str, bounds: Bounds<gpui::Pixels>, _: &mut App) {
+        self.0.borrow_mut().insert(key.to_string(), bounds);
+    }
+}
+
+/// S5: a small Untitled document window whose File menu opens the Save sheet
+/// (minimal and expanded) and the application-modal Open dialog.
+struct DocumentDemo {
+    state: std::rc::Rc<MemoryPanelStateStore>,
+    frames: std::rc::Rc<GalleryFrames>,
+}
+
+impl DocumentDemo {
+    fn provider() -> std::rc::Rc<dyn silvestris::file_panel::FileProvider> {
+        std::rc::Rc::new(gallery_file_provider())
+    }
+}
+
+impl gpui::Render for DocumentDemo {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let state = self.state.clone();
+        let frames = self.frames.clone();
+        let file = PopUpButton::new(
+            "document-file-menu",
+            "File",
+            vec![
+                "Save As\u{2026}".into(),
+                "Save As (expanded)\u{2026}".into(),
+                "Open\u{2026}".into(),
+            ],
+        )
+        .size(ControlSize::Regular)
+        .min_width(76.0)
+        .on_choose(move |index, window, cx| match *index {
+            0 => {
+                SavePanel::new(Self::provider())
+                    .directory("/")
+                    .name("Untitled.txt")
+                    .allowed_types(["txt"])
+                    .expanded(false)
+                    .state_store(state.clone())
+                    .begin_sheet(window.window_handle(), window, cx);
+            }
+            1 => {
+                SavePanel::new(Self::provider())
+                    .directory("/")
+                    .name("Untitled.txt")
+                    .allowed_types(["txt"])
+                    .expanded(true)
+                    .state_store(state.clone())
+                    .begin_sheet(window.window_handle(), window, cx);
+            }
+            _ => {
+                OpenPanel::new(Self::provider())
+                    .directory("/")
+                    .title("Gallery: Open")
+                    .state_store(state.clone())
+                    .frame_store(frames.clone())
+                    .run_modal(window, cx);
+            }
+        });
+        WindowFrame::new("Untitled")
+            .role(WindowRole::Document)
+            .toolbar(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .px(px(10.))
+                    .size_full()
+                    .child(file)
+                    .child(
+                        div()
+                            .text_size(px(theme.type_.size_small))
+                            .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                            .child("Untitled"),
+                    ),
+                32.0,
+            )
+            .child(
+                div()
+                    .size_full()
+                    .bg(silvestris::convert::hsla(theme.colors.content))
+                    .p(px(18.))
+                    .text_size(px(13.))
+                    .text_color(silvestris::convert::hsla(theme.colors.text))
+                    .child(
+                        div()
+                            .w(px(380.))
+                            .flex()
+                            .flex_col()
+                            .gap(px(10.))
+                            .child("The quick brown fox jumps over the lazy dog.")
+                            .child("File > Save As opens the Save sheet. Its disclosure expands the browser.")
+                            .child("File > Open opens the application-modal Open dialog."),
+                    ),
+            )
+    }
 }
 
 #[derive(Clone)]
@@ -567,6 +680,8 @@ impl Gallery {
             list,
             list_sorted: false,
             modal: None,
+            panel_state: std::rc::Rc::new(MemoryPanelStateStore::new()),
+            panel_frames: std::rc::Rc::new(GalleryFrames::default()),
         }
     }
 
@@ -811,6 +926,7 @@ impl Render for Gallery {
                         WindowRole::Panel => "role-panel",
                         WindowRole::Preferences => "role-preferences",
                         WindowRole::Dialog => "role-dialog",
+                        WindowRole::OpenPanel => "role-open-panel",
                         WindowRole::Assistant => "role-assistant",
                         WindowRole::About => "role-about",
                     },
@@ -1446,35 +1562,35 @@ impl Render for Gallery {
                     .into_any_element(),
             ))
             .child(cell(
-                "File panels: Save/Save As and Open as application-modal windows",
-                div()
-                    .flex()
-                    .gap(px(8.))
-                    .child(
-                        Button::new("gallery-save-panel", "Save panel")
-                            .size(ControlSize::Small)
-                            .on_click(|_, window, cx| {
-                                let provider = std::rc::Rc::new(gallery_file_provider());
-                                silvestris::file_panel::SavePanel::new(provider)
-                                    .directory("/")
-                                    .name("Untitled.txt")
-                                    .expanded(true)
-                                    .present(None, window, cx);
-                            }),
-                    )
-                    .child(
-                        Button::new("gallery-open-panel", "Open panel")
-                            .size(ControlSize::Small)
-                            .on_click(|_, window, cx| {
-                                let provider = std::rc::Rc::new(gallery_file_provider());
-                                silvestris::file_panel::OpenPanel::new(provider)
-                                    .directory("/")
-                                    .can_choose_files(true)
-                                    .can_choose_directories(false)
-                                    .present(None, window, cx);
-                            }),
-                    )
-                    .into_any_element(),
+                "File panels: an Untitled document with File > Save As (sheet) and File > Open",
+                {
+                    let state = self.panel_state.clone();
+                    let frames = self.panel_frames.clone();
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .child(
+                            Button::new("gallery-document", "Open Untitled document")
+                                .size(ControlSize::Small)
+                                .on_click(move |_, _, cx| {
+                                    let bounds =
+                                        Bounds::centered(None, size(px(560.), px(420.)), cx);
+                                    let options = silvestris::window_role::role_options(
+                                        WindowRole::Document,
+                                        "Untitled",
+                                        bounds,
+                                        cx,
+                                    );
+                                    let state = state.clone();
+                                    let frames = frames.clone();
+                                    let _ = open_window(options, cx, move |_, cx| {
+                                        cx.new(|_| DocumentDemo { state, frames })
+                                    });
+                                }),
+                        )
+                        .into_any_element()
+                },
             ))
             .child(cell(
                 "Small scroll view; Appearance scroller preferences",
@@ -1976,7 +2092,7 @@ fn main() {
 /// purpose), a separator, then the samples.
 /// Deterministic file provider for the gallery's panel buttons.
 fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
-    use silvestris::file_panel::{FileEntry, FilePlace, MemoryProvider, PlaceSection};
+    use silvestris::file_panel::{FileEntry, FileKind, FilePlace, MemoryProvider, PlaceSection};
     use silvestris::icons::Icon;
 
     let provider = MemoryProvider::new();
@@ -1986,11 +2102,18 @@ fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
         Icon::Volume,
         None,
         vec![
-            FileEntry::folder("documents", "Documents"),
+            FileEntry::folder("applications", "Applications").modified(1_735_689_600),
+            FileEntry::folder("documents", "Documents").modified(1_735_689_600),
             FileEntry::document("readme", "Read Me.txt")
                 .size(4096)
-                .modified(1_700_000_000),
-            FileEntry::document("photo", "Photo.png").size(1_048_576),
+                .modified(1_735_603_200),
+            FileEntry::document("photo", "Photo.png")
+                .size(1_048_576)
+                .modified(1_735_516_800),
+            FileEntry::new("preview", "Preview.app", FileKind::Application, true)
+                .package(true)
+                .size(18_874_368)
+                .modified(1_735_430_400),
         ],
     );
     provider.add_location(
@@ -1998,7 +2121,27 @@ fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
         "Documents",
         Icon::Documents,
         Some("/".into()),
-        vec![FileEntry::document("notes", "Notes.txt")],
+        vec![
+            FileEntry::document("notes", "Notes.txt")
+                .size(12_288)
+                .modified(1_735_603_200),
+            FileEntry::document("report", "Report.pdf")
+                .size(892_928)
+                .modified(1_735_516_800),
+            FileEntry::folder("archive", "Archive").modified(1_735_430_400),
+        ],
+    );
+    provider.add_location(
+        "/applications",
+        "Applications",
+        Icon::Application,
+        Some("/".into()),
+        vec![
+            FileEntry::new("preview", "Preview.app", FileKind::Application, true)
+                .package(true)
+                .size(18_874_368)
+                .modified(1_735_430_400),
+        ],
     );
     provider.set_places(vec![
         FilePlace::new("/", "Computer", Icon::Volume, PlaceSection::Devices).eject(true),
@@ -2011,7 +2154,7 @@ fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
         FilePlace::new(
             "search:today",
             "Today",
-            Icon::Search,
+            Icon::SmartSearch,
             PlaceSection::SearchFor,
         ),
     ]);

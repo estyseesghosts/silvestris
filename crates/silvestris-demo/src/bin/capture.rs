@@ -305,26 +305,33 @@ const SAMPLES: [Sample; 50] = [
 
 /// File panels are larger than a grid cell; they get their own page after the
 /// menus so neither the grid nor the menu samples move.
-const PANEL_SAMPLES: [Sample; 4] = [
+const PANEL_SAMPLES: [Sample; 5] = [
     Sample {
-        id: "open-panel-columns",
+        id: "open-dialog-columns",
         width: 527.,
         height: 398.,
     },
     Sample {
-        id: "open-panel-list",
+        id: "open-dialog-list",
         width: 527.,
         height: 398.,
     },
     Sample {
-        id: "save-panel-expanded",
-        width: 527.,
+        id: "save-sheet-minimal",
+        width: 760.,
         height: 398.,
     },
     Sample {
-        id: "save-panel-collapsed",
-        width: 527.,
-        height: 160.,
+        id: "save-sheet-expanded",
+        width: 760.,
+        height: 480.,
+    },
+    Sample {
+        // At rest after the 400 x 300 document grew to fit the 527-wide
+        // sheet; the growth and exact restore are covered by tests/sheet.rs.
+        id: "save-sheet-grow",
+        width: 560.,
+        height: 480.,
     },
 ];
 
@@ -348,8 +355,16 @@ fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
 
-fn panel_page() -> usize {
+fn panel_page_start() -> usize {
     menu_page() + 1
+}
+
+fn on_panel_page(page: usize) -> bool {
+    (panel_page_start()..panel_page_start() + PANEL_SAMPLES.len()).contains(&page)
+}
+
+fn panel_index(page: usize) -> usize {
+    page - panel_page_start()
 }
 
 fn rows(page: usize) -> usize {
@@ -360,8 +375,9 @@ fn page_samples(page: usize) -> &'static [Sample] {
     if page == menu_page() {
         return &MENU_SAMPLES;
     }
-    if page == panel_page() {
-        return &PANEL_SAMPLES;
+    if on_panel_page(page) {
+        let index = panel_index(page);
+        return &PANEL_SAMPLES[index..index + 1];
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -374,10 +390,9 @@ fn root_size(page: usize) -> (f32, f32) {
         let height = MENU_SAMPLES.iter().map(|s| s.height).fold(0., f32::max);
         return (PAD + width + PAD, PAD + height + PAD);
     }
-    if page == panel_page() {
-        let width = 2.0 * PANEL_SAMPLES[0].width + GAP;
-        let height = PANEL_SAMPLES[0].height + GAP + PANEL_SAMPLES[0].height;
-        return (PAD + width + PAD, PAD + height + PAD);
+    if on_panel_page(page) {
+        let sample = &PANEL_SAMPLES[panel_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
     (
         PAD + COLUMNS as f32 * (CELL_WIDTH + GAP) - GAP + PAD,
@@ -397,16 +412,9 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
             })
             .collect();
     }
-    if page == panel_page() {
-        let mut rects = Vec::new();
-        for (index, sample) in PANEL_SAMPLES.iter().enumerate() {
-            let column = index % 2;
-            let row = index / 2;
-            let x = PAD + column as f32 * (PANEL_SAMPLES[0].width + GAP);
-            let y = PAD + row as f32 * (PANEL_SAMPLES[0].height + GAP);
-            rects.push((sample.id, x, y, sample.width, sample.height));
-        }
-        return rects;
+    if on_panel_page(page) {
+        let sample = &PANEL_SAMPLES[panel_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
     let samples = page_samples(page);
     let mut rects = Vec::with_capacity(samples.len());
@@ -552,20 +560,27 @@ impl CaptureView {
             Vec::new()
         };
 
-        let panels = if page == panel_page() {
+        let panels = if on_panel_page(page) {
             let provider: std::rc::Rc<dyn silvestris::file_panel::FileProvider> =
                 std::rc::Rc::new(capture_file_provider());
             let specs = [
                 (PanelMode::Open, true, FileViewMode::Columns, "Untitled.txt"),
                 (PanelMode::Open, true, FileViewMode::List, "Untitled.txt"),
-                (PanelMode::Save, true, FileViewMode::List, "Untitled.txt"),
-                (PanelMode::Save, false, FileViewMode::List, "Untitled.txt"),
+                (
+                    PanelMode::Save,
+                    false,
+                    FileViewMode::Columns,
+                    "Untitled.txt",
+                ),
+                (PanelMode::Save, true, FileViewMode::Columns, "Untitled.txt"),
+                (PanelMode::Save, true, FileViewMode::Columns, "Untitled.txt"),
             ];
             specs
                 .into_iter()
                 .map(|(mode, expanded, view, name)| {
                     let mut options = PanelOptions::new(mode, "/".into());
                     options.expanded = expanded;
+                    options.expanded_set = true;
                     options.name = name.into();
                     options.allowed_types = vec!["txt".into()];
                     let panel = FilePanel::build(options, provider.clone(), window, cx);
@@ -581,9 +596,18 @@ impl CaptureView {
             Vec::new()
         };
 
-        window.on_next_frame(move |window, cx| {
-            capture(window, cx, &out, scale, page);
-            cx.quit();
+        // Let async provider loads and the panel's Loaded rebuild settle
+        // before readback; a single frame captures "Loading…" in the browser.
+        let out_a = out.clone();
+        window.on_next_frame(move |window, _cx| {
+            let out_b = out_a.clone();
+            window.on_next_frame(move |window, _cx| {
+                let out_c = out_b.clone();
+                window.on_next_frame(move |window, cx| {
+                    capture(window, cx, &out_c, scale, page);
+                    cx.quit();
+                });
+            });
         });
 
         Self {
@@ -601,7 +625,7 @@ impl CaptureView {
         }
     }
 
-    fn sample(&self, id: &str) -> gpui::AnyElement {
+    fn sample(&self, id: &str, cx: &mut Context<Self>) -> gpui::AnyElement {
         let button = |text: &'static str| Button::new(format!("golden-button-{text}"), text);
         match id {
             "button-default" => button("Save")
@@ -866,10 +890,21 @@ impl CaptureView {
             }
             "table-view" => self.table.clone().into_any_element(),
             "column-browser" => self.browser.clone().into_any_element(),
-            "open-panel-columns" => self.panels[0].clone().into_any_element(),
-            "open-panel-list" => self.panels[1].clone().into_any_element(),
-            "save-panel-expanded" => self.panels[2].clone().into_any_element(),
-            "save-panel-collapsed" => self.panels[3].clone().into_any_element(),
+            "open-dialog-columns" => WindowFrame::new("Open")
+                .role(WindowRole::OpenPanel)
+                .child(self.panels[0].clone())
+                .into_any_element(),
+            "open-dialog-list" => WindowFrame::new("Open")
+                .role(WindowRole::OpenPanel)
+                .child(self.panels[1].clone())
+                .into_any_element(),
+            "save-sheet-minimal" => {
+                save_sheet_sample(&self.panels[2], false, cx).into_any_element()
+            }
+            "save-sheet-expanded" => {
+                save_sheet_sample(&self.panels[3], true, cx).into_any_element()
+            }
+            "save-sheet-grow" => save_sheet_sample(&self.panels[4], true, cx).into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -895,6 +930,61 @@ fn frame_body() -> impl IntoElement {
     div().size_full().p(px(8.)).child("Content")
 }
 
+/// A small document window with the Save sheet attached under its toolbar.
+/// The parent is not dimmed; the sheet uses the same chrome as `sheet.rs`.
+fn save_sheet_sample(panel: &Entity<FilePanel>, expanded: bool, cx: &mut App) -> impl IntoElement {
+    let theme = cx.theme().clone();
+    let height = if expanded {
+        silvestris::file_panel::chrome::PANEL_CONTENT_HEIGHT
+    } else {
+        silvestris::file_panel::chrome::COLLAPSED_HEIGHT
+    };
+    WindowFrame::new("Untitled")
+        .role(WindowRole::Document)
+        .toolbar(
+            div()
+                .flex()
+                .items_center()
+                .px(px(10.))
+                .size_full()
+                .text_size(px(theme.type_.size_small))
+                .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                .child("File"),
+            32.0,
+        )
+        .child(
+            div()
+                .relative()
+                .size_full()
+                .bg(silvestris::convert::hsla(theme.colors.content))
+                .child(
+                    div()
+                        .p(px(18.))
+                        .w(px(360.))
+                        .text_size(px(13.))
+                        .text_color(silvestris::convert::hsla(theme.colors.text))
+                        .child("The quick brown fox jumps over the lazy dog."),
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .flex()
+                        .justify_center()
+                        .child(
+                            silvestris::sheet::card_shell(
+                                silvestris::file_panel::chrome::PANEL_WIDTH,
+                                Some(height),
+                                cx,
+                            )
+                            .child(panel.clone()),
+                        ),
+                ),
+        )
+}
+
 impl Render for CaptureView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
@@ -912,7 +1002,7 @@ impl Render for CaptureView {
                     .top(px(y))
                     .w(px(w))
                     .h(px(h))
-                    .child(self.sample(id)),
+                    .child(self.sample(id, cx)),
             );
         }
         for menu in &self.menus {
@@ -927,17 +1017,21 @@ fn capture_file_provider() -> MemoryProvider {
     let provider = MemoryProvider::new();
     provider.add_location(
         "/",
-        "Computer",
+        "Macintosh HD",
         Icon::Volume,
         None,
         vec![
-            FileEntry::folder("desktop", "Desktop"),
-            FileEntry::folder("documents", "Documents"),
+            FileEntry::folder("desktop", "Desktop").modified(1_735_689_600),
+            FileEntry::folder("documents", "Documents").modified(1_735_689_600),
             FileEntry::document("readme", "Read Me.txt")
                 .size(4096)
-                .modified(1_700_000_000),
-            FileEntry::document("stacks", "About Stacks.pdf").size(1_048_576),
-            FileEntry::document("photo", "Photo.png").size(2_097_152),
+                .modified(1_735_603_200),
+            FileEntry::document("stacks", "About Stacks.pdf")
+                .size(1_048_576)
+                .modified(1_735_516_800),
+            FileEntry::document("photo", "Photo.png")
+                .size(2_097_152)
+                .modified(1_735_430_400),
         ],
     );
     provider.add_location(
@@ -945,12 +1039,27 @@ fn capture_file_provider() -> MemoryProvider {
         "Documents",
         Icon::Documents,
         Some("/".into()),
-        vec![FileEntry::document("notes", "Notes.txt")],
+        vec![
+            FileEntry::document("notes", "Notes.txt")
+                .size(12_288)
+                .modified(1_735_603_200),
+            FileEntry::document("report", "Report.pdf")
+                .size(892_928)
+                .modified(1_735_516_800),
+        ],
     );
+    for (id, label, icon) in [
+        ("/desktop", "Desktop", Icon::Desktop),
+        ("/home", "terezi", Icon::Home),
+        ("/applications", "Applications", Icon::Application),
+        ("/downloads", "Downloads", Icon::Documents),
+    ] {
+        provider.add_location(id, label, icon, Some("/".into()), Vec::new());
+    }
     provider.set_places(vec![
         FilePlace::new("/", "Macintosh HD", Icon::Volume, PlaceSection::Devices).eject(true),
-        FilePlace::new("/", "Desktop", Icon::Desktop, PlaceSection::Places),
-        FilePlace::new("/", "terezi", Icon::Home, PlaceSection::Places),
+        FilePlace::new("/desktop", "Desktop", Icon::Desktop, PlaceSection::Places),
+        FilePlace::new("/home", "terezi", Icon::Home, PlaceSection::Places),
         FilePlace::new(
             "/documents",
             "Documents",
@@ -958,21 +1067,27 @@ fn capture_file_provider() -> MemoryProvider {
             PlaceSection::Places,
         ),
         FilePlace::new(
+            "/applications",
+            "Applications",
+            Icon::Application,
+            PlaceSection::Places,
+        ),
+        FilePlace::new(
             "search:today",
             "Today",
-            Icon::Search,
+            Icon::SmartSearch,
             PlaceSection::SearchFor,
         ),
         FilePlace::new(
             "search:yesterday",
             "Yesterday",
-            Icon::Search,
+            Icon::SmartSearch,
             PlaceSection::SearchFor,
         ),
         FilePlace::new(
             "search:week",
             "Past Week",
-            Icon::Search,
+            Icon::SmartSearch,
             PlaceSection::SearchFor,
         ),
     ]);
@@ -1099,7 +1214,17 @@ fn marks_menu(x: f32, y: f32, window: &mut Window, cx: &mut App) -> Entity<Popup
 }
 
 fn capture(window: &mut Window, cx: &mut App, out: &Path, scale: f32, page: usize) {
+    // The platform may have reset a chosen scale after a DPI change; force
+    // the requested scale and redraw before readback.
+    window.set_scale_factor(scale);
+    window.draw(cx).clear(cx);
     let image = window.render_to_image().expect("frame readback");
+    eprintln!(
+        "capture page {page}: requested scale {scale}, window scale {}, image {}x{}",
+        window.scale_factor(),
+        image.width(),
+        image.height()
+    );
     let (width, height) = root_size(page);
     let expected_width = (width * scale).round() as u32;
     let expected_height = (height * scale).round() as u32;

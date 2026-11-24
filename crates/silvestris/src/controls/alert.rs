@@ -1,10 +1,11 @@
 //! Alert (#23): icon, title, message, informative text, up to three buttons
 //! and a suppression checkbox (HIG pp. 233-239).
 //!
-//! An alert is a view, not a window. [`Alert::present`] wraps it in a
-//! `sheet::Sheet` whose modal scope is Application, so an alert over a Save
-//! panel stacks on top of the panel's document sheet (the `modal.rs` rules)
-//! and cancelling it returns to the panel, not to the document.
+//! An alert is a view, not a window. [`Alert::begin_sheet`] wraps it in a
+//! document sheet; [`Alert::run_modal`] opens an application-modal window.
+//! The Save panel's replace-existing alert uses the latter because HIG p. 236
+//! allows only one sheet per window (the collision alert is application-modal,
+//! p. 251), and cancelling it returns to the Save panel.
 //!
 //! Return chooses the default button; Escape chooses the cancel button.
 //!
@@ -16,15 +17,31 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, AnyWindowHandle, App, Context, Entity, FocusHandle, KeyDownEvent,
+    div, prelude::*, px, AnyWindowHandle, App, Context, Entity, FocusHandle, KeyDownEvent, Render,
     SharedString, Window,
 };
 
 use super::{Button, CheckState, Checkbox, ControlSize};
+use crate::chrome::WindowFrame;
 use crate::convert::hsla;
 use crate::icons::Icon;
 use crate::modal::{self, ModalResult, ModalScope, ModalSession};
+use crate::window_role::{open_role, WindowRole};
 use crate::{sheet, ActiveTheme};
+
+struct AlertWindow {
+    alert: Entity<Alert>,
+    title: SharedString,
+}
+
+impl Render for AlertWindow {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        WindowFrame::new(self.title.clone())
+            .role(WindowRole::Dialog)
+            .fixed_size()
+            .child(self.alert.clone())
+    }
+}
 
 /// The job a button does in an alert.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -92,6 +109,8 @@ pub struct Alert {
     button_focus: Vec<FocusHandle>,
     focus_pair: Option<(FocusHandle, FocusHandle)>,
     session: Option<Entity<ModalSession>>,
+    app_window: Option<AnyWindowHandle>,
+    window_title: Option<SharedString>,
     on_result: Option<ResultFn>,
 }
 
@@ -108,6 +127,8 @@ impl Alert {
             button_focus: Vec::new(),
             focus_pair: None,
             session: None,
+            app_window: None,
+            window_title: None,
             on_result: None,
         }
     }
@@ -148,6 +169,12 @@ impl Alert {
 
     pub fn on_result(mut self, f: impl Fn(&AlertResult, &mut Window, &mut App) + 'static) -> Self {
         self.on_result = Some(Rc::new(f));
+        self
+    }
+
+    /// Title-bar text for an application-modal alert window.
+    pub fn window_title(mut self, title: impl Into<SharedString>) -> Self {
+        self.window_title = Some(title.into());
         self
     }
 
@@ -238,17 +265,63 @@ impl Alert {
             } else {
                 ModalResult::Accepted
             };
-            modal::finish(session.clone(), outcome, window, cx);
-            sheet::close_session(&session, cx);
+            if !sheet::dismiss(session.clone(), outcome, window, cx) {
+                modal::finish(session, outcome, window, cx);
+            }
         }
         if let Some(f) = self.on_result.take() {
             f(&result, window, cx);
         }
+        if self.app_window.is_some() {
+            window.remove_window();
+        }
     }
 
-    /// Present this alert as an application-modal sheet over `owner`. The
-    /// returned entity stays alive as the sheet's content until it closes.
-    pub fn present(self, owner: AnyWindowHandle, cx: &mut App) -> Entity<Self> {
+    /// Present this alert as an application-modal window (HIG p. 251: the
+    /// replace-existing collision alert is application-modal, not a sheet over
+    /// the Save sheet). The returned entity stays alive as the window content.
+    pub fn run_modal(self, window: &mut Window, cx: &mut App) -> Entity<Self> {
+        let mut alert = self;
+        alert.ensure_focus(cx);
+        let stops = alert.focus_stops();
+        let session =
+            cx.new(|_| ModalSession::new(ModalScope::Application).with_focus_stops(stops));
+        alert.session = Some(session.clone());
+        let title = alert.window_title.clone().unwrap_or_else(|| "Alert".into());
+        let alert = cx.new(|_| alert);
+        let alert_for_window = alert.clone();
+        let panel_title = title.clone();
+        let bounds = gpui::Bounds::new(gpui::point(px(0.), px(0.)), gpui::size(px(420.), px(190.)));
+        match open_role(WindowRole::Dialog, title, bounds, cx, move |window, cx| {
+            let handle = window.window_handle();
+            alert_for_window.update(cx, |alert, cx| {
+                alert.app_window = Some(handle);
+                cx.notify();
+            });
+            modal::present(session, window, cx);
+            window.on_window_should_close(cx, |window, cx| {
+                modal::cancel_owned(window.window_handle(), cx);
+                true
+            });
+            cx.new(|_| AlertWindow {
+                alert: alert_for_window,
+                title: panel_title,
+            })
+        }) {
+            Ok(_) => {}
+            Err(_) => {
+                let handle = alert.read(cx).session.clone();
+                if let Some(session) = handle {
+                    modal::finish(session, ModalResult::Cancelled, window, cx);
+                }
+            }
+        }
+        alert
+    }
+
+    /// Present this alert as an application-modal sheet over `owner`. Used for
+    /// confirmations that belong to a document (never over another sheet).
+    pub fn begin_sheet(self, owner: AnyWindowHandle, cx: &mut App) -> Entity<Self> {
         let mut alert = self;
         alert.ensure_focus(cx);
         let stops = alert.focus_stops();
@@ -305,7 +378,7 @@ impl Render for Alert {
                 div()
                     .flex_none()
                     .mt(px(2.))
-                    .child(icon.element(32.0, theme.colors.text)),
+                    .child(icon.file_element(32.0, crate::icons::FileIconState::normal())),
             );
         }
         let mut column = div()

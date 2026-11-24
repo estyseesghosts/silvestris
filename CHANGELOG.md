@@ -5,6 +5,49 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After b90b569
+
+NSSAVEPANEL-2: presentation corrected for the Open and Save panels.
+
+- Sheet presentation is flush with the band (title bar plus toolbar), has no
+  scrim, square top corners, a side/bottom border and shadow, grows the owner
+  when needed and restores its exact previous content size. Emerge/retract
+  animations run at 200/160 ms; one sheet per window (a second `sheet::present`
+  returns false). `sheet::card_shell` is the shared chrome.
+- `sheet::present` now refuses a second sheet; `sheet::dismiss` retracts and
+  delivers the modal result after the animation. `sheet::active_sessions`
+  returns at most one session.
+- `Alert::run_modal` presents the replace-existing alert as an
+  application-modal window (HIG p. 251); `Alert::begin_sheet` is the
+  document-confirmation form. `Alert::present(owner, cx)` is removed.
+- `SavePanel::present` and `OpenPanel::present` are removed. Added
+  `SavePanel::{begin_sheet, run_modal}`, `OpenPanel::{run_modal, begin_sheet}`,
+  `OpenPanel::title`, `SavePanel::format`, and the `PanelStateStore` /
+  `MemoryPanelStateStore` / `PreferencePanelStates` state store.
+  `window_role::WindowRole::OpenPanel` is the resizable framed Open window
+  (527 x 398, remembered frame through `FrameStore`).
+- `FileViewMode` gained `Icons`; added `controls::IconGrid` and
+  `IconGridEvent` (88 x 76 cells, virtualised, click/Shift/Command selection,
+  arrows, Return).
+- The toolbar has three view segments, measured control widths, regular-size
+  history and view controls, a 219 px path pop-up with its display name and a
+  108 px search field. Push buttons are regular size.
+- `PopUpButton` uses the measured ~4 px pop-up corner radius, gained
+  `width`, and keeps the menu metrics untouched.
+- `SourceList` sections now disclose and collapse (open by default) and the
+  list is wrapped in a `ScrollView` when it overflows. The panel divider is
+  resizable and its width persists.
+- File icons are designed full-colour 16 px artwork with inactive and disabled
+  desaturation; new `Network` and `SmartSearch` variants and `IconView`. The
+  list shows Name and Date Modified with Size and Kind hidden.
+- Save has a real minimal state (Save As, Where, disclosure, Cancel, Save) and
+  an expanded state (toolbar, sidebar, browser, Format, Hide extension, New
+  Folder). The last view, expanded state, Hide extension and sidebar width
+  persist through the supplied state store.
+- Capture samples are now `open-dialog-columns`, `open-dialog-list`,
+  `save-sheet-minimal`, `save-sheet-expanded` and `save-sheet-grow`, rendered
+  one per page; `render.ps1` renders 10 pages.
+
 ## After 6d3ceb1
 
 M3 column browser, path controls and M4 panels (#34, #41, #22, #23, #29):
