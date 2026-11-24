@@ -377,7 +377,7 @@ impl PopupMenuFixture {
     /// Whether the menu is still open.
     #[must_use]
     pub fn is_open(&self, cx: &App) -> bool {
-        self.menu.read(cx).is_open(cx)
+        self.menu.read(cx).is_open_in(cx)
     }
 }
 

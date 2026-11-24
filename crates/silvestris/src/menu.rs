@@ -92,7 +92,13 @@ impl PopupMenu {
     ) -> Self {
         cx.observe(&registry, |_, _, cx| cx.notify()).detach();
         let layer = cx.new(|cx| TransientLayer::new(window, cx));
-        cx.observe(&layer, |_, _, cx| cx.notify()).detach();
+        cx.observe(&layer, |menu, layer, cx| {
+            if menu.surface.is_some_and(|id| !layer.read(cx).is_open(id)) {
+                menu.surface = None;
+            }
+            cx.notify();
+        })
+        .detach();
         Self {
             model,
             registry,
@@ -109,7 +115,13 @@ impl PopupMenu {
     /// Put this menu on a window's shared transient layer. Without this it uses
     /// a private layer, so two menus in one window would not exclude each other.
     pub fn set_layer(&mut self, layer: Entity<TransientLayer>, cx: &mut Context<Self>) {
-        cx.observe(&layer, |_, _, cx| cx.notify()).detach();
+        cx.observe(&layer, |menu, layer, cx| {
+            if menu.surface.is_some_and(|id| !layer.read(cx).is_open(id)) {
+                menu.surface = None;
+            }
+            cx.notify();
+        })
+        .detach();
         if let Some(chain) = self.chain.clone() {
             layer.update(cx, |layer, _| layer.set_chain(chain));
         }
@@ -134,7 +146,18 @@ impl PopupMenu {
             None => self.registry.read(cx).descriptors().get(id).cloned(),
         }
     }
-    pub fn is_open(&self, cx: &App) -> bool {
+    /// Whether the menu was opened and not dismissed. Kept for existing
+    /// consumers; the authoritative check against a shared layer is
+    /// [`is_open_in`](Self::is_open_in).
+    #[must_use]
+    pub fn is_open(&self) -> bool {
+        self.surface.is_some()
+    }
+
+    /// Whether the layer still has the surface open. Use this when a menu
+    /// shares a window layer that can close it from the outside.
+    #[must_use]
+    pub fn is_open_in(&self, cx: &App) -> bool {
         self.surface
             .is_some_and(|id| self.layer.read(cx).is_open(id))
     }
@@ -142,7 +165,7 @@ impl PopupMenu {
     /// than transferring its highlighted index to a different command.
     pub fn set_model(&mut self, model: MenuModel, window: &mut Window, cx: &mut Context<Self>) {
         if self.model != model {
-            if self.is_open(cx) {
+            if self.is_open_in(cx) {
                 self.dismiss(window, cx, true);
             }
             self.model = model;
@@ -152,7 +175,7 @@ impl PopupMenu {
         }
     }
     pub fn open(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_open(cx) {
+        if self.is_open_in(cx) {
             // Reposition the existing surface: closing and reopening would
             // record the menu's own focus as the return target.
             self.position = position;
@@ -298,7 +321,7 @@ impl PopupMenu {
     }
     fn key(view: &Entity<Self>, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut App) {
         let choice = view.update(cx, |menu, cx| {
-            if !menu.is_open(cx) {
+            if !menu.is_open_in(cx) {
                 return None;
             }
             let depth = menu.path.len() - 1;
@@ -721,7 +744,7 @@ mod tests {
             draw(cx);
             assert_eq!(hits.get(), 1);
             cx.update(|window, cx| {
-                assert!(!h.read(cx).menu.read(cx).is_open(cx));
+                assert!(!h.read(cx).menu.read(cx).is_open_in(cx));
                 assert!(h.read(cx).focus.is_focused(window));
                 let menu = h.read(cx).menu.clone();
                 menu.update(cx, |m, cx| {
@@ -740,11 +763,11 @@ mod tests {
             cx.simulate_click(row.center(), Modifiers::default());
             draw(cx);
             assert_eq!(hits.get(), 1);
-            cx.update(|_, cx| assert!(h.read(cx).menu.read(cx).is_open(cx)));
+            cx.update(|_, cx| assert!(h.read(cx).menu.read(cx).is_open_in(cx)));
             cx.simulate_click(point(px(500.), px(300.)), Modifiers::default());
             draw(cx);
             cx.update(|_, cx| {
-                assert!(!h.read(cx).menu.read(cx).is_open(cx));
+                assert!(!h.read(cx).menu.read(cx).is_open_in(cx));
                 assert_eq!(h.read(cx).background_hits.get(), 0);
             });
         }
@@ -789,7 +812,7 @@ mod tests {
         draw(cx);
         assert_eq!(hits.get(), 1);
         cx.update(|window, cx| {
-            assert!(!h.read(cx).menu.read(cx).is_open(cx));
+            assert!(!h.read(cx).menu.read(cx).is_open_in(cx));
             assert!(h.read(cx).focus.is_focused(window));
             let menu = h.read(cx).menu.clone();
             menu.update(cx, |m, cx| m.open(point(px(10.), px(10.)), window, cx));
@@ -802,7 +825,7 @@ mod tests {
         draw(cx);
         cx.update(|_, cx| {
             assert!(
-                h.read(cx).menu.read(cx).is_open(cx),
+                h.read(cx).menu.read(cx).is_open_in(cx),
                 "the first Escape closes only the submenu"
             );
         });
@@ -810,7 +833,7 @@ mod tests {
         cx.simulate_keystrokes("escape");
         draw(cx);
         cx.update(|window, cx| {
-            assert!(!h.read(cx).menu.read(cx).is_open(cx));
+            assert!(!h.read(cx).menu.read(cx).is_open_in(cx));
             assert!(h.read(cx).focus.is_focused(window));
         });
     }
@@ -862,6 +885,6 @@ mod tests {
         draw(cx);
         cx.deactivate_window();
         draw(cx);
-        cx.update(|_, cx| assert!(!h.read(cx).menu.read(cx).is_open(cx)));
+        cx.update(|_, cx| assert!(!h.read(cx).menu.read(cx).is_open_in(cx)));
     }
 }

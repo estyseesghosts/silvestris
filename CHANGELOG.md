@@ -148,7 +148,8 @@ PR #60, transient surfaces. Additive:
   `SurfaceId` and `CancelToken`.
 - `transient::shield`, `dismiss_on_pointer`, `dismiss_on_scroll`.
 - `PopupMenu::set_layer`, `PopUpButton::layer`, `ComboBox::layer` and
-  `tooltip::attach_in`; `PopupMenu::is_open` now takes `&App`.
+  `tooltip::attach_in`. `PopupMenu::is_open` keeps its no-argument form;
+  `is_open_in(&App)` is the authoritative check against a shared layer.
 
 Behaviour: one stack per window; only the innermost surface dismisses; a closed
 surface cancels its token; the responder chain freezes on the first surface and
