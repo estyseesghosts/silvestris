@@ -74,10 +74,17 @@ repeated here; they are listed in place next to the token.
   captures.
 - Menu shadow offset (0/2 px) and 12 px blur are a designed fit to the 10.6
   menu captures; the menu body, selection and separator are measured.
-- The default-button throb period (1.1 s) and 10% gloss lift are estimated
-  from two still frames; no 10.6 video timing was available. The throb stops
-  for inactive windows, reduced motion, a held press and focus on another
-  control.
+- The default-button throb breathes either side of the measured default
+  bevel: lighter and less saturated, then deeper and more saturated, about 8%
+  each way over a 1.1 s cycle. The two-sided swing was observed on a 10.6 VM
+  (Mail's Welcome assistant, Continue, with focus in a text field); period and
+  amplitude are estimates, since no frame timing was captured. The throb stops
+  for inactive windows, reduced motion and a held press. Focus in another
+  control does not stop it.
+- A pointer press fades into the pressed (blue) bevel over 90 ms, holds while
+  the button is down and fades back over 120 ms on release, observed on a 10.6
+  VM with Mail's Cancel. Both durations are estimates. Keyboard presses and
+  reduced motion show the pressed bevel immediately.
 - Help-button gloss is measured from the Appearance pane help tag only at the
   ring/glyph level; pressed and disabled help states are designed.
 - Disclosure pressed and animated rotation are designed; the collapsed

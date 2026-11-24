@@ -7,9 +7,11 @@
 //!   controls have the same width").
 //! - Label font: system, small system, mini system for regular, small, mini
 //!   (HIG p. 269).
-//! - Pointer and keyboard presses draw the pressed bevel immediately (HIG p. 265).
-//!   GPUI still decides whether the release activates the button. Successful
-//!   activation eases back to the resting bevel when motion is enabled.
+//! - A pointer press fades into the pressed bevel and holds it while the
+//!   button is down; keyboard presses and reduced motion show it immediately
+//!   (HIG p. 265; fade observed on 10.6). GPUI still decides whether the
+//!   release activates the button. Successful activation eases back to the
+//!   resting bevel when motion is enabled.
 //! - The focus ring shows only after keyboard input (handbook 12 focus manager).
 //! - Disabled buttons are not focusable and have no click handler. GPUI at the
 //!   pin has no `aria_disabled`, so assistive tech is not told the state; this
@@ -197,8 +199,11 @@ impl Button {
     }
 }
 
-// Local timing estimate. The held bezel is immediate and the command runs
-// on release, as specified by the HIG.
+// Local timing estimates. A pointer press fades into the pressed bevel and
+// back out on release; the command still runs on release (HIG p. 265).
+// The fades were observed on a 10.6 VM; no frame timing was captured, so the
+// durations are recorded in docs/exceptions.md.
+const PRESS_DURATION: Duration = Duration::from_millis(90);
 const RELEASE_DURATION: Duration = Duration::from_millis(120);
 
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -207,25 +212,48 @@ enum Press {
     Resting,
     Pointer {
         inside: bool,
+        since: Instant,
     },
     Keyboard,
-    Released(Instant),
+    /// Fading out from `from` (the amount shown when the press ended).
+    Released {
+        start: Instant,
+        from: f32,
+    },
+}
+
+fn smoothstep(t: f32) -> f32 {
+    t * t * (3.0 - 2.0 * t)
 }
 
 impl Press {
+    fn progress(start: Instant, duration: Duration, window: &Window, cx: &App) -> f32 {
+        let elapsed = cx
+            .background_executor()
+            .now()
+            .saturating_duration_since(start);
+        let t = (elapsed.as_secs_f32() / duration.as_secs_f32()).min(1.0);
+        if t < 1.0 {
+            window.request_animation_frame();
+        }
+        smoothstep(t)
+    }
+
     fn amount(self, window: &Window, cx: &App) -> f32 {
         match self {
-            Self::Pointer { inside: true } | Self::Keyboard => 1.0,
-            Self::Released(start) if !cx.reduce_motion() => {
-                let elapsed = cx
-                    .background_executor()
-                    .now()
-                    .saturating_duration_since(start);
-                let t = (elapsed.as_secs_f32() / RELEASE_DURATION.as_secs_f32()).min(1.0);
-                if t < 1.0 {
-                    window.request_animation_frame();
+            Self::Keyboard => 1.0,
+            Self::Pointer {
+                inside: true,
+                since,
+            } => {
+                if cx.reduce_motion() {
+                    1.0
+                } else {
+                    Self::progress(since, PRESS_DURATION, window, cx)
                 }
-                1.0 - t * t * (3.0 - 2.0 * t)
+            }
+            Self::Released { start, from } if !cx.reduce_motion() => {
+                from * (1.0 - Self::progress(start, RELEASE_DURATION, window, cx))
             }
             _ => 0.0,
         }
@@ -246,22 +274,43 @@ fn blend_bevel(resting: Bevel, pressed: Bevel, amount: f32) -> Bevel {
     }
 }
 
-/// Default-button throb. The measured default bevel is the rest state; the
-/// pulse adds a small white lift to the gloss, roughly 10% at the peak. The
-/// capture sets the two endpoints but not the period, so 1.1 s is an estimate
-/// recorded in docs/exceptions.md.
+/// Default-button throb. The measured default bevel is the midpoint; the
+/// gloss breathes either side of it, lighter and less saturated, then deeper
+/// and more saturated (observed on a 10.6 VM: Mail's Welcome assistant,
+/// Continue). The swing is small, about 8% toward white and 8% in
+/// saturation and depth. Period and amplitude are estimates recorded in
+/// docs/exceptions.md.
 fn throb_bevel(resting: Bevel, phase: f32) -> Bevel {
-    let lift = (0.5 - (phase * std::f32::consts::TAU).cos() * 0.5) * 0.10;
+    const SWING: f32 = 0.08;
+    let wave = (phase * std::f32::consts::TAU).sin();
     let white = Rgba8::hex(0xffffff).alpha(255);
-    let light = |g: Gradient| Gradient::new(g.from.mix(white, lift), g.to.mix(white, lift));
+    let shift = |c: Rgba8| {
+        if wave >= 0.0 {
+            c.mix(white.alpha(c.a), wave * SWING)
+        } else {
+            deepen(c, -wave * SWING)
+        }
+    };
+    let band = |g: Gradient| Gradient::new(shift(g.from), shift(g.to));
     Bevel {
         border: resting.border,
-        upper: light(resting.upper),
-        lower: light(resting.lower),
+        upper: band(resting.upper),
+        lower: band(resting.lower),
         split: resting.split,
         emboss: resting.emboss,
         text: resting.text,
     }
+}
+
+/// Push a colour away from its grey (more saturated) and slightly darker.
+fn deepen(c: Rgba8, amount: f32) -> Rgba8 {
+    let grey = (c.r as f32 + c.g as f32 + c.b as f32) / 3.0;
+    let channel = |v: u8| {
+        let v = v as f32;
+        let saturated = v + (v - grey) * amount * 2.0;
+        (saturated * (1.0 - amount * 0.5)).round().clamp(0.0, 255.0) as u8
+    };
+    Rgba8::rgba(channel(c.r), channel(c.g), channel(c.b), c.a)
 }
 
 impl RenderOnce for Button {
@@ -348,18 +397,16 @@ impl RenderOnce for Button {
             feedback.set(Press::Resting);
         }
         let amount = feedback.get().amount(window, cx);
-        if amount == 0.0 && matches!(feedback.get(), Press::Released(_)) {
+        if amount == 0.0 && matches!(feedback.get(), Press::Released { .. }) {
             feedback.set(Press::Resting);
         }
         let feedback = handler.as_ref().map(|_| feedback.clone());
-        let focused_elsewhere = window.focused(cx).is_some_and(|f| f != focus);
         let throb = self.throb
             && self.default
             && self.style == ButtonStyle::Push
             && enabled
             && window.is_window_active()
             && !cx.reduce_motion()
-            && !focused_elsewhere
             && amount == 0.0;
         let throb_phase = Rc::new(Cell::new(0.0));
         let throb_for_paint = throb_phase.clone();
@@ -453,7 +500,10 @@ impl RenderOnce for Button {
                     window.focus(&pointer_focus, cx);
                 }
                 if let Some(feedback) = &pointer_down {
-                    feedback.set(Press::Pointer { inside: true });
+                    feedback.set(Press::Pointer {
+                        inside: true,
+                        since: cx.background_executor().now(),
+                    });
                     window.refresh();
                 }
                 cx.stop_propagation();
@@ -487,7 +537,14 @@ impl RenderOnce for Button {
             .when_some(handler.zip(activation), |el, (handler, feedback)| {
                 el.on_click(move |event, window, cx| {
                     if !cx.reduce_motion() {
-                        feedback.set(Press::Released(cx.background_executor().now()));
+                        let from = match feedback.get() {
+                            Press::Resting => 1.0,
+                            press => press.amount(window, cx),
+                        };
+                        feedback.set(Press::Released {
+                            start: cx.background_executor().now(),
+                            from,
+                        });
                     }
                     window.refresh();
                     handler(event, window, cx);
@@ -520,13 +577,12 @@ impl RenderOnce for Button {
                                 let pointer = feedback.clone();
                                 window.on_mouse_event(
                                     move |event: &MouseMoveEvent, phase, window, _| {
-                                        let next = Press::Pointer {
-                                            inside: bounds.contains(&event.position),
+                                        let Press::Pointer { inside, since } = pointer.get() else {
+                                            return;
                                         };
-                                        if phase.capture()
-                                            && matches!(pointer.get(), Press::Pointer { .. })
-                                            && pointer.replace(next) != next
-                                        {
+                                        let now = bounds.contains(&event.position);
+                                        if phase.capture() && now != inside {
+                                            pointer.set(Press::Pointer { inside: now, since });
                                             window.refresh();
                                         }
                                     },
@@ -534,11 +590,18 @@ impl RenderOnce for Button {
                                 let pointer = feedback.clone();
                                 window.on_mouse_event(
                                     move |_: &MouseExitEvent, phase, window, _| {
-                                        if phase.capture()
-                                            && pointer.get() == (Press::Pointer { inside: true })
+                                        if let Press::Pointer {
+                                            inside: true,
+                                            since,
+                                        } = pointer.get()
                                         {
-                                            pointer.set(Press::Pointer { inside: false });
-                                            window.refresh();
+                                            if phase.capture() {
+                                                pointer.set(Press::Pointer {
+                                                    inside: false,
+                                                    since,
+                                                });
+                                                window.refresh();
+                                            }
                                         }
                                     },
                                 );
@@ -704,13 +767,27 @@ mod tests {
             })
         };
         let resting = fill(cx);
+        let advance = |cx: &mut VisualTestContext, by: std::time::Duration| {
+            cx.update(|window, cx| {
+                cx.background_executor().advance_clock(by);
+                window.simulate_next_frame(cx);
+            });
+            draw(cx);
+        };
         let position = button.center();
         let outside = gpui::point(position.x, button.bottom() + px(8.));
         let modifiers = Modifiers::default();
 
+        // A pointer press fades in from the resting bevel.
         cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
         draw(cx);
+        assert_eq!(fill(cx), resting);
+        advance(cx, PRESS_DURATION / 2);
+        let pressing = fill(cx);
+        assert_ne!(pressing, resting);
+        advance(cx, PRESS_DURATION / 2);
         let held = fill(cx);
+        assert_ne!(held, pressing);
         assert_ne!(held, resting);
         cx.simulate_mouse_move(outside, MouseButton::Left, modifiers);
         draw(cx);
@@ -719,23 +796,20 @@ mod tests {
         draw(cx);
         cx.update(|_, cx| assert_eq!(h.read(cx).activations, 0));
 
-        cx.simulate_click(position, modifiers);
+        // Holding keeps the pressed bevel; release fades back out.
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        advance(cx, PRESS_DURATION * 4);
+        assert_eq!(fill(cx), held);
+        cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
         draw(cx);
         assert_eq!(fill(cx), held);
         cx.update(|_, cx| assert_eq!(h.read(cx).activations, 1));
-        cx.update(|window, cx| {
-            cx.background_executor().advance_clock(RELEASE_DURATION / 2);
-            window.simulate_next_frame(cx);
-        });
-        draw(cx);
+        advance(cx, RELEASE_DURATION / 2);
         let halfway = fill(cx);
         assert_ne!(halfway, held);
         assert_ne!(halfway, resting);
-        cx.update(|window, cx| {
-            cx.background_executor().advance_clock(RELEASE_DURATION / 2);
-            window.simulate_next_frame(cx);
-        });
-        draw(cx);
+        advance(cx, RELEASE_DURATION / 2);
         assert_eq!(fill(cx), resting);
 
         cx.update(|_, cx| cx.set_reduce_motion(true));
@@ -759,10 +833,31 @@ mod tests {
         let selected = fill(cx);
         cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
         draw(cx);
+        advance(cx, PRESS_DURATION);
         assert_ne!(fill(cx), selected);
         cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
         draw(cx);
         assert_eq!(fill(cx), selected);
+    }
+
+    #[test]
+    fn throb_breathes_lighter_and_deeper_around_the_measured_default() {
+        let theme = silvestris_core::aqua::aqua_light();
+        let rest = theme.controls.push_default;
+        let sum = |c: Rgba8| c.r as u32 + c.g as u32 + c.b as u32;
+        let spread = |c: Rgba8| c.r.max(c.g).max(c.b) - c.r.min(c.g).min(c.b);
+        assert_eq!(throb_bevel(rest, 0.0), rest);
+        let light = throb_bevel(rest, 0.25).lower.from;
+        let deep = throb_bevel(rest, 0.75).lower.from;
+        let base = rest.lower.from;
+        assert!(sum(light) > sum(base) && spread(light) < spread(base));
+        assert!(sum(deep) < sum(base) && spread(deep) > spread(base));
+        // Subtle: no channel moves more than about a tenth of its range.
+        for c in [light, deep] {
+            for (x, y) in [(c.r, base.r), (c.g, base.g), (c.b, base.b)] {
+                assert!(x.abs_diff(y) <= 26, "{c:?} vs {base:?}");
+            }
+        }
     }
 
     #[test]
