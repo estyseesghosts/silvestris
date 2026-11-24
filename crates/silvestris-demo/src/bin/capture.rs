@@ -34,7 +34,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 10] = [
+const SAMPLES: [Sample; 11] = [
     Sample {
         id: "button",
         width: 160.,
@@ -85,24 +85,39 @@ const SAMPLES: [Sample; 10] = [
         width: 244.,
         height: 108.,
     },
+    Sample {
+        id: "window-frame-edited",
+        width: 244.,
+        height: 108.,
+    },
 ];
 
+/// The edited frame sits in a second column so the root stays inside a 2x
+/// display. The other samples keep their column and positions.
 fn root_size() -> (f32, f32) {
     let mut height = PAD;
-    for sample in SAMPLES {
+    for sample in SAMPLES.iter().take(10) {
         height += sample.height + GAP;
     }
     height += PAD - GAP;
-    (CELL_WIDTH + PAD * 2., height)
+    (CELL_WIDTH * 2. + GAP + PAD * 2., height)
 }
 
 fn sample_rects() -> Vec<(&'static str, f32, f32, f32, f32)> {
     let mut y = PAD;
     let mut rects = Vec::with_capacity(SAMPLES.len());
-    for sample in SAMPLES {
+    for sample in SAMPLES.iter().take(10) {
         rects.push((sample.id, PAD, y, sample.width, sample.height));
         y += sample.height + GAP;
     }
+    let edited = &SAMPLES[10];
+    rects.push((
+        edited.id,
+        PAD + CELL_WIDTH + GAP,
+        PAD,
+        edited.width,
+        edited.height,
+    ));
     rects
 }
 
@@ -183,6 +198,11 @@ impl CaptureView {
                 .into_any_element(),
             "window-frame-fixed" => WindowFrame::new("About")
                 .role(WindowRole::About)
+                .child(frame_body())
+                .into_any_element(),
+            "window-frame-edited" => WindowFrame::new("Untitled")
+                .role(WindowRole::Document)
+                .edited(true)
                 .child(frame_body())
                 .into_any_element(),
             other => unreachable!("unknown sample {other}"),

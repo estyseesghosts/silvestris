@@ -7,6 +7,20 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #37, documents. Additive:
+
+- `document::Document`, `DocumentHandle`, `SaveResult`, `DocumentTitle`.
+- `document::DocumentController` with `request_close`, `resolve_prompt`,
+  `resolve_save`, `revert`, `title`, `is_saving`, `is_prompting`;
+  `PromptChoice` and `CloseStep`.
+- `document::Documents` for untitled numbering; `document::sync_title`.
+- `WindowFrame::edited` and the close-button dirty dot.
+
+Behaviour: a clean document closes; a dirty one prompts; Save may need a panel;
+a failed save keeps the window open; a save in flight never prompts twice;
+untitled numbers skip open windows. The prompt and Save panel are the app's
+content in #21/#22/#29.
+
 PR #39, undo. Additive:
 
 - `undo::UndoManager` with `record`, `begin_group`/`end_group`, `undo`,
