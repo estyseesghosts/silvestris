@@ -30,7 +30,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
-| Document window | `chrome::open_window` | functional | four | — | #20 |
+| Document window | `chrome::open_window`, `document::DocumentController` | functional | four | `window-frame` | #20, #37 |
 | Application window | `chrome::open_window` | functional | four | — | #20 |
 | Panel, inspector | `Shell` inspector, `Sidebar` | functional | four | — | #20, #27 |
 | Dialog, alert | `ConfirmationSheet` | provisional | four | — | #21, #23 |

@@ -5,7 +5,9 @@
 
 pub mod chrome;
 pub mod controls;
+
 pub mod convert;
+pub mod document;
 pub mod fonts;
 pub mod native;
 pub mod paint;

@@ -103,6 +103,7 @@ pub struct WindowFrame {
     show_title: bool,
     fixed: bool,
     role: Option<WindowRole>,
+    edited: bool,
 }
 
 impl WindowFrame {
@@ -116,7 +117,15 @@ impl WindowFrame {
             show_title: true,
             fixed: false,
             role: None,
+            edited: false,
         }
+    }
+
+    /// Show the close button's edited dot (HIG p. 197, 221). The document
+    /// controller supplies the flag; the art stays in the theme.
+    pub fn edited(mut self, edited: bool) -> Self {
+        self.edited = edited;
+        self
     }
 
     /// Apply a window role (#20): its resizability, title visibility and which
@@ -165,6 +174,7 @@ fn traffic_lights(
     active: bool,
     enabled: [bool; 3],
     titlebar_height: f32,
+    edited: bool,
 ) -> impl IntoElement {
     let m = &theme.metrics;
     let d = px(m.traffic_diameter);
@@ -222,7 +232,13 @@ fn traffic_lights(
                     .h(hit_h)
                     .relative()
                     .when(enabled, |el| {
-                        el.debug_selector(move || format!("traffic-{label}-enabled"))
+                        el.debug_selector(move || {
+                            if edited && matches!(light, Light::Close) {
+                                format!("traffic-{label}-edited")
+                            } else {
+                                format!("traffic-{label}-enabled")
+                            }
+                        })
                     })
                     .when(!enabled, |el| {
                         el.debug_selector(move || format!("traffic-{label}-disabled"))
@@ -260,6 +276,16 @@ fn traffic_lights(
                                 window
                                     .paint_image(sphere, sphere, 0.0.into(), image, 0, false)
                                     .ok();
+                                if edited && matches!(light, Light::Close) {
+                                    let dot = Bounds::new(
+                                        sphere.center() - point(px(2.), px(2.)),
+                                        size(px(4.), px(4.)),
+                                    );
+                                    window.paint_quad(
+                                        gpui::fill(dot, hsla(cx.theme().colors.text))
+                                            .corner_radii(px(2.)),
+                                    );
+                                }
                             },
                         )
                         .absolute()
@@ -414,6 +440,7 @@ impl RenderOnce for WindowFrame {
                     active,
                     [close, minimize, zoom],
                     titlebar_height,
+                    self.edited,
                 ))
             })
             .when_some(self.toolbar, |el, toolbar| {
@@ -629,12 +656,14 @@ mod tests {
 
     struct FrameView {
         role: WindowRole,
+        edited: bool,
     }
 
     impl Render for FrameView {
         fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
             WindowFrame::new("Role")
                 .role(self.role)
+                .edited(self.edited)
                 .child(div().size_full())
         }
     }
@@ -647,7 +676,10 @@ mod tests {
 
     fn draw_frame(role: WindowRole) -> (TestAppContext, WindowHandle<FrameView>) {
         let mut app = test_app();
-        let window = app.add_window(|_, _| FrameView { role });
+        let window = app.add_window(|_, _| FrameView {
+            role,
+            edited: false,
+        });
         {
             let mut cx = VisualTestContext::from_window(*window, &app);
             cx.run_until_parked();
@@ -711,6 +743,27 @@ mod tests {
         assert!(has(window, &app, "traffic-Close-enabled"));
         assert!(has(window, &app, "traffic-Minimize-disabled"));
         assert!(has(window, &app, "traffic-Zoom-disabled"));
+    }
+
+    #[test]
+    fn an_edited_document_marks_the_close_button() {
+        let mut app = test_app();
+        let window = app.add_window(|_, _| FrameView {
+            role: WindowRole::Document,
+            edited: true,
+        });
+        {
+            let mut cx = VisualTestContext::from_window(*window, &app);
+            cx.run_until_parked();
+            cx.update(|window, cx| {
+                window.draw(cx).clear(cx);
+            });
+            cx.run_until_parked();
+        }
+        assert!(has(window, &app, "traffic-Close-edited"));
+        assert!(!has(window, &app, "traffic-Close-enabled"));
+        let (clean_app, clean) = draw_frame(WindowRole::Document);
+        assert!(!has(clean, &clean_app, "traffic-Close-edited"));
     }
 
     #[test]
