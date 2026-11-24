@@ -7,6 +7,22 @@ depend on focus, key routing and layout.
 
 ## After 216de9b
 
+PR #59, application lifecycle. Additive:
+
+- `lifecycle::AppDelegate` with `did_launch`, `should_open_untitled`, `reopen`,
+  `did_become_active`, `did_resign_active` and `should_terminate`;
+  `Terminate::{Now, Later(Task<()>), Cancel}`.
+- `lifecycle::QuitCoordinator` with `request_quit`, `review_name`,
+  `resolve_review`, `resolve_save`, `deferred_finished`, `take_deferred`,
+  `timeout_elapsed`, `progress`, `needs_review_alert`; `QuitStep`,
+  `ReviewChoice`, `QuitProgress`.
+- `lifecycle::notify_activation`.
+
+Behaviour: quit asks the delegate, waits for its deferred shutdown, then
+reviews each dirty document; Cancel keeps the app and its dirty state; a needs-
+panel save waits for #29; a failed save cancels; a timeout forces exit. No
+wall-clock wait lives in the framework.
+
 PR #37, documents. Additive:
 
 - `document::Document`, `DocumentHandle`, `SaveResult`, `DocumentTitle`.
