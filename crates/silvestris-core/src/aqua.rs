@@ -20,6 +20,21 @@ const fn g(a: u32, b: u32) -> Gradient {
 const BLACK: Rgba8 = Rgba8::hex(0x000000);
 const WHITE: Rgba8 = Rgba8::hex(0xffffff);
 
+/// M: scroller.track.row: 15 rows across the track, leading edge first.
+#[rustfmt::skip]
+const SCROLLER_TRACK_ROWS: [Rgba8; 15] = [
+    c(0xc5c5c5), c(0xcbcbcb), c(0xd2d2d2), c(0xdbdbdb), c(0xe2e2e2),
+    c(0xe9e9e9), c(0xefefef), c(0xf4f4f4), c(0xf8f8f8), c(0xfbfbfb),
+    c(0xfcfcfc), c(0xfdfdfd), c(0xfafafa), c(0xf6f6f6), c(0xf2f2f2),
+];
+/// M: scroller.boxes: 15 rows across an arrow box, leading edge first.
+#[rustfmt::skip]
+const SCROLLER_ARROW_ROWS: [Rgba8; 15] = [
+    c(0xc7c7c7), c(0xdbdbdb), c(0xf5f5f5), c(0xf9f9f9), c(0xfafafa),
+    c(0xfbfbfb), c(0xf8f8f8), c(0xe7e7e7), c(0xededed), c(0xf1f1f1),
+    c(0xf6f6f6), c(0xfdfdfd), c(0xfefefe), c(0xfbfbfb), c(0xf2f2f2),
+];
+
 fn typography() -> Typography {
     Typography {
         // Fonts are the requested substitutes for Lucida Grande / Monaco (#118).
@@ -122,8 +137,10 @@ fn metrics() -> Metrics {
         menu_padding: 4.0,
         // M: menu.context.corners: the curve spans 5 rows and columns.
         menu_radius: 5.0,
-        // M: scroller.track.row: 15 px bar + 1 px shared border.
-        scroller_width: 15.0,
+        // M: scroller.track.row: 15 px bar + 1 px shared border; M:
+        // scroller.horizontal: the horizontal bar is the same 15 rows. Small
+        // and mini are estimates (no capture; docs/exceptions.md).
+        scroller_width: [15.0, 11.0, 9.0],
         // M: focus.ring.search, each row solved against the unfocused field
         // (M: toolbar.search.column): 0.56 two rows out, 0.83 adjacent,
         // 0.55 on the border row, 0.28 one row inside; relative to the 0.83
@@ -726,13 +743,14 @@ pub fn aqua_light() -> Theme {
                 // M: scroller.track.row: c5 at the leading edge to fd, border b3.
                 track: g(0xc5c5c5, 0xfafafa),
                 track_border: c(0xb3b3b3),
-                // M: scroller.thumb.row / .top: blue edge 0751c0, leading half 88b4e5..98c3ef,
-                // trailing half 5da5e9..a4e0ff.
+                // M: scroller.thumb.row: blue leading edge 0751c0, 4 rows
+                // 88b4e5..98c3ef, 7 rows 5da5e9..a4e0ff, grey trailing edge
+                // 5e5e5e (finder.png agrees on both axes).
                 thumb: Bevel {
-                    border: g(0x0751c0, 0x3e6d97),
+                    border: g(0x0751c0, 0x5e5e5e),
                     upper: g(0x88b4e5, 0x98c3ef),
                     lower: g(0x5da5e9, 0xa4e0ff),
-                    split: 5.0 / 12.0,
+                    split: 4.0 / 11.0,
                     emboss: Rgba8::TRANSPARENT,
                     text: BLACK,
                 },
@@ -741,11 +759,18 @@ pub fn aqua_light() -> Theme {
                     border: g(0x8f8f8f, 0x7d7d7d),
                     upper: g(0xe4e4e4, 0xd2d2d2),
                     lower: g(0xbdbdbd, 0xe6e6e6),
-                    split: 5.0 / 12.0,
+                    split: 4.0 / 11.0,
                     emboss: Rgba8::TRANSPARENT,
                     text: BLACK,
                 },
                 arrow: c(0x595959), // M: scroller.arrows
+                // M: scroller.track.row (and the Finder and Console bars,
+                // both axes): the curve a two-stop gradient cannot follow.
+                track_rows: &SCROLLER_TRACK_ROWS,
+                // M: scroller.boxes: a split bevel, identical on both axes.
+                arrow_rows: &SCROLLER_ARROW_ROWS,
+                // M: scroller.cap: black at 0.35 on the row before the arrows.
+                cap_shadow: BLACK.alpha(90),
             },
             // M: table.header_and_rows: ff..e8 / e9..ff, border c0.
             table_header: Bevel {
@@ -1286,6 +1311,10 @@ pub fn aqua_dark() -> Theme {
                     text: WHITE,
                 },
                 arrow: c(0xb8b8b8),
+                track_rows: &[],
+                arrow_rows: &[],
+                // designed: the light cap shading carried over to the dark track.
+                cap_shadow: BLACK.alpha(90),
             },
             table_header: Bevel {
                 border: g(0x141414, 0x141414),

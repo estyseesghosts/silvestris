@@ -5,6 +5,28 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 0d5cc60
+
+M3 scrollers (#40):
+
+- Added `controls::ScrollSource` with adapters for `ScrollHandle`,
+  `UniformListScrollHandle` and `ListState`, plus the
+  `scroll_source::{scroll_by, scroll_to, page, reveal}` helpers.
+- Added `controls::ScrollView` and `ScrollAxes`: content, both scroll bars and
+  the corner in one element.
+- `Scrollbar::new` now takes any `ScrollSource + Clone` (existing
+  `&ScrollHandle` callers compile unchanged). Added `Scrollbar::horizontal`,
+  `size`, `line` and `autohide`.
+- Added `ScrollerPreferences`, `ScrollArrows` and `TrackClick`: an app-wide
+  GPUI global for the Appearance scroll-arrow and track-click preferences.
+- Token changes: `Metrics::scroller_width` is now `[f32; 3]` (regular, small,
+  mini). `Scroller` gained `track_rows`, `arrow_rows` and `cap_shadow`.
+  Themes built outside Silvestris must set them.
+- Visual: the Aqua thumb now follows its measurement (4-row upper band, grey
+  `#5e5e5e` trailing edge; was 5 rows and `#3e6d97`). Track and arrow boxes
+  are painted from measured cross-sections, with cap and end shading and a
+  full-width divider. Every scroller changes, including the tab view's.
+
 ## After e22e7bf
 
 M2 menus (#16):

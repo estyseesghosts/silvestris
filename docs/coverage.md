@@ -91,7 +91,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Token field | none | missing | — | — | #43 |
 | Search field | `TextField` search variant | provisional | four | — | #77 |
 | Scrolling list | `controls::table::virtual_table` | provisional | four | — | #32 |
-| Scroller | `Scrollbar` | provisional | four | — | #40 |
+| Scroller and scroll view | `ScrollView`, `ScrollAxes`, `Scrollbar`, `ScrollSource`, `ScrollerPreferences`, `ScrollArrows`, `TrackClick` | measured | four | `scroll-view` | #40 |
 
 ## View controls
 

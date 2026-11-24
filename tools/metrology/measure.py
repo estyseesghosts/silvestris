@@ -223,6 +223,19 @@ row(NESTED, 181, 225, 256, "menu.context.arrow", "highlighted Arrange By row thr
 row(MENU, 147, 140, 250, "menu.bar.arrow_and_keys", "Services row: submenu arrow 19 px from the body edge")
 row(MENU, 66, 140, 250, "menu.bar.key_column", "Preferences row: command glyph 212-221, key 225 onward, body edge 247")
 
+# Finder list view with both scroll bars and the corner (VM capture, 1x).
+FINDER_LIST = "../vm-screenshots/finder.png"
+column(FINDER_LIST, 715, 404, 426, "scroller.horizontal",
+       "horizontal track: the same 15 rows as the vertical track, top to bottom")
+row(FINDER_LIST, 415, 690, 785, "scroller.cap",
+    "horizontal bar row 7: track, 12 cap rows, arrow boxes, glyphs, divider, 6 end rows, corner")
+column(FINDER_LIST, 775, 355, 425, "scroller.cap.vertical",
+       "vertical bar column 8: cap rows, boxes, divider, end rows, corner")
+row(FINDER_LIST, 388, 760, 785, "scroller.boxes", "arrow box cross-section, no glyph")
+column(FINDER_LIST, 750, 404, 426, "scroller.boxes.divider", "divider between the horizontal boxes")
+row(FINDER_LIST, 200, 760, 785, "scroller.thumb.finder", "vertical thumb cross-section")
+column(FINDER_LIST, 772, 400, 425, "scroller.corner", "corner square between the bars: white")
+
 json.dump({
     "tool": "tools/metrology/measure.py",
     "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",

@@ -11,10 +11,11 @@ use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ConfirmationFocus, ConfirmationSheet, ControlSize,
     Disclosure, DisclosureStyle, GroupBox, Notice, Orientation, PopUpButton, PopupStyle,
-    ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus, Scrollbar,
-    Segment, SegmentMode, SegmentStyle, SegmentedControl, Separator, SeparatorAxis,
-    ShortcutRecorder, Slider, SourceList, SourceListEvent, SourceListStyle, Stepper, TabView,
-    TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, Well,
+    ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus,
+    ScrollArrows, ScrollAxes, ScrollView, Scrollbar, ScrollerPreferences, Segment, SegmentMode,
+    SegmentStyle, SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider, SourceList,
+    SourceListEvent, SourceListStyle, Stepper, TabView, TextArea, TextAreaEvent, TextField,
+    TextFieldEvent, ThumbStyle, TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -69,6 +70,8 @@ struct Gallery {
     source_list: Entity<SourceList>,
     secondary_list: Entity<SourceList>,
     gallery_scroll: gpui::ScrollHandle,
+    fidelity_scroll: gpui::ScrollHandle,
+    fidelity_scroll_small: gpui::ScrollHandle,
     last_source: gpui::SharedString,
     details_expanded: bool,
     checks: [CheckState; 3],
@@ -449,6 +452,8 @@ impl Gallery {
             source_list,
             secondary_list,
             gallery_scroll: gpui::ScrollHandle::new(),
+            fidelity_scroll: gpui::ScrollHandle::new(),
+            fidelity_scroll_small: gpui::ScrollHandle::new(),
             last_source: "No source-list event".into(),
             details_expanded: false,
             focus: cx.focus_handle(),
@@ -885,7 +890,9 @@ impl Render for Gallery {
                         .child(caption),
                 )
         };
-        let scroll = gpui::ScrollHandle::new();
+        let scroll = self.fidelity_scroll.clone();
+        let scroll_small = self.fidelity_scroll_small.clone();
+        let scroller_prefs = ScrollerPreferences::get(cx);
         let push_styles = div()
             .flex()
             .flex_wrap()
@@ -1300,29 +1307,105 @@ impl Render for Gallery {
                     .into_any_element(),
             ))
             .child(cell(
-                "Scroll view",
+                "Scroll view: both bars and the corner",
                 div()
                     .w(px(220.))
-                    .h(px(80.))
-                    .flex()
+                    .h(px(96.))
                     .border_1()
                     .border_color(silvestris::convert::hsla(theme.colors.group_border))
                     .child(
-                        div()
-                            .id("fidelity-scroll-content")
-                            .flex_1()
-                            .h_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&scroll)
+                        ScrollView::new("fidelity-scroll-view", &scroll)
+                            .axes(ScrollAxes::Both)
                             .child(
                                 div()
-                                    .h(px(300.))
-                                    .p(px(8.))
-                                    .text_size(small_text)
-                                    .child("Scrollable content with a themed scroller."),
+                                    .id("fidelity-scroll-content")
+                                    .size_full()
+                                    .overflow_scroll()
+                                    .track_scroll(&scroll)
+                                    .child(
+                                        div()
+                                            .w(px(420.))
+                                            .h(px(300.))
+                                            .p(px(8.))
+                                            .text_size(small_text)
+                                            .child("Content wider and taller than the view."),
+                                    ),
                             ),
                     )
-                    .child(Scrollbar::new("fidelity-scrollbar", &scroll))
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Small scroll view; Appearance scroller preferences",
+                div()
+                    .flex()
+                    .gap(px(12.))
+                    .child(
+                        div()
+                            .w(px(120.))
+                            .h(px(80.))
+                            .border_1()
+                            .border_color(silvestris::convert::hsla(theme.colors.group_border))
+                            .child(
+                                ScrollView::new("fidelity-scroll-small", &scroll_small)
+                                    .size(ControlSize::Small)
+                                    .child(
+                                        div()
+                                            .id("fidelity-scroll-small-content")
+                                            .size_full()
+                                            .overflow_y_scroll()
+                                            .track_scroll(&scroll_small)
+                                            .child(
+                                                div()
+                                                    .h(px(240.))
+                                                    .p(px(6.))
+                                                    .text_size(small_text)
+                                                    .child("Small bar for small controls."),
+                                            ),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(px(6.))
+                            .child(
+                                Checkbox::new("fidelity-arrows-at-ends", "Arrows at both ends")
+                                    .state(CheckState::from(
+                                        scroller_prefs.arrows == ScrollArrows::AtEnds,
+                                    ))
+                                    .on_change(move |state, _, cx| {
+                                        let arrows = if *state == CheckState::On {
+                                            ScrollArrows::AtEnds
+                                        } else {
+                                            ScrollArrows::Together
+                                        };
+                                        ScrollerPreferences {
+                                            arrows,
+                                            ..ScrollerPreferences::get(cx)
+                                        }
+                                        .set(cx);
+                                    }),
+                            )
+                            .child(
+                                Checkbox::new("fidelity-jump-to-spot", "Jump to the spot clicked")
+                                    .state(CheckState::from(
+                                        scroller_prefs.track_click == TrackClick::JumpToSpot,
+                                    ))
+                                    .on_change(move |state, _, cx| {
+                                        let track_click = if *state == CheckState::On {
+                                            TrackClick::JumpToSpot
+                                        } else {
+                                            TrackClick::JumpToPage
+                                        };
+                                        ScrollerPreferences {
+                                            track_click,
+                                            ..ScrollerPreferences::get(cx)
+                                        }
+                                        .set(cx);
+                                    }),
+                            ),
+                    )
                     .into_any_element(),
             ))
             .child(cell(

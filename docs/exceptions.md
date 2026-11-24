@@ -152,6 +152,23 @@ submenu placement, the arrow and the label inset.
 - Dark Aqua's menu body keeps Aqua Light's translucency over its own fill;
   its edge and shadow are designed.
 
+## Scroll bars
+
+- Small (11 px) and mini (9 px) bars are estimates; no capture shows one.
+  HIG p. 227 names the sizes but gives no geometry. The measured row
+  profiles are resampled to the narrower bar by nearest row.
+- Arrows at both ends is an estimate: one 16 px box at each end and a 1 px
+  border between the leading box and the track. Every capture shows the
+  10.6 default, both arrows together.
+- The thumb bands are two-stop gradients. The measured bands curve
+  (M: scroller.thumb.row: 88 a5 a1 98 in the upper band), so the middle rows
+  differ by up to 0x1d. The row of track just past the trailing edge
+  (`#aeaeae`) is not darkened.
+- The 16 px line, 18 px minimum thumb and 350 / 50 ms repeat timings are
+  estimates (HIG p. 226 leaves the line unit to the application).
+- Option-click in the track, which inverts the Appearance track-click
+  preference in 10.6, is not implemented; no corpus source documents it.
+
 ## Text fields
 
 - Caret blink: Windows uses `GetCaretBlinkTime` (native.rs `caret_blink`);

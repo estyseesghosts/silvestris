@@ -21,8 +21,8 @@ use silvestris::command::CommandRegistry;
 use silvestris::controls::{
     Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, DisclosureStyle, GroupBox,
     Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup, RadioOption, RowAccessory,
-    RowStatus, Segment, SegmentStyle, SegmentedControl, Separator, Slider, SourceList,
-    SourceListStyle, TabView, TextField, ThumbStyle, Well,
+    RowStatus, ScrollAxes, ScrollView, Segment, SegmentStyle, SegmentedControl, Separator, Slider,
+    SourceList, SourceListStyle, TabView, TextField, ThumbStyle, Well,
 };
 use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
@@ -43,7 +43,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 47] = [
+const SAMPLES: [Sample; 48] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -279,6 +279,11 @@ const SAMPLES: [Sample; 47] = [
         width: 244.,
         height: 110.,
     },
+    Sample {
+        id: "scroll-view",
+        width: 244.,
+        height: 110.,
+    },
 ];
 
 /// Open menus are larger than a grid cell, so they get their own last page,
@@ -354,9 +359,12 @@ struct CaptureView {
     field: Entity<TextField>,
     list: Entity<SourceList>,
     secondary: Entity<SourceList>,
+    // Both scroll bars and the corner, as in the Finder list view.
+    scroll: gpui::ScrollHandle,
     menus: Vec<Entity<PopupMenu>>,
     // Finder content white under the Arrange By menu.
     content: silvestris::core::Rgba8,
+    row_alternate: silvestris::core::Rgba8,
     page: usize,
 }
 
@@ -431,8 +439,10 @@ impl CaptureView {
             field,
             list,
             secondary,
+            scroll: gpui::ScrollHandle::new(),
             menus,
             content: cx.theme().colors.content,
+            row_alternate: cx.theme().colors.row_alternate,
             page,
         }
     }
@@ -675,6 +685,31 @@ impl CaptureView {
                         .child(div().text_size(px(11.)).child("Pane content")),
                 )
                 .into_any_element(),
+            "scroll-view" => {
+                let content = silvestris::convert::hsla(self.content);
+                let alternate = silvestris::convert::hsla(self.row_alternate);
+                let rows = (0..12).map(|i| {
+                    div().flex_none().h(px(18.)).w(px(400.)).bg(if i % 2 == 0 {
+                        content
+                    } else {
+                        alternate
+                    })
+                });
+                ScrollView::new("golden-scroll-view", &self.scroll)
+                    .axes(ScrollAxes::Both)
+                    .autohide(false)
+                    .child(
+                        div()
+                            .id("golden-scroll-content")
+                            .size_full()
+                            .flex()
+                            .flex_col()
+                            .overflow_scroll()
+                            .track_scroll(&self.scroll)
+                            .children(rows),
+                    )
+                    .into_any_element()
+            }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),

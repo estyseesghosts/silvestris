@@ -104,7 +104,8 @@ fn metrics() -> Metrics {
         menu_separator_height: 9.0,
         menu_padding: 4.0,
         menu_radius: 8.0,
-        scroller_width: 10.0,
+        // designed: Geist's scroller and its small and mini steps.
+        scroller_width: [10.0, 8.0, 6.0],
         // designed: 2 px solid accent ring just outside the edge.
         focus_ring: &[(2.0, 1.0), (1.0, 1.0)],
         disclosure_size: 13.0,
@@ -363,6 +364,10 @@ pub fn geist_dark() -> Theme {
                 thumb: flat(c(0x454545), c(0x454545), c(0xededed)),
                 thumb_inactive: flat(c(0x2e2e2e), c(0x2e2e2e), c(0xededed)),
                 arrow: c(0x878787),
+                track_rows: &[],
+                arrow_rows: &[],
+                // designed: Geist's flat track has no cap shading.
+                cap_shadow: T,
             },
             table_header: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xa1a1a1)),
             popup,
@@ -588,6 +593,10 @@ pub fn geist_light() -> Theme {
                 thumb: flat(c(0xc9c9c9), c(0xc9c9c9), c(0x171717)),
                 thumb_inactive: flat(c(0xe6e6e6), c(0xe6e6e6), c(0x171717)),
                 arrow: c(0x8f8f8f),
+                track_rows: &[],
+                arrow_rows: &[],
+                // designed: Geist's flat track has no cap shading.
+                cap_shadow: T,
             },
             table_header: flat(c(0xebebeb), c(0xfafafa), c(0x666666)),
             popup,

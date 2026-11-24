@@ -25,8 +25,12 @@ pub mod popup_button;
 pub use popup_button::{PopUpButton, PopupStyle};
 pub mod stepper;
 pub use stepper::Stepper;
+pub mod scroll_source;
+pub mod scroll_view;
 pub mod scrollbar;
-pub use scrollbar::Scrollbar;
+pub use scroll_source::ScrollSource;
+pub use scroll_view::{ScrollAxes, ScrollView};
+pub use scrollbar::{ScrollArrows, Scrollbar, ScrollerPreferences, TrackClick};
 
 pub mod tooltip;
 

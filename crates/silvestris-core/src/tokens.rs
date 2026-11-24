@@ -256,6 +256,15 @@ pub struct Scroller {
     pub thumb: Bevel,
     pub thumb_inactive: Bevel,
     pub arrow: Rgba8,
+    /// Measured track cross-section, leading edge first, painted row by row
+    /// when present; otherwise `track` is used. Resampled for other sizes.
+    pub track_rows: &'static [Rgba8],
+    /// Measured arrow-box cross-section; empty paints the boxes like the
+    /// track.
+    pub arrow_rows: &'static [Rgba8],
+    /// Darkest row of the shading where the track meets the arrow boxes;
+    /// the rows before it fall off along a fixed measured profile.
+    pub cap_shadow: Rgba8,
 }
 
 /// A pop-up button: the body and the trailing arrow cap are separate
@@ -506,7 +515,8 @@ pub struct Metrics {
     pub menu_separator_height: f32,
     pub menu_padding: f32,
     pub menu_radius: f32,
-    pub scroller_width: f32,
+    /// Scroll bar thickness per size (regular, small, mini; HIG p. 227).
+    pub scroller_width: [f32; 3],
     /// Focus ring as rows around the control edge: `(offset, opacity)`,
     /// where offset 0 is the control's outermost row, positive is outside
     /// and opacity multiplies `Colors::focus_ring`.
