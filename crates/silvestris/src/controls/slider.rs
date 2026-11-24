@@ -17,7 +17,7 @@ use gpui::{
     MouseButton, Pixels, SharedString, Window,
 };
 
-use silvestris_core::tokens::BevelStates;
+use silvestris_core::tokens::Bevel;
 
 use crate::{paint, ActiveTheme};
 
@@ -198,7 +198,8 @@ fn thumb_points(
         ],
     };
     if orientation == Orientation::Vertical {
-        // The point stays at the leading (top) end in both orientations.
+        // Transposed, the point faces the trailing (right) side, where the
+        // ticks are.
         points = points.into_iter().map(|(x, y)| (y, x)).collect::<Vec<_>>();
     }
     points
@@ -210,6 +211,183 @@ fn thumb_points(
             )
         })
         .collect()
+}
+
+/// Minimum cross-axis band that holds the thumb.
+const BAND: f32 = 20.0;
+/// Height reserved for one line of small tick-label text.
+const LABEL_HEIGHT: f32 = 14.0;
+/// Width reserved for a tick label: centred under horizontal ticks, beside
+/// vertical ones.
+const LABEL_WIDTH: f32 = 56.0;
+
+/// Where the pointed thumb's track runs, as a fraction of the thumb's depth
+/// from its flat end (M: Dock size slider, 2x capture: thumb rows 94-111,
+/// track rows 98-102 logical, so the track centre sits 6.5 of 18).
+const POINTED_TRACK_ANCHOR: f32 = 6.5 / 18.0;
+
+/// Resolved slider geometry for one paint.
+struct Geometry {
+    orientation: Orientation,
+    bounds: Bounds<Pixels>,
+    /// Thumb extent along the track.
+    thumb_along: f32,
+    track: Bounds<Pixels>,
+    thumb: Bounds<Pixels>,
+    /// Cross-axis coordinate past the track and the thumb, where ticks start.
+    tick_origin: Pixels,
+}
+
+impl Geometry {
+    /// `thumb` is (extent along the track, depth across it).
+    fn new(
+        b: Bounds<Pixels>,
+        orientation: Orientation,
+        style: ThumbStyle,
+        thumb: (f32, f32),
+        track_height: f32,
+        value: f32,
+    ) -> Self {
+        let (along, depth) = thumb;
+        let band = depth.max(BAND);
+        let anchor = match style {
+            ThumbStyle::Round => 0.5,
+            ThumbStyle::Pointed => POINTED_TRACK_ANCHOR,
+        };
+        // Cross-axis offsets from the leading edge of the band.
+        let thumb_start = (band - depth) / 2.0;
+        let track_centre = thumb_start + depth * anchor;
+        let track_start = track_centre - track_height / 2.0;
+        let far = (track_start + track_height).max(thumb_start + depth);
+        match orientation {
+            Orientation::Horizontal => {
+                let travel = (b.size.width - px(along)).max(px(0.0));
+                let top = b.top();
+                Geometry {
+                    orientation,
+                    bounds: b,
+                    thumb_along: along,
+                    track: Bounds::new(
+                        point(b.left() + px(along / 2.0), top + px(track_start)),
+                        size(travel, px(track_height)),
+                    ),
+                    thumb: Bounds::new(
+                        point(b.left() + travel * value, top + px(thumb_start)),
+                        size(px(along), px(depth)),
+                    ),
+                    tick_origin: top + px(far),
+                }
+            }
+            Orientation::Vertical => {
+                let travel = (b.size.height - px(along)).max(px(0.0));
+                let left = b.left();
+                Geometry {
+                    orientation,
+                    bounds: b,
+                    thumb_along: along,
+                    track: Bounds::new(
+                        point(left + px(track_start), b.top() + px(along / 2.0)),
+                        size(px(track_height), travel),
+                    ),
+                    thumb: Bounds::new(
+                        point(
+                            left + px(thumb_start),
+                            b.bottom() - px(along) - travel * value,
+                        ),
+                        size(px(depth), px(along)),
+                    ),
+                    tick_origin: left + px(far),
+                }
+            }
+        }
+    }
+
+    /// Position along the track of a normalised value.
+    fn along(&self, value: f32) -> Pixels {
+        let half = px(self.thumb_along / 2.0);
+        match self.orientation {
+            Orientation::Horizontal => {
+                let travel = (self.bounds.size.width - px(self.thumb_along)).max(px(0.0));
+                self.bounds.left() + half + travel * value
+            }
+            Orientation::Vertical => {
+                let travel = (self.bounds.size.height - px(self.thumb_along)).max(px(0.0));
+                self.bounds.bottom() - half - travel * value
+            }
+        }
+    }
+}
+
+/// Paint the pointed thumb: a border shape, then the lower and upper gloss
+/// bands inside it, running from the flat end toward the point (M: Dock size
+/// slider column: border 695d9a, d4e3f7..8bb8ec, 93bff0..c2e8fd).
+fn pointed_thumb(
+    window: &mut Window,
+    bounds: Bounds<Pixels>,
+    orientation: Orientation,
+    bevel: &Bevel,
+) {
+    use gpui::{linear_color_stop, linear_gradient, ContentMask};
+    let bounds = paint::snap_bounds(window, bounds);
+    let h = crate::convert::hairline(window);
+    let angle = match orientation {
+        Orientation::Horizontal => 180.0,
+        Orientation::Vertical => 90.0,
+    };
+    let gradient = |from, a: f32, to, z: f32| {
+        linear_gradient(
+            angle,
+            linear_color_stop(crate::convert::hsla(from), a),
+            linear_color_stop(crate::convert::hsla(to), z),
+        )
+    };
+    let fill = |window: &mut Window, b: Bounds<Pixels>, bg: gpui::Background| {
+        let points = thumb_points(b, ThumbStyle::Pointed, orientation);
+        let mut path = gpui::PathBuilder::fill();
+        path.move_to(points[0]);
+        for p in &points[1..] {
+            path.line_to(*p);
+        }
+        path.close();
+        if let Ok(path) = path.build() {
+            window.paint_path(path, bg);
+        }
+    };
+    if bevel.emboss.a > 0 {
+        let mut shadow = bounds;
+        shadow.origin.y += h;
+        let emboss = gpui::solid_background(crate::convert::hsla(bevel.emboss));
+        fill(window, shadow, emboss);
+    }
+    let border = gradient(bevel.border.from, 0.0, bevel.border.to, 1.0);
+    fill(window, bounds, border);
+    // Inset one device pixel on the flat sides; the point moves in by about
+    // 1.4 pixels along its diagonal edges.
+    let (inset_w, inset_h) = match orientation {
+        Orientation::Horizontal => (h * 2.0, h * 2.4),
+        Orientation::Vertical => (h * 2.4, h * 2.0),
+    };
+    let inner = Bounds::new(
+        point(bounds.left() + h, bounds.top() + h),
+        size(bounds.size.width - inset_w, bounds.size.height - inset_h),
+    );
+    let split = bevel.split.clamp(0.0, 1.0);
+    let lower = gradient(bevel.lower.from, split, bevel.lower.to, 1.0);
+    fill(window, inner, lower);
+    let mask = match orientation {
+        Orientation::Horizontal => Bounds::new(
+            inner.origin,
+            size(inner.size.width, inner.size.height * split),
+        ),
+        Orientation::Vertical => Bounds::new(
+            inner.origin,
+            size(inner.size.width * split, inner.size.height),
+        ),
+    };
+    window.with_content_mask(Some(ContentMask { bounds: mask }), |window| {
+        let upper = gradient(bevel.upper.from, 0.0, bevel.upper.to, split);
+        fill(window, inner, upper);
+    });
 }
 
 impl RenderOnce for Slider {
@@ -267,25 +445,29 @@ impl RenderOnce for Slider {
         let keyboard_snap = snap_value.clone();
         let drag_snap = snap_value.clone();
         let label_theme = theme.clone();
-        let along = match orientation {
-            Orientation::Horizontal => 20.0,
-            Orientation::Vertical => 20.0,
+        // The band across the track holds the thumb; ticks and labels follow
+        // on the side the pointed thumb faces.
+        let band = thumb_height.max(BAND);
+        let has_ticks = !ticks.is_empty();
+        let tick_depth = if has_ticks {
+            tick_gap + tick_height
+        } else {
+            0.0
+        };
+        let label_depth = match (has_labels, orientation) {
+            (false, _) => 0.0,
+            (true, Orientation::Horizontal) => tick_label_gap + LABEL_HEIGHT,
+            (true, Orientation::Vertical) => tick_label_gap + LABEL_WIDTH,
         };
         let total_height = match orientation {
-            Orientation::Horizontal => (thumb_height.max(along)
-                + tick_gap
-                + tick_height
-                + if has_labels {
-                    tick_label_gap + 14.0
-                } else {
-                    0.0
-                })
-            .max(theme.metrics.slider_height),
+            Orientation::Horizontal => {
+                (band + tick_depth + label_depth).max(theme.metrics.slider_height)
+            }
             Orientation::Vertical => theme.metrics.slider_height.max(120.0),
         };
         let total_width = match orientation {
             Orientation::Horizontal => 0.0,
-            Orientation::Vertical => (thumb_width + 40.0).max(60.0),
+            Orientation::Vertical => band + tick_depth + label_depth,
         };
         let container = if orientation == Orientation::Horizontal {
             div()
@@ -316,11 +498,7 @@ impl RenderOnce for Slider {
                                 event.position.y
                             },
                             orientation,
-                            if orientation == Orientation::Horizontal {
-                                thumb_width
-                            } else {
-                                thumb_height
-                            },
+                            thumb_width,
                         ),
                     ) {
                         change(&click_snap(next), window, cx);
@@ -383,11 +561,7 @@ impl RenderOnce for Slider {
                                     event.event.position.y
                                 },
                                 orientation,
-                                if orientation == Orientation::Horizontal {
-                                    thumb_width
-                                } else {
-                                    thumb_height
-                                },
+                                thumb_width,
                             ),
                         ) {
                             change(&drag_snap(next), window, cx);
@@ -405,84 +579,45 @@ impl RenderOnce for Slider {
                         } else {
                             theme.controls.slider.track_disabled
                         };
-                        let (track_bounds, thumb_bounds, tick_origin) = match orientation {
+                        let geometry = Geometry::new(
+                            b,
+                            orientation,
+                            thumb_style,
+                            (thumb_width, thumb_height),
+                            track_height,
+                            value,
+                        );
+                        let track_bounds = geometry.track;
+                        let thumb_bounds = geometry.thumb;
+                        match orientation {
                             Orientation::Horizontal => {
-                                let track = Bounds::new(
-                                    point(
-                                        b.left() + px(thumb_width / 2.0),
-                                        b.center().y - px(track_height / 2.0),
-                                    ),
-                                    size(
-                                        (b.size.width - px(thumb_width)).max(px(0.0)),
-                                        px(track_height),
-                                    ),
-                                );
-                                let thumb = Bounds::new(
-                                    point(
-                                        b.left()
-                                            + px((b.size.width - px(thumb_width)).as_f32() * value),
-                                        b.center().y - px(thumb_height / 2.0),
-                                    ),
-                                    size(px(thumb_width), px(thumb_height)),
-                                );
-                                (track, thumb, b.center().y + px(track_height / 2.0))
+                                let radius = track_bounds.size.height.as_f32() / 2.0;
+                                paint::bevel(window, track_bounds, radius, &track);
                             }
-                            Orientation::Vertical => {
-                                let track = Bounds::new(
-                                    point(
-                                        b.center().x - px(track_height / 2.0),
-                                        b.top() + px(thumb_height / 2.0),
-                                    ),
-                                    size(
-                                        px(track_height),
-                                        (b.size.height - px(thumb_height)).max(px(0.0)),
-                                    ),
-                                );
-                                let thumb = Bounds::new(
-                                    point(
-                                        b.center().x - px(thumb_height / 2.0),
-                                        b.bottom()
-                                            - px(thumb_height)
-                                            - px(
-                                                (b.size.height - px(thumb_height)).as_f32() * value
-                                            ),
-                                    ),
-                                    size(px(thumb_height), px(thumb_width)),
-                                );
-                                (track, thumb, b.center().x + px(track_height / 2.0))
-                            }
-                        };
-                        let radius = track_bounds.size.height.as_f32() / 2.0;
-                        paint::bevel(window, track_bounds, radius, &track);
+                            // The track's bevel runs across its width, like a
+                            // vertical scroller thumb.
+                            Orientation::Vertical => paint::thumb(window, track_bounds, &track),
+                        }
 
-                        // Ticks sit on the track side opposite the thumb's
-                        // point. Labels are absolutely positioned children
-                        // below (or beside) the canvas.
+                        // Ticks start past whichever of the track and thumb
+                        // reaches further (M: Dock size slider, 2x capture:
+                        // thumb tip row 111, ticks rows 113-117 logical).
                         let tick_color = theme.controls.slider.tick;
+                        let tick_origin = geometry.tick_origin + px(tick_gap);
+                        let hair = crate::convert::hairline(window);
                         for tick in &ticks {
-                            let at = match orientation {
-                                Orientation::Horizontal => {
-                                    b.left()
-                                        + px(thumb_width / 2.0)
-                                        + px((b.size.width - px(thumb_width)).as_f32() * tick)
-                                }
-                                Orientation::Vertical => {
-                                    b.bottom()
-                                        - px(thumb_height / 2.0)
-                                        - px((b.size.height - px(thumb_height)).as_f32() * tick)
-                                }
-                            };
+                            let at = geometry.along(*tick) - hair / 2.0;
                             match orientation {
                                 Orientation::Horizontal => paint::vline(
                                     window,
-                                    at - crate::convert::hairline(window) / 2.0,
-                                    tick_origin + px(tick_gap),
+                                    at,
+                                    tick_origin,
                                     px(tick_height),
                                     tick_color,
                                 ),
                                 Orientation::Vertical => paint::hline(
                                     window,
-                                    tick_origin + px(tick_gap),
+                                    tick_origin,
                                     at,
                                     px(tick_height),
                                     tick_color,
@@ -490,48 +625,25 @@ impl RenderOnce for Slider {
                             }
                         }
 
-                        let bevels = if enabled {
-                            match thumb_style {
-                                ThumbStyle::Round => theme.controls.slider.round,
-                                ThumbStyle::Pointed => theme.controls.slider.pointed,
-                            }
-                        } else {
-                            match thumb_style {
-                                ThumbStyle::Round => BevelStates {
-                                    normal: theme.controls.slider.round.disabled,
-                                    pressed: theme.controls.slider.round.disabled,
-                                    disabled: theme.controls.slider.round.disabled,
-                                    selected: theme.controls.slider.round.disabled,
-                                },
-                                ThumbStyle::Pointed => BevelStates {
-                                    normal: theme.controls.slider.pointed.disabled,
-                                    pressed: theme.controls.slider.pointed.disabled,
-                                    disabled: theme.controls.slider.pointed.disabled,
-                                    selected: theme.controls.slider.pointed.disabled,
-                                },
-                            }
+                        let bevels = match thumb_style {
+                            ThumbStyle::Round => theme.controls.slider.round,
+                            ThumbStyle::Pointed => theme.controls.slider.pointed,
                         };
-                        let bevel = bevels.normal;
-                        if thumb_style == ThumbStyle::Round {
-                            paint::bevel(
+                        let bevel = if enabled {
+                            bevels.normal
+                        } else {
+                            bevels.disabled
+                        };
+                        match thumb_style {
+                            ThumbStyle::Round => paint::bevel(
                                 window,
                                 thumb_bounds,
                                 thumb_bounds.size.width.as_f32() / 2.0,
                                 &bevel,
-                            );
-                        } else {
-                            let points = thumb_points(thumb_bounds, thumb_style, orientation);
-                            paint::polygon(window, &points, bevel.border.at(0.5));
-                            let inner =
-                                paint::inset(thumb_bounds, crate::convert::hairline(window));
-                            let upper = thumb_points(inner, thumb_style, orientation);
-                            paint::polygon(window, &upper, bevel.upper.to);
-                            let mut lower = thumb_bounds;
-                            lower.origin.y += thumb_bounds.size.height * 0.62;
-                            lower.size.height *= 0.38;
-                            lower.size.width = thumb_bounds.size.width;
-                            let lower_points = thumb_points(lower, thumb_style, orientation);
-                            paint::polygon(window, &lower_points, bevel.lower.from);
+                            ),
+                            ThumbStyle::Pointed => {
+                                pointed_thumb(window, thumb_bounds, orientation, &bevel)
+                            }
                         }
                         if !disabled
                             && ring_focus.is_focused(window)
@@ -553,38 +665,52 @@ impl RenderOnce for Slider {
                 )
                 .size_full(),
             )
-            .children(
-                tick_labels
-                    .into_iter()
-                    .flatten()
-                    .enumerate()
-                    .filter_map(|(i, label)| {
-                        let tick = *label_ticks.get(i)?;
-                        let text = div()
-                            .absolute()
-                            .text_size(px(label_theme.type_.size_small))
-                            .text_color(crate::convert::hsla(label_theme.colors.text_secondary))
-                            .child(label);
-                        Some(match orientation {
-                            Orientation::Horizontal => text
-                                .left(relative(tick))
-                                .top(px(total_height - 14.0))
-                                .w(px(56.0))
-                                .ml(px(if tick <= 0.01 {
-                                    0.0
-                                } else if tick >= 0.99 {
-                                    -56.0
-                                } else {
-                                    -28.0
-                                }))
-                                .text_center(),
-                            Orientation::Vertical => text
-                                .top(relative(1.0 - tick))
-                                .left(px(thumb_width / 2.0 + 8.0))
-                                .mt(px(-7.0)),
-                        })
-                    }),
-            )
+            .when(has_labels, |el| {
+                // Labels centre on their ticks, which sit inside the thumb's
+                // half-extent at each end (M: Dock "Small"/"Large").
+                let inset = px(thumb_width / 2.0);
+                let rail = match orientation {
+                    Orientation::Horizontal => div()
+                        .absolute()
+                        .left(inset)
+                        .right(inset)
+                        .top(px(band + tick_depth + tick_label_gap))
+                        .h(px(LABEL_HEIGHT)),
+                    Orientation::Vertical => div()
+                        .absolute()
+                        .top(inset)
+                        .bottom(inset)
+                        .left(px(band + tick_depth + tick_label_gap))
+                        .w(px(LABEL_WIDTH)),
+                };
+                el.child(
+                    rail.children(tick_labels.into_iter().flatten().enumerate().filter_map(
+                        |(i, label)| {
+                            let tick = *label_ticks.get(i)?;
+                            let text = div()
+                                .absolute()
+                                .whitespace_nowrap()
+                                .text_size(px(label_theme.type_.size_small))
+                                .text_color(crate::convert::hsla(label_theme.colors.text_secondary))
+                                .child(label);
+                            Some(match orientation {
+                                Orientation::Horizontal => text
+                                    .left(relative(tick))
+                                    .w(px(LABEL_WIDTH))
+                                    .ml(px(-LABEL_WIDTH / 2.0))
+                                    .flex()
+                                    .justify_center(),
+                                Orientation::Vertical => text
+                                    .top(relative(1.0 - tick))
+                                    .h(px(LABEL_HEIGHT))
+                                    .mt(px(-LABEL_HEIGHT / 2.0))
+                                    .flex()
+                                    .items_center(),
+                            })
+                        },
+                    )),
+                )
+            })
     }
 }
 

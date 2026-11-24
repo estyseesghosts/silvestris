@@ -139,9 +139,10 @@ fn metrics() -> Metrics {
         // Small/mini scale by the label sizes (designed).
         slider_thumb_width: [15.0, 13.0, 11.0],
         slider_thumb_height: [18.0, 15.0, 13.0],
-        // M: Dock slider tick 4 logical high, 3 under the track, labels 4 below.
-        slider_tick_height: 4.0,
-        slider_tick_gap: 3.0,
+        // M: Dock size slider, 2x capture: ticks rows 113-117 logical (5 high),
+        // one row past the thumb tip at 111; labels 4 below (designed).
+        slider_tick_height: 5.0,
+        slider_tick_gap: 1.0,
         slider_tick_label_gap: 4.0,
         // M: installer/Software Update bars are 16 logical high.
         progress_height: [16.0, 12.0, 10.0],

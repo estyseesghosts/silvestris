@@ -503,7 +503,8 @@ pub struct Metrics {
     /// round one because its point hangs below the track (M: Dock size slider).
     pub slider_thumb_width: [f32; 3],
     pub slider_thumb_height: [f32; 3],
-    /// Tick stroke height, its gap under the track, and the label gap.
+    /// Tick stroke height, its gap past the farther of the track and the
+    /// thumb, and the label gap.
     pub slider_tick_height: f32,
     pub slider_tick_gap: f32,
     pub slider_tick_label_gap: f32,

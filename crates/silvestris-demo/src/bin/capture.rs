@@ -183,7 +183,7 @@ const SAMPLES: [Sample; 46] = [
     Sample {
         id: "slider-vertical",
         width: 200.,
-        height: 80.,
+        height: 130.,
     },
     Sample {
         id: "slider-disabled",
@@ -538,16 +538,23 @@ impl CaptureView {
             .selected("compact")
             .into_any_element(),
             "slider" => Slider::new("golden-slider", "Volume", 0.6).into_any_element(),
-            "slider-pointed" => Slider::new("golden-slider-pointed", "Dock size", 0.5)
-                .thumb(ThumbStyle::Pointed)
-                .ticks([0.0, 0.5, 1.0])
-                .tick_labels(["Small", "Medium", "Large"])
-                .snap_to_ticks(true)
+            // Tick labels centre on the end ticks and overhang the track, so the
+            // sample leaves room for them (M: Dock "Small"/"Large").
+            "slider-pointed" => div()
+                .px(px(20.))
+                .child(
+                    Slider::new("golden-slider-pointed", "Dock size", 0.5)
+                        .thumb(ThumbStyle::Pointed)
+                        .ticks([0.0, 0.5, 1.0])
+                        .tick_labels(["Small", "Medium", "Large"])
+                        .snap_to_ticks(true),
+                )
                 .into_any_element(),
             "slider-vertical" => Slider::new("golden-slider-vertical", "Level", 0.35)
                 .orientation(Orientation::Vertical)
                 .thumb(ThumbStyle::Pointed)
                 .ticks([0.0, 0.5, 1.0])
+                .tick_labels(["Low", "Mid", "High"])
                 .into_any_element(),
             "slider-disabled" => Slider::new("golden-slider-disabled", "Disabled", 0.4)
                 .disabled(true)
