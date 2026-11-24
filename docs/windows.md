@@ -72,12 +72,35 @@ application implements:
 
 ```rust
 pub trait FrameStore {
-    fn load(&self, key: &str) -> Option<Bounds<Pixels>>;
-    fn save(&self, key: &str, bounds: Bounds<Pixels>);
+    fn load(&self, key: &str, cx: &App) -> Option<Bounds<Pixels>>;
+    fn save(&self, key: &str, bounds: Bounds<Pixels>, cx: &mut App);
 }
 ```
 
-`restore_bounds(role, default, parent, store)` returns the stored frame when the
+`PreferenceFrames` implements it over the app's #62 `Preferences` entity, so
+frames are saved in the app's own preferences file, are versioned and migrated
+with it, and notify observers under the `window.frame.<key>` key. Add a
+`SavedFrames` field to the preferences struct and point the adapter at it:
+
+```rust
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+struct AppPrefs {
+    schema_version: u32,
+    #[serde(default)]
+    frames: SavedFrames,
+}
+
+let frames = PreferenceFrames::new(prefs.clone(), |p| &p.frames, |p| &mut p.frames);
+let bounds = restore_bounds(WindowRole::Preferences, default, None, Some(&frames), cx);
+// later, when the window moves or closes:
+save_frame(WindowRole::Preferences, window, &frames, cx);
+```
+
+A malformed preferences file is read-only (#62): the frame stays in memory and
+the entity reports the failed write. lotus's saved Settings bounds map onto
+this by moving them into a `SavedFrames` entry with a migration.
+
+`restore_bounds(role, default, parent, store, cx)` returns the stored frame when the
 role has an autosave key and the store has it, otherwise `default` centred on
 `parent` for centring roles, otherwise `default`.
 
@@ -85,9 +108,27 @@ A new window with no saved frame can cascade from the previous one instead:
 `cascade_from(previous, 20.0)` offsets the origin by HIG p. 218's 20 px step and
 keeps the size. The application chooses cascade or restore; Silvestris has no
 screen bounds to clamp against and does not guess. `save_frame(role, window,
-store)` writes `window.bounds()` under the role's key and does nothing for roles
+store, cx)` writes `window.bounds()` under the role's key and does nothing for roles
 with no key (dialogs do not persist). Which key, and where it lives, remains the
 application's choice; #62's preference store is the intended backend.
+
+## Migrating from `window_options`
+
+`chrome::window_options` and `chrome::fixed_window_options` stay as the thin
+layer underneath: `role_options` calls `window_options` and then applies the
+role's resizability and minimum size. New code picks a role instead:
+
+| Before | After |
+| --- | --- |
+| `open_window(window_options(title, bounds, min, cx), cx, build)` | `open_role(WindowRole::Document, title, bounds, cx, build)` (minimum 320x200) |
+| `open_window(fixed_window_options(title, bounds, cx), cx, build)` for preferences | `open_role(WindowRole::Preferences, title, bounds, cx, build)` |
+| a fixed About or assistant window | `WindowRole::About` / `WindowRole::Assistant` |
+| a hand-centred dialog | `open_owned_role(OwnedWindow::new(WindowRole::Dialog, ...), ...)` |
+
+Give the frame the same role, `WindowFrame::new(title).role(role)`, so the
+drawn title-bar buttons match the platform options. Keep calling
+`window_options` only for a window no role describes, for example a custom
+minimum size; that is a reason to propose a role, not a permanent escape.
 
 ## Owned windows
 

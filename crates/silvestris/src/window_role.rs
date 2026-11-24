@@ -232,11 +232,98 @@ pub fn cascade_from(previous: Bounds<Pixels>, step: f32) -> Bounds<Pixels> {
 }
 
 /// App-owned frame store. Silvestris never writes a preference file itself:
-/// the application supplies the backend, and #62's preference store is the
-/// intended one.
+/// the application supplies the backend. [`PreferenceFrames`] is the adapter
+/// over #62's `Preferences` entity; the app context lets a store update an
+/// entity.
 pub trait FrameStore {
-    fn load(&self, key: &str) -> Option<Bounds<Pixels>>;
-    fn save(&self, key: &str, bounds: Bounds<Pixels>);
+    fn load(&self, key: &str, cx: &App) -> Option<Bounds<Pixels>>;
+    fn save(&self, key: &str, bounds: Bounds<Pixels>, cx: &mut App);
+}
+
+/// One saved window frame, in logical pixels.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SavedFrame {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl From<Bounds<Pixels>> for SavedFrame {
+    fn from(b: Bounds<Pixels>) -> Self {
+        Self {
+            x: f32::from(b.origin.x),
+            y: f32::from(b.origin.y),
+            width: f32::from(b.size.width),
+            height: f32::from(b.size.height),
+        }
+    }
+}
+
+impl From<SavedFrame> for Bounds<Pixels> {
+    fn from(f: SavedFrame) -> Self {
+        Bounds::new(point(px(f.x), px(f.y)), size(px(f.width), px(f.height)))
+    }
+}
+
+/// Saved frames by autosave key. Put one field of this type in the app's
+/// preferences document.
+pub type SavedFrames = std::collections::BTreeMap<String, SavedFrame>;
+
+/// A [`FrameStore`] that writes through the app's #62 `Preferences` entity:
+/// frames live in the app's own document, versioned and migrated with the rest
+/// of its settings, and observers see the change like any other setting.
+pub struct PreferenceFrames<T: silvestris_core::prefs::Versioned> {
+    prefs: Entity<crate::prefs::Preferences<T>>,
+    frames: fn(&T) -> &SavedFrames,
+    frames_mut: fn(&mut T) -> &mut SavedFrames,
+}
+
+impl<T> PreferenceFrames<T>
+where
+    T: silvestris_core::prefs::Versioned + Clone + PartialEq + 'static,
+{
+    /// `frames` and `frames_mut` select the `SavedFrames` field.
+    #[must_use]
+    pub fn new(
+        prefs: Entity<crate::prefs::Preferences<T>>,
+        frames: fn(&T) -> &SavedFrames,
+        frames_mut: fn(&mut T) -> &mut SavedFrames,
+    ) -> Self {
+        Self {
+            prefs,
+            frames,
+            frames_mut,
+        }
+    }
+}
+
+impl<T> FrameStore for PreferenceFrames<T>
+where
+    T: silvestris_core::prefs::Versioned + Clone + PartialEq + 'static,
+{
+    fn load(&self, key: &str, cx: &App) -> Option<Bounds<Pixels>> {
+        (self.frames)(self.prefs.read(cx).value())
+            .get(key)
+            .copied()
+            .map(Bounds::from)
+    }
+
+    fn save(&self, key: &str, bounds: Bounds<Pixels>, cx: &mut App) {
+        let frames_mut = self.frames_mut;
+        let key = key.to_string();
+        self.prefs.update(cx, |prefs, cx| {
+            // A read-only store (malformed file) keeps the frame in memory;
+            // the preferences entity already reports that write failure.
+            let _ = prefs.set(
+                &format!("window.frame.{key}"),
+                |value| {
+                    frames_mut(value).insert(key.clone(), SavedFrame::from(bounds));
+                },
+                cx,
+            );
+        });
+    }
 }
 
 /// Bounds to open `role` with: the stored frame when present, otherwise
@@ -247,10 +334,11 @@ pub fn restore_bounds(
     default: Bounds<Pixels>,
     parent: Option<Bounds<Pixels>>,
     store: Option<&dyn FrameStore>,
+    cx: &App,
 ) -> Bounds<Pixels> {
     if let Some(stored) = store
         .zip(role.autosave_key())
-        .and_then(|(store, key)| store.load(key))
+        .and_then(|(store, key)| store.load(key, cx))
     {
         return stored;
     }
@@ -261,9 +349,9 @@ pub fn restore_bounds(
 }
 
 /// Persist the window's current frame under its role's autosave key.
-pub fn save_frame(role: WindowRole, window: &Window, store: &dyn FrameStore) {
+pub fn save_frame(role: WindowRole, window: &Window, store: &dyn FrameStore, cx: &mut App) {
     if let Some(key) = role.autosave_key() {
-        store.save(key, window.bounds());
+        store.save(key, window.bounds(), cx);
     }
 }
 
@@ -358,7 +446,13 @@ pub fn open_owned_role<V: 'static + Render>(
         .parent
         .update(cx, |_, window, _| window.bounds())
         .ok();
-    let bounds = restore_bounds(request.role, request.default_bounds, parent_bounds, store);
+    let bounds = restore_bounds(
+        request.role,
+        request.default_bounds,
+        parent_bounds,
+        store,
+        cx,
+    );
     let handle = open_role(request.role, request.title, bounds, cx, build)?;
     owned.register(*handle);
     Ok(handle)
@@ -384,11 +478,11 @@ mod tests {
     struct MapStore(RefCell<BTreeMap<String, Bounds<Pixels>>>);
 
     impl FrameStore for MapStore {
-        fn load(&self, key: &str) -> Option<Bounds<Pixels>> {
+        fn load(&self, key: &str, _: &App) -> Option<Bounds<Pixels>> {
             self.0.borrow().get(key).copied()
         }
 
-        fn save(&self, key: &str, bounds: Bounds<Pixels>) {
+        fn save(&self, key: &str, bounds: Bounds<Pixels>, _: &mut App) {
             self.0.borrow_mut().insert(key.to_string(), bounds);
         }
     }
@@ -456,19 +550,88 @@ mod tests {
 
     #[test]
     fn a_centered_role_uses_the_parent_and_a_stored_frame_wins() {
+        let app = test_app();
         let parent = bounds(100., 50., 1000., 700.);
         let default = bounds(0., 0., 400., 300.);
-        let centered = restore_bounds(WindowRole::Dialog, default, Some(parent), None);
-        assert_eq!(centered.origin, point(px(400.), px(250.)));
+        app.update(|cx| {
+            let centered = restore_bounds(WindowRole::Dialog, default, Some(parent), None, cx);
+            assert_eq!(centered.origin, point(px(400.), px(250.)));
 
-        let document = restore_bounds(WindowRole::Document, default, Some(parent), None);
-        assert_eq!(document, default);
+            let document = restore_bounds(WindowRole::Document, default, Some(parent), None, cx);
+            assert_eq!(document, default);
 
-        let store = MapStore::default();
-        let saved = bounds(12., 34., 500., 400.);
-        store.save("preferences", saved);
-        let restored = restore_bounds(WindowRole::Preferences, default, Some(parent), Some(&store));
-        assert_eq!(restored, saved);
+            let store = MapStore::default();
+            let saved = bounds(12., 34., 500., 400.);
+            store.save("preferences", saved, cx);
+            let restored = restore_bounds(
+                WindowRole::Preferences,
+                default,
+                Some(parent),
+                Some(&store),
+                cx,
+            );
+            assert_eq!(restored, saved);
+        });
+    }
+
+    #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct AppPrefs {
+        schema_version: u32,
+        #[serde(default)]
+        frames: SavedFrames,
+    }
+
+    impl silvestris_core::prefs::Versioned for AppPrefs {
+        fn schema_version(&self) -> u32 {
+            self.schema_version
+        }
+        fn set_schema_version(&mut self, version: u32) {
+            self.schema_version = version;
+        }
+    }
+
+    /// #20: the frame hook writes through the app's #62 preference store, and a
+    /// reopened store restores the frame.
+    #[test]
+    fn frames_write_through_the_application_preferences() {
+        let dir = std::env::temp_dir().join(format!(
+            "silvestris-frames-{}-{}",
+            std::process::id(),
+            line!()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("app.json");
+        let _ = std::fs::remove_file(&path);
+        let mut app = test_app();
+        let window = app.add_window(|_, _| View);
+        let (prefs, _) =
+            app.update(|cx| crate::prefs::Preferences::<AppPrefs>::open(&path, &[], cx));
+        let store = PreferenceFrames::new(prefs.clone(), |p| &p.frames, |p| &mut p.frames);
+        app.update(|cx| {
+            window
+                .update(cx, |_, window, cx| {
+                    save_frame(WindowRole::Preferences, window, &store, cx)
+                })
+                .unwrap();
+        });
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert!(written.contains("\"preferences\""), "{written}");
+
+        let (reopened, _) =
+            app.update(|cx| crate::prefs::Preferences::<AppPrefs>::open(&path, &[], cx));
+        let store = PreferenceFrames::new(reopened, |p| &p.frames, |p| &mut p.frames);
+        let expected = app.update(|cx| window.update(cx, |_, w, _| w.bounds()).unwrap());
+        let restored = app.update(|cx| {
+            restore_bounds(
+                WindowRole::Preferences,
+                bounds(0., 0., 10., 10.),
+                None,
+                Some(&store),
+                cx,
+            )
+        });
+        assert_eq!(restored, expected);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -486,14 +649,16 @@ mod tests {
         let store = MapStore::default();
         app.update(|cx| {
             window
-                .update(cx, |_, window, _| {
-                    save_frame(WindowRole::Document, window, &store);
-                    save_frame(WindowRole::Dialog, window, &store);
+                .update(cx, |_, window, cx| {
+                    save_frame(WindowRole::Document, window, &store, cx);
+                    save_frame(WindowRole::Dialog, window, &store, cx);
                 })
                 .unwrap();
         });
-        assert!(store.load("document").is_some());
-        assert!(store.load("dialog").is_none());
+        app.update(|cx| {
+            assert!(store.load("document", cx).is_some());
+            assert!(store.load("dialog", cx).is_none());
+        });
     }
 
     #[test]

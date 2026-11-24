@@ -31,6 +31,11 @@ M1 audit fixes. Behaviour changes a consumer must check:
   activation or reopen hooks (#59).
 - Behaviour: `chrome::open_window` now observes each window's activation for
   the installed delegate. Without `install` it does nothing.
+- Changed `window_role::FrameStore`: `load` takes `&App` and `save` takes
+  `&mut App`; `restore_bounds` and `save_frame` take `cx`. Without the context a
+  store could not update an entity, so frames could not go through #62's
+  preference store as #20 asks. Added `PreferenceFrames`, `SavedFrame` and
+  `SavedFrames`.
 
 ## After 216de9b
 
