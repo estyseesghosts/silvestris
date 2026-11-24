@@ -36,7 +36,14 @@ pub mod tooltip;
 
 pub mod progress;
 pub use progress::{ProgressIndicator, ProgressStyle};
+pub mod column_store;
 pub mod table;
+pub mod table_view;
+pub use column_store::{ColumnStore, MemoryColumns, PreferenceColumns, SavedColumns, SavedTables};
+pub use table_view::{
+    icon_text, CellContext, ColumnAlign, GridLines, SortDirection, TableColumn, TableEvent,
+    TableView,
+};
 
 pub mod radio;
 pub use radio::{RadioGroup, RadioOption};

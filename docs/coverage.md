@@ -90,6 +90,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Multiline text area | `TextArea`, `TextAreaEvent` | functional | four | — | #58 |
 | Token field | none | missing | — | — | #43 |
 | Search field | `TextField` search variant | provisional | four | — | #77 |
+| Table view | `TableView`, `TableColumn`, `TableEvent`, `CellContext`, `ColumnAlign`, `GridLines`, `SortDirection`, `ColumnStore`, `MemoryColumns`, `PreferenceColumns`, `SavedColumns`, `SavedTables` | measured | four | `table-view` | #32 |
 | Scrolling list | `controls::table::virtual_table` | provisional | four | — | #32 |
 | Scroller and scroll view | `ScrollView`, `ScrollAxes`, `Scrollbar`, `ScrollSource`, `ScrollerPreferences`, `ScrollArrows`, `TrackClick` | measured | four | `scroll-view` | #40 |
 

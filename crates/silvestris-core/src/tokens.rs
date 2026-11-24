@@ -345,6 +345,13 @@ pub struct Controls {
     pub search: Field,
     pub scroller: Scroller,
     pub table_header: Bevel,
+    /// Header cell of the sort column. `border.from` is its right divider,
+    /// `border.to` its bottom line.
+    pub table_header_sorted: Bevel,
+    /// Sort direction triangle in the header.
+    pub sort_arrow: Rgba8,
+    /// Optional table grid lines.
+    pub table_grid: Rgba8,
     pub popup: PopUp,
     /// The capsule/textured pop-up used inside unified toolbars (#2).
     pub popup_textured: PopUp,

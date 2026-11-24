@@ -236,6 +236,15 @@ column(FINDER_LIST, 750, 404, 426, "scroller.boxes.divider", "divider between th
 row(FINDER_LIST, 200, 760, 785, "scroller.thumb.finder", "vertical thumb cross-section")
 column(FINDER_LIST, 772, 400, 425, "scroller.corner", "corner square between the bars: white")
 
+# Finder list view, sorted by Name (VM capture, 1x).
+LIST_SORTED = "../vm-screenshots/Screen shot 2026-11-23 at 3.56.49 AM.png"
+column(LIST_SORTED, 420, 74, 130, "table.header.sorted",
+       "sort column header: 15 body rows, bottom line, then 19 px rows white / edf3fe")
+column(LIST_SORTED, 600, 74, 92, "table.header.plain", "unsorted header column, c0c0c0 bottom line")
+row(LIST_SORTED, 82, 528, 566, "table.header.sort_arrow",
+    "7 x 6 px triangle centred 7 px before the sorted column's 72a1d4 divider at 546")
+column(LIST_SORTED, 727, 74, 92, "table.header.divider", "plain header divider: c0c0c0, full height")
+
 json.dump({
     "tool": "tools/metrology/measure.py",
     "colour_space": "sRGB (converted from each capture's embedded ICC profile with LittleCMS)",

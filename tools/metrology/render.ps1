@@ -9,7 +9,7 @@ param(
     [string]$Out = "target/goldens",
     [string[]]$Appearance = @("aqua-light", "aqua-dark", "geist-light", "geist-dark"),
     [string[]]$Scale = @("1.0", "1.25", "1.5", "1.75", "2.0"),
-    [int]$Pages = 4,
+    [int]$Pages = 5,
     [string]$PrependPath = "",
     [switch]$Accept,
     [string]$Reason = "",

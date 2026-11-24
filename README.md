@@ -64,6 +64,8 @@ No crate imports Lotus, Azahar or an emulator worker.
 - [Window roles and frame persistence](docs/windows.md)
 - [Sidebar and divider](docs/sidebar.md)
 - [Source lists](docs/source-list.md)
+- [Scroll views and scroll bars](docs/scrollbar.md)
+- [Table view](docs/table.md)
 - [Commands and key contexts](docs/commands.md)
 - [Popup menus](docs/menus.md)
 - [Transient surfaces](docs/transients.md)

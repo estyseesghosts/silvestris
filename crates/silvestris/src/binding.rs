@@ -319,7 +319,10 @@ pub struct ListController<T> {
     id: IdFn<T>,
     items: Vec<T>,
     visible: Vec<usize>,
-    selected: Option<ItemId>,
+    /// Selected ids in selection order; the last one is the lead.
+    selected: Vec<ItemId>,
+    /// Where a Shift-extension starts (HIG p. 333 list selection).
+    anchor: Option<ItemId>,
     filter: Option<FilterFn<T>>,
     sort: Option<SortFn<T>>,
 }
@@ -331,7 +334,8 @@ impl<T: 'static> ListController<T> {
             id: Rc::new(id),
             items: Vec::new(),
             visible: Vec::new(),
-            selected: None,
+            selected: Vec::new(),
+            anchor: None,
             filter: None,
             sort: None,
         }
@@ -400,31 +404,139 @@ impl<T: 'static> ListController<T> {
         self.visible().map(|item| (self.id)(item)).collect()
     }
 
+    /// The lead selected id: the only one for a single selection, the most
+    /// recently added for a multiple one.
     #[must_use]
     pub fn selection(&self) -> Option<&ItemId> {
-        self.selected.as_ref()
+        self.selected.last()
+    }
+
+    /// Every selected id, in the order it was selected.
+    #[must_use]
+    pub fn selected_ids(&self) -> &[ItemId] {
+        &self.selected
+    }
+
+    #[must_use]
+    pub fn is_selected(&self, id: &ItemId) -> bool {
+        self.selected.contains(id)
+    }
+
+    /// Where the next Shift-extension starts.
+    #[must_use]
+    pub fn anchor(&self) -> Option<&ItemId> {
+        self.anchor.as_ref()
     }
 
     /// Select by id, programmatically. This does not call any UI callback.
-    /// Returns whether the selection changed.
+    /// Replaces any multiple selection. Returns whether the selection changed.
     pub fn select(&mut self, id: impl Into<ItemId>) -> bool {
         let id = id.into();
-        if self.selected.as_ref() == Some(&id) {
+        self.anchor = Some(id.clone());
+        if self.selected.len() == 1 && self.selected[0] == id {
             return false;
         }
-        self.selected = Some(id);
+        self.selected = vec![id];
         true
     }
 
-    pub fn clear_selection(&mut self) {
-        self.selected = None;
+    /// Replace the selection. The last id becomes the lead and the anchor.
+    /// Returns whether the selection changed.
+    pub fn set_selection(&mut self, ids: Vec<ItemId>) -> bool {
+        let mut unique: Vec<ItemId> = Vec::with_capacity(ids.len());
+        for id in ids {
+            if !unique.contains(&id) {
+                unique.push(id);
+            }
+        }
+        self.anchor = unique.last().cloned();
+        if unique == self.selected {
+            return false;
+        }
+        self.selected = unique;
+        true
     }
 
-    /// The selected item, when it is still present.
+    /// Add or remove one id (Command/Control-click). The id becomes the
+    /// anchor either way.
+    pub fn toggle(&mut self, id: impl Into<ItemId>) {
+        let id = id.into();
+        if let Some(position) = self.selected.iter().position(|s| s == &id) {
+            self.selected.remove(position);
+        } else {
+            self.selected.push(id.clone());
+        }
+        self.anchor = Some(id);
+    }
+
+    /// Select the visible range from the anchor to `id` (Shift-click or
+    /// Shift-arrow), keeping the anchor. Without an anchor this is `select`.
+    /// `id` becomes the lead.
+    pub fn extend_to(&mut self, id: impl Into<ItemId>) {
+        let id = id.into();
+        let anchor = self.anchor.clone();
+        let (Some(anchor), Some(to)) = (
+            anchor.as_ref().and_then(|a| self.visible_index_of(a)),
+            self.visible_index_of(&id),
+        ) else {
+            self.select(id);
+            return;
+        };
+        let range: Vec<usize> = if anchor <= to {
+            (anchor..=to).collect()
+        } else {
+            (to..=anchor).rev().collect()
+        };
+        self.selected = range
+            .into_iter()
+            .map(|visible| (self.id)(&self.items[self.visible[visible]]))
+            .collect();
+    }
+
+    /// Select every visible item.
+    pub fn select_all(&mut self) {
+        self.selected = self.visible_ids();
+        self.anchor = self.selected.first().cloned();
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selected.clear();
+        self.anchor = None;
+    }
+
+    /// The lead selected item, when it is still present.
     #[must_use]
     pub fn selected(&self) -> Option<&T> {
-        let id = self.selected.as_ref()?;
+        let id = self.selected.last()?;
         self.items.iter().find(|item| &(self.id)(item) == id)
+    }
+
+    /// Selected items still present, in visible order.
+    #[must_use]
+    pub fn selected_items(&self) -> Vec<&T> {
+        self.visible()
+            .filter(|item| self.selected.contains(&(self.id)(item)))
+            .collect()
+    }
+
+    /// The item at `index` in visible order.
+    #[must_use]
+    pub fn visible_item(&self, index: usize) -> Option<&T> {
+        self.visible.get(index).map(|item| &self.items[*item])
+    }
+
+    /// Position of `id` in visible order.
+    #[must_use]
+    pub fn visible_index_of(&self, id: &ItemId) -> Option<usize> {
+        self.visible
+            .iter()
+            .position(|item| &(self.id)(&self.items[*item]) == id)
+    }
+
+    /// The stable id of `item`.
+    #[must_use]
+    pub fn id_of(&self, item: &T) -> ItemId {
+        (self.id)(item)
     }
 
     #[must_use]

@@ -198,6 +198,7 @@ all four appearances.
 | Shortcut recorder | `ShortcutRecorder` | Records a chord in the spelling `CommandRegistry::rebind` accepts |
 | Group box, separator, well | `GroupBox`, `Separator`, `SeparatorAxis`, `Well` | A group box title can be text, a checkbox or a pop-up |
 | Tab view | `TabView` | Regular, small and mini tabs; scrolls overflowing content |
+| Table view | `TableView`, `TableColumn` | Sortable, resizable, reorderable columns with autosave; multiple selection by id, type-select, in-place editing, virtualised rows. [table.md](table.md) |
 | Scroll view | `ScrollView`, `Scrollbar`, `ScrollSource` | Content plus both scroll bars and the corner over a `ScrollHandle`, `UniformListScrollHandle` or `ListState`; regular, small and mini; Appearance preferences. [scrollbar.md](scrollbar.md) |
 | Source list | `SourceList`, `SourceListEvent`, `SourceListStyle`, `RowAccessory`, `RowStatus` | Sidebar tree with sections, badges, eject and status accessories. [source-list.md](source-list.md) |
 | Table rows | `table::virtual_table`, `table::code_row` | Virtualized alternating rows; you own the cell contents |

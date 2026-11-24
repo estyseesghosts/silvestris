@@ -169,6 +169,16 @@ submenu placement, the arrow and the label inset.
 - Option-click in the track, which inverts the Appearance track-click
   preference in 10.6, is not implemented; no corpus source documents it.
 
+## Table view
+
+- The plain header bevel is the Activity Monitor measurement
+  (ff..e8 / e9..ff); the Finder list header is lighter in its lower band
+  (f4..ff, M: table.header.plain). One token serves both.
+- The type-select reset (1 s), the 3 px divider grab zone and the 4 px
+  reorder threshold are estimates.
+- Dark Aqua's sorted header and Geist's sort styling are designed.
+- Grid lines are designed (`table_grid`); no capture shows a gridded table.
+
 ## Text fields
 
 - Caret blink: Windows uses `GetCaretBlinkTime` (native.rs `caret_blink`);

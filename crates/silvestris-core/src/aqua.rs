@@ -781,6 +781,19 @@ pub fn aqua_light() -> Theme {
                 emboss: Rgba8::TRANSPARENT,
                 text: BLACK,
             },
+            // M: table.header.sorted: 7 rows cde2f5..88beec, 8 rows
+            // 7cb8ea..c2edff, divider 72a1d4, bottom line 94badd (Finder list).
+            table_header_sorted: Bevel {
+                border: g(0x72a1d4, 0x94badd),
+                upper: g(0xcde2f5, 0x88beec),
+                lower: g(0x7cb8ea, 0xc2edff),
+                split: 7.0 / 15.0,
+                emboss: Rgba8::TRANSPARENT,
+                text: BLACK,
+            },
+            sort_arrow: c(0x3d5b74), // M: table.header.sort_arrow
+            // designed: the header divider grey for optional grid lines.
+            table_grid: c(0xd9d9d9),
             popup: PopUp {
                 body: BevelStates {
                     normal: popup_body,
@@ -1324,6 +1337,17 @@ pub fn aqua_dark() -> Theme {
                 emboss: Rgba8::TRANSPARENT,
                 text: c(0xe6e6e6),
             },
+            // designed: the sorted header and arrow for Dark Aqua.
+            table_header_sorted: Bevel {
+                border: g(0x2a4a72, 0x2a4a72),
+                upper: g(0x3c5f8c, 0x2c5185),
+                lower: g(0x244a80, 0x3a6aa6),
+                split: 7.0 / 15.0,
+                emboss: Rgba8::TRANSPARENT,
+                text: WHITE,
+            },
+            sort_arrow: c(0xc8d8ea),
+            table_grid: c(0x333333),
             popup: PopUp {
                 body: BevelStates {
                     normal: popup_body,

@@ -9,13 +9,13 @@ use silvestris::binding::{Binding, ListController};
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    Button, ButtonStyle, CheckState, Checkbox, ConfirmationFocus, ConfirmationSheet, ControlSize,
-    Disclosure, DisclosureStyle, GroupBox, Notice, Orientation, PopUpButton, PopupStyle,
-    ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus,
+    Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ConfirmationFocus, ConfirmationSheet,
+    ControlSize, Disclosure, DisclosureStyle, GroupBox, Notice, Orientation, PopUpButton,
+    PopupStyle, ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus,
     ScrollArrows, ScrollAxes, ScrollView, Scrollbar, ScrollerPreferences, Segment, SegmentMode,
-    SegmentStyle, SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider, SourceList,
-    SourceListEvent, SourceListStyle, Stepper, TabView, TextArea, TextAreaEvent, TextField,
-    TextFieldEvent, ThumbStyle, TrackClick, Well,
+    SegmentStyle, SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider,
+    SortDirection, SourceList, SourceListEvent, SourceListStyle, Stepper, TabView, TableColumn,
+    TableView, TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::menu::PopupMenu;
@@ -71,6 +71,7 @@ struct Gallery {
     secondary_list: Entity<SourceList>,
     gallery_scroll: gpui::ScrollHandle,
     fidelity_scroll: gpui::ScrollHandle,
+    files_table: Entity<TableView<GalleryFile>>,
     fidelity_scroll_small: gpui::ScrollHandle,
     last_source: gpui::SharedString,
     details_expanded: bool,
@@ -94,6 +95,14 @@ struct Gallery {
     list: ListController<(u32, gpui::SharedString)>,
     list_sorted: bool,
     modal: Option<ModalDemo>,
+}
+
+#[derive(Clone)]
+struct GalleryFile {
+    id: u32,
+    name: gpui::SharedString,
+    size: u32,
+    done: bool,
 }
 
 struct BoundModel {
@@ -388,6 +397,64 @@ impl Gallery {
                 )
                 .unwrap()
         });
+        let files_table = cx.new(|cx| {
+            let files = cx.new(|_| {
+                let mut c = ListController::new(|f: &GalleryFile| f.id.to_string().into());
+                c.set_items(
+                    (0..2000)
+                        .map(|i| GalleryFile {
+                            id: i,
+                            name: format!("Document {i}").into(),
+                            size: (i * 37) % 900,
+                            done: i % 3 == 0,
+                        })
+                        .collect(),
+                );
+                c
+            });
+            let rename_target = files.clone();
+            let columns = vec![
+                TableColumn::text("name", "Name", |f: &GalleryFile| f.name.clone())
+                    .width(150.)
+                    .sort_by_text()
+                    .editable(move |f: &GalleryFile, text: &str, cx| {
+                        let id = f.id;
+                        let text: gpui::SharedString = text.to_string().into();
+                        let target = rename_target.clone();
+                        // The controller is leased during commit; rename on
+                        // the next turn of the loop.
+                        cx.defer(move |cx| {
+                            target.update(cx, |c, cx| {
+                                let mut items: Vec<GalleryFile> = c.visible().cloned().collect();
+                                if let Some(item) = items.iter_mut().find(|f| f.id == id) {
+                                    item.name = text.clone();
+                                }
+                                c.set_items(items);
+                                cx.notify();
+                            });
+                        });
+                        true
+                    }),
+                TableColumn::custom("done", "Done", |f: &GalleryFile, _, _, _| {
+                    Checkbox::new(("gallery-done", f.id as usize), "")
+                        .state(CheckState::from(f.done))
+                        .size(ControlSize::Small)
+                        .into_any_element()
+                })
+                .width(44.)
+                .resizable(false)
+                .align(ColumnAlign::Center),
+                TableColumn::text("size", "Size", |f: &GalleryFile| {
+                    format!("{} KB", f.size).into()
+                })
+                .width(70.)
+                .align(ColumnAlign::Trailing)
+                .sortable(|a: &GalleryFile, b: &GalleryFile| a.size.cmp(&b.size)),
+            ];
+            let mut table = TableView::new(files, columns, cx);
+            table.set_sort("name", SortDirection::Ascending, cx);
+            table
+        });
         let bound = cx.new(|_| BoundModel {
             primary: true,
             level: 0.4,
@@ -453,6 +520,7 @@ impl Gallery {
             secondary_list,
             gallery_scroll: gpui::ScrollHandle::new(),
             fidelity_scroll: gpui::ScrollHandle::new(),
+            files_table,
             fidelity_scroll_small: gpui::ScrollHandle::new(),
             last_source: "No source-list event".into(),
             details_expanded: false,
@@ -1332,6 +1400,16 @@ impl Render for Gallery {
                                     ),
                             ),
                     )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Table view: 2,000 rows; sort, resize, reorder, type-select, Return to rename",
+                div()
+                    .w(px(300.))
+                    .h(px(140.))
+                    .border_1()
+                    .border_color(silvestris::convert::hsla(theme.colors.group_border))
+                    .child(self.files_table.clone())
                     .into_any_element(),
             ))
             .child(cell(

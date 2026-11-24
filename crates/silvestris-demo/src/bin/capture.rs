@@ -16,13 +16,15 @@ use gpui::{
     deferred, div, point, prelude::*, px, size, App, Bounds, Context, Entity, Render, SharedString,
     Window,
 };
+use silvestris::binding::ListController;
 use silvestris::chrome::WindowFrame;
 use silvestris::command::CommandRegistry;
 use silvestris::controls::{
-    Button, ButtonStyle, CheckState, Checkbox, ControlSize, Disclosure, DisclosureStyle, GroupBox,
-    Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup, RadioOption, RowAccessory,
-    RowStatus, ScrollAxes, ScrollView, Segment, SegmentStyle, SegmentedControl, Separator, Slider,
-    SourceList, SourceListStyle, TabView, TextField, ThumbStyle, Well,
+    Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ControlSize, Disclosure,
+    DisclosureStyle, GroupBox, Orientation, PopUpButton, PopupStyle, ProgressIndicator, RadioGroup,
+    RadioOption, RowAccessory, RowStatus, ScrollAxes, ScrollView, Segment, SegmentStyle,
+    SegmentedControl, Separator, Slider, SortDirection, SourceList, SourceListStyle, TabView,
+    TableColumn, TableView, TextField, ThumbStyle, Well,
 };
 use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
@@ -43,7 +45,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 48] = [
+const SAMPLES: [Sample; 49] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -284,6 +286,11 @@ const SAMPLES: [Sample; 48] = [
         width: 244.,
         height: 110.,
     },
+    Sample {
+        id: "table-view",
+        width: 244.,
+        height: 110.,
+    },
 ];
 
 /// Open menus are larger than a grid cell, so they get their own last page,
@@ -361,6 +368,8 @@ struct CaptureView {
     secondary: Entity<SourceList>,
     // Both scroll bars and the corner, as in the Finder list view.
     scroll: gpui::ScrollHandle,
+    // Finder list view: 16 px header, 19 px rows, sorted by Name.
+    table: Entity<TableView<(u32, &'static str, &'static str)>>,
     menus: Vec<Entity<PopupMenu>>,
     // Finder content white under the Arrange By menu.
     content: silvestris::core::Rgba8,
@@ -383,6 +392,39 @@ impl CaptureView {
             SourceNode::new("desktop", "Desktop"),
             SourceNode::new("documents", "Documents"),
         ];
+        let table = cx.new(|cx| {
+            let controller = cx.new(|_| {
+                let mut c = ListController::new(|row: &(u32, &'static str, &'static str)| {
+                    row.0.to_string().into()
+                });
+                c.set_items(vec![
+                    (0, "Music", "--"),
+                    (1, "Desktop", "--"),
+                    (2, "Send Registration", "4 KB"),
+                    (3, "Library", "--"),
+                    (4, "Documents", "--"),
+                    (5, "Pictures", "--"),
+                ]);
+                c
+            });
+            let columns = vec![
+                TableColumn::text("name", "Name", |r: &(u32, &'static str, &'static str)| {
+                    r.1.into()
+                })
+                .width(160.)
+                .sort_by_text(),
+                TableColumn::text("size", "Size", |r: &(u32, &'static str, &'static str)| {
+                    r.2.into()
+                })
+                .width(70.)
+                .align(ColumnAlign::Trailing),
+            ];
+            let mut table = TableView::new(controller, columns, cx);
+            table.set_row_height(19., cx);
+            table.set_header_height(16., cx);
+            table.set_sort("name", SortDirection::Ascending, cx);
+            table
+        });
         let list = cx.new(|cx| SourceList::new(vec![root], cx).expect("source list"));
         list.update(cx, |list, cx| {
             list.set_expanded("home", true, cx);
@@ -440,6 +482,7 @@ impl CaptureView {
             list,
             secondary,
             scroll: gpui::ScrollHandle::new(),
+            table,
             menus,
             content: cx.theme().colors.content,
             row_alternate: cx.theme().colors.row_alternate,
@@ -710,6 +753,7 @@ impl CaptureView {
                     )
                     .into_any_element()
             }
+            "table-view" => self.table.clone().into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),

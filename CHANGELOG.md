@@ -5,6 +5,22 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 6bd0467
+
+M3 table view (#32):
+
+- Added `controls::TableView`, `TableColumn`, `TableEvent`, `CellContext`,
+  `ColumnAlign`, `GridLines`, `SortDirection` and `icon_text`.
+- Added `ColumnStore`, `MemoryColumns`, `PreferenceColumns`, `SavedColumns`
+  and `SavedTables` for column autosave.
+- `ListController` now holds a multiple selection: added `selected_ids`,
+  `is_selected`, `anchor`, `set_selection`, `toggle`, `extend_to`,
+  `select_all`, `selected_items`, `visible_item`, `visible_index_of` and
+  `id_of`. `selection()` returns the lead id; `select` still replaces the
+  selection with one id.
+- Tokens: added `Controls::table_header_sorted`, `sort_arrow` and
+  `table_grid`.
+
 ## After 0d5cc60
 
 M3 scrollers (#40):
