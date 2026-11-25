@@ -267,6 +267,46 @@ fn trash_removes_the_original_path() {
     std::fs::remove_dir_all(root).ok();
 }
 
+#[cfg(unix)]
+#[test]
+fn symlinks_are_classified_by_their_target() {
+    use std::os::unix::fs::symlink;
+
+    let root = scratch("links");
+    std::fs::create_dir(root.join("real-dir")).unwrap();
+    std::fs::write(root.join("real-file.txt"), b"x").unwrap();
+    symlink(root.join("real-dir"), root.join("dir-link")).unwrap();
+    symlink(root.join("missing"), root.join("broken-link")).unwrap();
+
+    let (_app, mut cx) = app();
+    let provider = StdFsProvider::new();
+    let location = provider.location_for(&root).unwrap();
+    let task = cx.update(|_, cx| provider.children(&location, cx));
+    let listing = wait(&mut cx, task).expect("directory listing");
+
+    let dir_link = listing
+        .entries
+        .iter()
+        .find(|entry| entry.name == "dir-link")
+        .unwrap();
+    assert!(dir_link.is_link);
+    assert!(dir_link.is_dir);
+    assert_eq!(dir_link.kind, FileKind::Folder);
+
+    let broken = listing
+        .entries
+        .iter()
+        .find(|entry| entry.name == "broken-link")
+        .unwrap();
+    assert!(broken.is_link);
+    assert!(!broken.is_dir);
+    assert!(!broken.metadata_known);
+    assert_eq!(broken.kind, FileKind::Alias);
+    assert!(!listing.warnings.is_empty());
+
+    std::fs::remove_dir_all(root).ok();
+}
+
 #[test]
 fn a_missing_directory_is_a_fatal_error() {
     let root = scratch("missing");
