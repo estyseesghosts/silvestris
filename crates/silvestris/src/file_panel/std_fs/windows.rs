@@ -74,24 +74,21 @@ fn volume_places() -> Vec<HostPlace> {
         let wide: Vec<u16> = root.encode_utf16().chain(std::iter::once(0)).collect();
         // SAFETY: `wide` is NUL-terminated and outlives the call.
         let drive_type = unsafe { GetDriveTypeW(PCWSTR(wide.as_ptr())) };
-        let (label, icon, eject) = match drive_type {
-            2 => ("Removable Disk", Icon::Volume, true),
-            3 => ("Local Disk", Icon::Volume, false),
-            4 => ("Network Drive", Icon::Network, false),
-            5 => ("CD Drive", Icon::Volume, true),
-            6 => ("RAM Disk", Icon::Volume, false),
+        let (label, icon) = match drive_type {
+            2 => ("Removable Disk", Icon::Volume),
+            3 => ("Local Disk", Icon::Volume),
+            4 => ("Network Drive", Icon::Network),
+            5 => ("CD Drive", Icon::Volume),
+            6 => ("RAM Disk", Icon::Volume),
             0 | 1 => continue,
-            _ => ("Drive", Icon::Volume, false),
+            _ => ("Drive", Icon::Volume),
         };
-        out.push(
-            HostPlace::place(
-                PathBuf::from(root),
-                format!("{label} ({letter}:)"),
-                icon,
-                PlaceSection::Devices,
-            )
-            .eject(eject),
-        );
+        out.push(HostPlace::place(
+            PathBuf::from(root),
+            format!("{label} ({letter}:)"),
+            icon,
+            PlaceSection::Devices,
+        ));
     }
     out
 }

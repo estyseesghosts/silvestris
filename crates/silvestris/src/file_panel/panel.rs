@@ -5,6 +5,7 @@
 //! fields, the accessory slot and the button row. All file data comes from
 //! `FileBrowserModel` / `FileProvider`; the panel owns policy only.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -25,7 +26,7 @@ use crate::controls::icon_grid::{IconGrid, IconGridEvent};
 use crate::controls::path_control::{LocationId, PathEntry, PathPopUp};
 use crate::controls::popup_button::PopUpButton;
 use crate::controls::source_list::{RowAccessory, SourceList, SourceListEvent, SourceListStyle};
-use crate::controls::table_view::{TableColumn, TableEvent, TableView};
+use crate::controls::table_view::{SortDirection, TableColumn, TableEvent, TableView};
 use crate::controls::text_field::{TextField, TextFieldEvent};
 use crate::controls::{
     Alert, AlertButton, AlertResult, AlertRole, Button, CheckState, Checkbox, ControlSize,
@@ -33,7 +34,9 @@ use crate::controls::{
 };
 use crate::convert::hsla;
 use crate::file_panel::chrome::{self, PanelToolbar};
-use crate::file_panel::model::{choosable, FileBrowserEvent, FileBrowserModel, FileViewMode};
+use crate::file_panel::model::{
+    choosable, FileBrowserEvent, FileBrowserModel, FileSort, FileSortKey, FileViewMode,
+};
 use crate::file_panel::provider::{
     FileEntry, FileError, FileListing, FilePlace, FileProvider, FileProviderCapabilities,
     PlaceSection,
@@ -181,6 +184,17 @@ impl PanelOptions {
     }
 }
 
+/// Column-browser rows, by id, with the location whose column produced them.
+/// The browser only carries the id and label, but activation still has to
+/// honour `allowed_types` and the choose-files/directories policy, and the
+/// child location has to be resolved against its own column rather than the
+/// now-current directory.
+type BrowserEntries = HashMap<ItemId, (LocationId, FileEntry)>;
+
+/// Cold column entries a panel retains. Ids still shown in a column are never
+/// dropped, even when the displayed set is larger than this budget.
+const MAX_BROWSER_ENTRIES: usize = 8192;
+
 /// One panel, shared by Save and Open.
 pub struct FilePanel {
     mode: PanelMode,
@@ -195,7 +209,10 @@ pub struct FilePanel {
     /// activation still has to honour `allowed_types` and the
     /// choose-files/directories policy, and the child location has to be
     /// resolved against its own column rather than the now-current directory.
-    browser_entries: HashMap<ItemId, (LocationId, FileEntry)>,
+    browser_entries: BrowserEntries,
+    /// The column browser exists but its root snapshot predates a model change
+    /// made outside column view; the next entry into columns rebuilds it.
+    browser_stale: bool,
     search: Entity<TextField>,
     name_field: Option<Entity<TextField>>,
     message: Option<SharedString>,
@@ -227,6 +244,8 @@ pub struct FilePanel {
     delivered: bool,
     pending_rename: Option<LocationId>,
     pending_selection: Option<ItemId>,
+    /// A location to select after the next successful load (a renamed entry).
+    pending_select: Option<LocationId>,
     browser_navigation: bool,
     app_window: Option<AnyWindowHandle>,
     owner: Option<AnyWindowHandle>,
@@ -240,18 +259,9 @@ pub struct FilePanel {
     commands: Entity<CommandRegistry>,
     context_target: Option<(LocationId, FileEntry)>,
     pending_menu: Option<(Vec<MenuEntry>, Point<gpui::Pixels>)>,
-    sort: Option<SortKey>,
     _subscriptions: Vec<Subscription>,
     _model_subscription: Subscription,
     _session_subscription: Subscription,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SortKey {
-    Name,
-    Kind,
-    Modified,
-    Size,
 }
 
 impl FilePanel {
@@ -290,7 +300,8 @@ impl FilePanel {
             model.set_view(view, cx);
         });
         let sidebar = build_sidebar(&[], cx);
-        let table = build_table(model.clone(), provider.clone(), options.clone(), cx);
+        let rename_panel: Rc<RefCell<Option<WeakEntity<FilePanel>>>> = Rc::new(RefCell::new(None));
+        let table = build_table(model.clone(), options.clone(), rename_panel.clone(), cx);
         let formats = if options.formats.is_empty() {
             if options.allowed_types.is_empty() {
                 vec![FormatOption::new("Plain Text", ["txt"])]
@@ -343,6 +354,7 @@ impl FilePanel {
             icons: None,
             browser: None,
             browser_entries: HashMap::new(),
+            browser_stale: false,
             search,
             name_field,
             message: options.message,
@@ -378,6 +390,7 @@ impl FilePanel {
             delivered: false,
             pending_rename: None,
             pending_selection: None,
+            pending_select: None,
             browser_navigation: false,
             app_window: None,
             owner: None,
@@ -391,7 +404,6 @@ impl FilePanel {
             commands,
             context_target: None,
             pending_menu: None,
-            sort: None,
             _subscriptions: Vec::new(),
             _model_subscription: cx.observe(&model_for_observe, |_: &mut Self, _, cx| cx.notify()),
             _session_subscription: cx.observe(&session_for_observe, |panel, session, cx| {
@@ -400,6 +412,7 @@ impl FilePanel {
                 }
             }),
         });
+        *rename_panel.borrow_mut() = Some(panel.downgrade());
         panel.update(cx, |panel, cx| panel.wire(window, cx));
         panel.update(cx, |panel, cx| panel.load_places(cx));
         let weak = panel.downgrade();
@@ -426,30 +439,69 @@ impl FilePanel {
     fn set_places(&mut self, places: Vec<FilePlace>, cx: &mut Context<Self>) {
         self.places = places;
         let roots = sidebar_roots(&self.places);
-        let eject: Vec<String> = self
-            .places
-            .iter()
-            .filter(|place| place.eject)
-            .map(|place| place.id.to_string())
-            .collect();
+        // A glyph is a promise. Only a provider that advertises ejection gets
+        // an actionable accessory; the rest show no eject control at all.
+        let eject: Vec<(String, String)> = if self.capabilities.eject {
+            self.places
+                .iter()
+                .filter(|place| place.eject)
+                .map(|place| (place.id.to_string(), place.label.to_string()))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let location = self.location.clone();
+        let weak = cx.entity().downgrade();
         self.sidebar.update(cx, |sidebar, cx| {
             if sidebar.replace(roots, cx).is_err() {
                 return;
             }
             sidebar.set_row_accessories(
                 move |row| {
-                    if eject.iter().any(|id| id == &row.id) {
-                        vec![RowAccessory::Eject]
-                    } else {
-                        Vec::new()
-                    }
+                    let Some((id, label)) = eject.iter().find(|(id, _)| id == &row.id).cloned()
+                    else {
+                        return Vec::new();
+                    };
+                    let id: LocationId = id.into();
+                    let weak = weak.clone();
+                    vec![RowAccessory::button(
+                        format!("eject-{id}"),
+                        format!("Eject {label}"),
+                        "\u{23CF}",
+                        move |_, cx| {
+                            let Some(panel) = weak.upgrade() else {
+                                return;
+                            };
+                            let id = id.clone();
+                            panel.update(cx, |panel, cx| panel.eject_place(id, cx));
+                        },
+                    )]
                 },
                 cx,
             );
             sidebar.select(&location, cx);
         });
         cx.notify();
+    }
+
+    fn eject_place(&mut self, location: LocationId, cx: &mut Context<Self>) {
+        let provider = self.model.read(cx).provider().clone();
+        let task = provider.eject(&location, cx);
+        cx.spawn(async move |this, cx| {
+            let result = task.await;
+            let _ = this.update(cx, |panel, cx| match result {
+                Ok(()) => {
+                    panel.status_error = None;
+                    panel.load_places(cx);
+                }
+                Err(error) => {
+                    // The device must stay visible when ejection fails.
+                    panel.status_error = Some(error);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     fn wire(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -469,6 +521,9 @@ impl FilePanel {
                 }
                 TableEvent::BackgroundContextMenu { position } => {
                     panel.background_context(*position, window, cx)
+                }
+                TableEvent::Sorted { column, direction } => {
+                    panel.table_sorted(column, *direction, cx)
                 }
                 _ => {}
             }),
@@ -791,10 +846,10 @@ impl FilePanel {
             "file.view.icons" => self.set_view(FileViewMode::Icons, cx),
             "file.view.list" => self.set_view(FileViewMode::List, cx),
             "file.view.columns" => self.set_view(FileViewMode::Columns, cx),
-            "file.sort.name" => self.set_sort(SortKey::Name, cx),
-            "file.sort.kind" => self.set_sort(SortKey::Kind, cx),
-            "file.sort.modified" => self.set_sort(SortKey::Modified, cx),
-            "file.sort.size" => self.set_sort(SortKey::Size, cx),
+            "file.sort.name" => self.set_sort(FileSortKey::Name, cx),
+            "file.sort.kind" => self.set_sort(FileSortKey::Kind, cx),
+            "file.sort.modified" => self.set_sort(FileSortKey::Modified, cx),
+            "file.sort.size" => self.set_sort(FileSortKey::Size, cx),
             "file.show-hidden" => {
                 let show = !self.model.read(cx).show_hidden();
                 self.model
@@ -819,6 +874,91 @@ impl FilePanel {
             });
         })
         .detach();
+    }
+
+    /// One rename implementation for the table, icon grid and column browser.
+    /// The widgets report intent only; the panel validates, runs the provider
+    /// task, and reconciles the result. Returns whether the edit was accepted.
+    fn commit_rename(
+        &mut self,
+        parent: LocationId,
+        id: ItemId,
+        new_name: &str,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let provider = self.model.read(cx).provider().clone();
+        if !self.capabilities.rename || new_name.trim().is_empty() {
+            return false;
+        }
+        if let Err(error) = provider.validate_name(&parent, new_name, cx) {
+            self.status_error = Some(error);
+            cx.notify();
+            return false;
+        }
+        let old_name = self.entry_for_id(&id, cx).map(|entry| entry.name);
+        if old_name.as_deref() == Some(new_name) {
+            return false;
+        }
+        let resulting_location = provider.child_location(&parent, new_name);
+        let name = new_name.to_string();
+        let task = provider.rename(&parent, &id, &name, cx);
+        cx.spawn(async move |this, cx| {
+            let result = task.await;
+            let _ = this.update(cx, |panel, cx| {
+                panel.rename_finished(parent, resulting_location, result, cx);
+            });
+        })
+        .detach();
+        true
+    }
+
+    fn entry_for_id(&self, id: &ItemId, cx: &App) -> Option<FileEntry> {
+        if let Some((_, entry)) = self.browser_entries.get(id) {
+            return Some(entry.clone());
+        }
+        let controller = self.model.read(cx).controller();
+        let controller = controller.read(cx);
+        controller
+            .index_of(id)
+            .and_then(|index| controller.item(index))
+            .cloned()
+    }
+
+    fn rename_finished(
+        &mut self,
+        parent: LocationId,
+        resulting_location: Option<LocationId>,
+        result: Result<(), FileError>,
+        cx: &mut Context<Self>,
+    ) {
+        match result {
+            Ok(()) => {
+                self.status_error = None;
+                self.pending_select = resulting_location;
+                let current = self.model.read(cx).location().clone();
+                if parent == current {
+                    self.model.update(cx, |model, cx| model.reload(cx));
+                } else if self.model.read(cx).view() == FileViewMode::Columns {
+                    // A renamed child of a non-current column: refresh that
+                    // branch instead of reloading the current directory.
+                    let branch = self
+                        .browser_entries
+                        .iter()
+                        .find(|(_, (_, entry))| entry.location == parent && entry.is_dir)
+                        .map(|(id, _)| id.clone());
+                    if let Some(branch) = branch {
+                        self.browser_children(branch, cx);
+                    }
+                }
+            }
+            Err(error) => {
+                // Keep the current selection coherent: the file did not move,
+                // so the row and its id stay valid and the name snaps back.
+                self.pending_select = None;
+                self.status_error = Some(error);
+                cx.notify();
+            }
+        }
     }
 
     fn confirm_permanent_delete(
@@ -857,22 +997,35 @@ impl FilePanel {
         });
     }
 
-    fn set_sort(&mut self, key: SortKey, cx: &mut Context<Self>) {
-        self.sort = Some(key);
-        let controller = self.model.read(cx).controller();
-        controller.update(cx, |controller, cx| {
-            controller.set_sort(Some(move |a: &FileEntry, b: &FileEntry| {
-                b.is_dir.cmp(&a.is_dir).then_with(|| match key {
-                    SortKey::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-                    SortKey::Kind => a.kind.cmp(&b.kind),
-                    SortKey::Modified => b.modified.cmp(&a.modified),
-                    SortKey::Size => b.size.cmp(&a.size),
-                })
-            }));
-            cx.notify();
+    /// Apply a context-menu sort. Choosing the current key again reverses it;
+    /// choosing a new key uses that key's natural first direction.
+    fn set_sort(&mut self, key: FileSortKey, cx: &mut Context<Self>) {
+        let sort = match self.model.read(cx).sort() {
+            Some(current) if current.key == key => current.toggled(),
+            Some(_) | None => FileSort::new(key, key.default_direction()),
+        };
+        self.apply_sort(sort, cx);
+    }
+
+    /// A header click already decided the direction; apply it to the one panel
+    /// sort model. The table's indicator is set by `apply_sort`.
+    fn table_sorted(&mut self, column: &str, direction: SortDirection, cx: &mut Context<Self>) {
+        let Some(key) = FileSortKey::from_column_id(column) else {
+            return;
+        };
+        self.apply_sort(FileSort::new(key, direction), cx);
+    }
+
+    fn apply_sort(&mut self, sort: FileSort, cx: &mut Context<Self>) {
+        self.model
+            .update(cx, |model, cx| model.set_sort(Some(sort), cx));
+        self.table.update(cx, |table, cx| {
+            table.show_sort(sort.key.column_id(), sort.direction, cx);
         });
         if self.model.read(cx).view() == FileViewMode::Columns {
             self.rebuild_browser(cx);
+        } else if self.browser.is_some() {
+            self.browser_stale = true;
         }
         cx.notify();
     }
@@ -896,9 +1049,16 @@ impl FilePanel {
                     && self.pending_rename.is_none()
                 {
                     self.rebuild_browser(cx);
+                } else if self.browser.is_some() {
+                    self.browser_stale = true;
                 }
                 if let Some(id) = self.pending_selection.take() {
                     self.apply_selection(&id, cx);
+                }
+                if let Some(location) = self.pending_select.take() {
+                    if let Some(id) = self.entry_id_for_location(&location, cx) {
+                        self.apply_selection(&id, cx);
+                    }
                 }
                 self.browser_navigation = false;
             }
@@ -936,7 +1096,7 @@ impl FilePanel {
                 controller.set_filter(None::<fn(&FileEntry) -> bool>);
             } else {
                 controller.set_filter(Some(move |entry: &FileEntry| {
-                    entry.name.to_lowercase().contains(&query)
+                    entry.name_key().contains(&query)
                 }));
             }
             cx.notify();
@@ -1348,7 +1508,12 @@ impl FilePanel {
 
     fn ensure_browser(&mut self, cx: &mut Context<Self>) {
         if self.browser.is_some() {
-            return;
+            if !self.browser_stale {
+                return;
+            }
+            self.browser = None;
+            self.browser_entries.clear();
+            self.browser_stale = false;
         }
         let mut entries: Vec<FileEntry> = self
             .model
@@ -1359,7 +1524,7 @@ impl FilePanel {
             .into_iter()
             .cloned()
             .collect();
-        self.sort_entries(&mut entries);
+        self.sort_entries(&mut entries, cx);
         self.browser_entries.clear();
         let parent = self.model.read(cx).location().clone();
         for entry in &entries {
@@ -1371,29 +1536,17 @@ impl FilePanel {
             .map(|entry| browser_node(entry, cx))
             .collect();
         let browser = cx.new(|cx| ColumnBrowser::new(nodes, cx));
-        let provider = self.model.read(cx).provider().clone();
-        let capabilities = provider.capabilities();
-        let model = self.model.clone();
+        let weak = cx.entity().downgrade();
         browser.update(cx, |browser, cx| {
             browser.set_rename(
                 move |parent, id, new_name, cx| {
-                    if !capabilities.rename
-                        || new_name.trim().is_empty()
-                        || provider.validate_name(parent, new_name, cx).is_err()
-                    {
+                    let Some(panel) = weak.upgrade() else {
                         return false;
-                    }
-                    let parent: LocationId = parent.clone();
+                    };
+                    let parent = parent.clone();
                     let id = id.clone();
                     let name = new_name.to_string();
-                    let task = provider.rename(&parent, &id, &name, cx);
-                    let model = model.clone();
-                    cx.spawn(async move |cx| {
-                        let _ = task.await;
-                        cx.update(|cx| model.update(cx, |model, cx| model.reload(cx)));
-                    })
-                    .detach();
-                    true
+                    panel.update(cx, |panel, cx| panel.commit_rename(parent, id, &name, cx))
                 },
                 cx,
             );
@@ -1450,6 +1603,7 @@ impl FilePanel {
 
     fn rebuild_browser(&mut self, cx: &mut Context<Self>) {
         self.browser = None;
+        self.browser_stale = false;
         self.ensure_browser(cx);
         cx.notify();
     }
@@ -1459,8 +1613,7 @@ impl FilePanel {
             return;
         }
         let controller = self.model.read(cx).controller();
-        let model = self.model.clone();
-        let icon_model = model.clone();
+        let icon_model = self.model.clone();
         let icons = cx.new(|cx| {
             IconGrid::new(
                 controller,
@@ -1479,31 +1632,19 @@ impl FilePanel {
                 cx,
             )
         });
-        let provider = self.model.read(cx).provider().clone();
-        let capabilities = provider.capabilities();
+        let weak = cx.entity().downgrade();
         let rename_model = self.model.clone();
         icons.update(cx, |grid, cx| {
             grid.set_multiple(self.allows_multiple, cx);
             grid.set_rename(
                 move |entry: &FileEntry, new_name: &str, cx: &mut App| {
-                    if !capabilities.rename || new_name.trim().is_empty() || entry.name == new_name
-                    {
+                    let Some(panel) = weak.upgrade() else {
                         return false;
-                    }
-                    let location = rename_model.read(cx).location().clone();
-                    if provider.validate_name(&location, new_name, cx).is_err() {
-                        return false;
-                    }
+                    };
+                    let parent = rename_model.read(cx).location().clone();
                     let id = entry.id.clone();
                     let name = new_name.to_string();
-                    let task = provider.rename(&location, &id, &name, cx);
-                    let model = rename_model.clone();
-                    cx.spawn(async move |cx| {
-                        let _ = task.await;
-                        cx.update(|cx| model.update(cx, |model, cx| model.reload(cx)));
-                    })
-                    .detach();
-                    true
+                    panel.update(cx, |panel, cx| panel.commit_rename(parent, id, &name, cx))
                 },
                 cx,
             );
@@ -1521,22 +1662,11 @@ impl FilePanel {
             });
         self._subscriptions.push(subscription);
         self.icons = Some(icons);
-        let _ = model;
         self.refresh_stops(cx);
     }
 
-    fn sort_entries(&self, entries: &mut [FileEntry]) {
-        let Some(key) = self.sort else {
-            return;
-        };
-        entries.sort_by(|a, b| {
-            b.is_dir.cmp(&a.is_dir).then_with(|| match key {
-                SortKey::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-                SortKey::Kind => a.kind.cmp(&b.kind),
-                SortKey::Modified => b.modified.cmp(&a.modified),
-                SortKey::Size => b.size.cmp(&a.size),
-            })
-        });
+    fn sort_entries(&self, entries: &mut [FileEntry], cx: &App) {
+        self.model.read(cx).sort_entries(entries);
     }
 
     fn save_panel_state(&mut self, cx: &mut Context<Self>) {
@@ -1588,7 +1718,10 @@ impl FilePanel {
                         if let Some(warning) = warnings.into_iter().next() {
                             panel.status_error = Some(warning);
                         }
-                        panel.sort_entries(&mut entries);
+                        panel.sort_entries(&mut entries, cx);
+                        let enrichment = provider.metadata_enrichment(&entries, cx);
+                        let ids: Vec<ItemId> =
+                            entries.iter().map(|entry| entry.id.clone()).collect();
                         for entry in &entries {
                             panel
                                 .browser_entries
@@ -1601,6 +1734,45 @@ impl FilePanel {
                         browser.update(cx, |browser, cx| {
                             browser.set_children(node.as_str(), nodes, cx)
                         });
+                        panel.prune_browser_entries(cx);
+                        if let Some(task) = enrichment {
+                            let node = node.clone();
+                            cx.spawn(async move |this, cx| {
+                                let result = task.await;
+                                let _ = this.update(cx, |panel, cx| {
+                                    let Ok(updates) = result else {
+                                        return;
+                                    };
+                                    for (id, metadata) in updates {
+                                        if let Some((_, entry)) = panel.browser_entries.get_mut(&id)
+                                        {
+                                            metadata.apply(entry);
+                                        }
+                                    }
+                                    let Some(browser) = panel.browser.clone() else {
+                                        return;
+                                    };
+                                    let mut refreshed: Vec<FileEntry> = ids
+                                        .iter()
+                                        .filter_map(|id| {
+                                            panel
+                                                .browser_entries
+                                                .get(id)
+                                                .map(|(_, entry)| entry.clone())
+                                        })
+                                        .collect();
+                                    panel.sort_entries(&mut refreshed, cx);
+                                    let nodes: Vec<BrowserNode> = refreshed
+                                        .iter()
+                                        .map(|entry| browser_node(entry, cx))
+                                        .collect();
+                                    browser.update(cx, |browser, cx| {
+                                        browser.set_children(node.as_str(), nodes, cx)
+                                    });
+                                });
+                            })
+                            .detach();
+                        }
                     }
                     Err(error) => {
                         panel.status_error = Some(error);
@@ -1625,6 +1797,22 @@ impl FilePanel {
 
     fn browser_entry(&self, id: &ItemId) -> Option<(LocationId, FileEntry)> {
         self.browser_entries.get(id).cloned()
+    }
+
+    /// Drop cold column entries once the map is over budget. Ids still shown
+    /// in any column survive; reopening a cached branch re-requests its
+    /// children (the browser fills them from cache first, then refreshes).
+    fn prune_browser_entries(&mut self, cx: &App) {
+        if self.browser_entries.len() <= MAX_BROWSER_ENTRIES {
+            return;
+        }
+        let Some(browser) = &self.browser else {
+            self.browser_entries.clear();
+            return;
+        };
+        let visible: std::collections::HashSet<ItemId> =
+            browser.read(cx).visible_ids(cx).into_iter().collect();
+        self.browser_entries.retain(|id, _| visible.contains(id));
     }
 
     /// The selected column-browser entry, when the panel is in column mode.
@@ -1746,8 +1934,8 @@ fn build_sidebar(places: &[FilePlace], cx: &mut App) -> Entity<SourceList> {
 
 fn build_table(
     model: Entity<FileBrowserModel>,
-    provider: Rc<dyn FileProvider>,
     options: PanelOptions,
+    rename_panel: Rc<RefCell<Option<WeakEntity<FilePanel>>>>,
     cx: &mut App,
 ) -> Entity<TableView<FileEntry>> {
     let allowed = options.allowed_types.clone();
@@ -1787,27 +1975,17 @@ fn build_table(
         .width(220.0)
         .sort_by_text()
         .editable({
-            let provider = provider.clone();
             let model = model.clone();
-            let capabilities = provider.capabilities();
+            let rename_panel = rename_panel.clone();
             move |entry: &FileEntry, new_name: &str, cx: &mut App| {
-                if !capabilities.rename || new_name.trim().is_empty() || entry.name == new_name {
+                let weak = rename_panel.borrow().clone();
+                let Some(panel) = weak.and_then(|weak| weak.upgrade()) else {
                     return false;
-                }
-                let location = model.read(cx).location().clone();
-                if provider.validate_name(&location, new_name, cx).is_err() {
-                    return false;
-                }
+                };
+                let parent = model.read(cx).location().clone();
                 let id = entry.id.clone();
                 let name = new_name.to_string();
-                let task = provider.rename(&location, &id, &name, cx);
-                let model = model.clone();
-                cx.spawn(async move |cx| {
-                    let _ = task.await;
-                    cx.update(|cx| model.update(cx, |model, cx| model.reload(cx)));
-                })
-                .detach();
-                true
+                panel.update(cx, |panel, cx| panel.commit_rename(parent, id, &name, cx))
             }
         }),
         TableColumn::text("modified", "Date Modified", |entry: &FileEntry| {
@@ -1828,13 +2006,21 @@ fn build_table(
         .sortable(|a: &FileEntry, b: &FileEntry| a.kind.cmp(&b.kind)),
     ];
     let controller = model.read(cx).controller();
-    cx.new(|cx| {
+    let sort = model.read(cx).sort();
+    let table = cx.new(|cx| {
         let mut table = TableView::new(controller, columns, cx);
         table.set_row_height(19.0, cx);
         table.set_allows_multiple(options.allows_multiple);
         table.set_fill_width(true, cx);
+        table.set_external_sort(true, cx);
         table
-    })
+    });
+    if let Some(sort) = sort {
+        table.update(cx, |table, cx| {
+            table.show_sort(sort.key.column_id(), sort.direction, cx);
+        });
+    }
+    table
 }
 
 fn browser_node(entry: &FileEntry, _: &App) -> BrowserNode {
@@ -2812,6 +2998,13 @@ impl FilePanel {
         self.model.read(cx).selected_entries(cx).len()
     }
 
+    /// The provider or mutation error currently shown in the panel's status
+    /// line, if any.
+    #[must_use]
+    pub fn status_error(&self) -> Option<&FileError> {
+        self.status_error.as_ref()
+    }
+
     /// The name field's current text, or empty for an Open panel.
     #[must_use]
     pub fn name_text(&self, cx: &App) -> String {
@@ -2874,6 +3067,13 @@ impl FilePanel {
     #[must_use]
     pub fn sidebar_entity(&self) -> Entity<SourceList> {
         self.sidebar.clone()
+    }
+
+    /// The column browser when it has been built, for tests and consumers that
+    /// inspect its presentation state.
+    #[must_use]
+    pub fn browser(&self) -> Option<Entity<ColumnBrowser>> {
+        self.browser.clone()
     }
 
     /// Activate the default button programmatically (Return outside a text

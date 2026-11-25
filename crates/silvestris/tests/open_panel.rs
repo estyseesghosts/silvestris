@@ -363,6 +363,181 @@ fn a_thirty_thousand_entry_directory_builds_only_the_rows_in_view() {
 }
 
 #[test]
+fn one_sort_model_orders_list_icons_and_columns_the_same_way() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        vec![
+            FileEntry::document("b", "beta.txt"),
+            FileEntry::folder("d", "Delta"),
+            FileEntry::document("a", "Alpha.txt"),
+            FileEntry::document("c", "charlie.txt"),
+        ],
+    );
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider))
+            .directory("/")
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let names = |cx: &mut VisualTestContext| -> Vec<String> {
+        cx.read(|cx| {
+            panel
+                .read(cx)
+                .model()
+                .read(cx)
+                .controller()
+                .read(cx)
+                .visible()
+                .map(|entry| entry.name.to_string())
+                .collect()
+        })
+    };
+
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(cx);
+    let header = cx.debug_bounds("table-header-name").expect("name header");
+    cx.simulate_click(header.center(), Modifiers::default());
+    draw(cx);
+    assert_eq!(names(cx), ["Delta", "Alpha.txt", "beta.txt", "charlie.txt"]);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).table().read(cx).sort()),
+        Some((
+            "name".into(),
+            silvestris::controls::SortDirection::Ascending
+        ))
+    );
+
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(cx);
+    assert_eq!(
+        names(cx),
+        ["Delta", "Alpha.txt", "beta.txt", "charlie.txt"],
+        "the icon view reads the same controller"
+    );
+
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(cx);
+    let labels: Vec<String> = cx.read(|cx| {
+        panel
+            .read(cx)
+            .browser()
+            .expect("column browser")
+            .read(cx)
+            .children_of("")
+            .expect("root children")
+            .iter()
+            .map(|node| node.label.to_string())
+            .collect()
+    });
+    assert_eq!(labels, ["Delta", "Alpha.txt", "beta.txt", "charlie.txt"]);
+
+    // The same header toggles the shared direction; folders stay first and
+    // every view follows.
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(cx);
+    let header = cx.debug_bounds("table-header-name").expect("name header");
+    cx.simulate_click(header.center(), Modifiers::default());
+    draw(cx);
+    let descending = ["Delta", "charlie.txt", "beta.txt", "Alpha.txt"];
+    assert_eq!(names(cx), descending);
+    assert_eq!(
+        cx.read(|cx| panel
+            .read(cx)
+            .model()
+            .read(cx)
+            .sort()
+            .map(|sort| sort.direction)),
+        Some(silvestris::controls::SortDirection::Descending)
+    );
+
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(cx);
+    assert_eq!(names(cx), descending, "icons follow the toggle");
+
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(cx);
+    let labels: Vec<String> = cx.read(|cx| {
+        panel
+            .read(cx)
+            .browser()
+            .expect("column browser")
+            .read(cx)
+            .children_of("")
+            .expect("root children")
+            .iter()
+            .map(|node| node.label.to_string())
+            .collect()
+    });
+    assert_eq!(labels, descending, "columns follow the toggle");
+}
+
+#[test]
+fn a_thirty_thousand_entry_directory_builds_only_the_icon_cells_in_view() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
+    let provider = MemoryProvider::new();
+    provider.add_location(
+        "/",
+        "Computer",
+        Icon::Volume,
+        None,
+        (0..30_000)
+            .map(|i| FileEntry::document(i.to_string(), format!("File {i}.txt")))
+            .collect(),
+    );
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let panel = cx.update(|window, cx| {
+        OpenPanel::new(Rc::new(provider))
+            .directory("/")
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(cx);
+    assert!(cx.debug_bounds("icon-grid").is_some());
+    assert!(cx.debug_bounds("icon-cell-0").is_some());
+    assert!(
+        cx.debug_bounds("icon-cell-500").is_none(),
+        "the icon grid materialises only the cells in view"
+    );
+    assert!(
+        cx.read(|cx| panel
+            .read(cx)
+            .model()
+            .read(cx)
+            .controller()
+            .read(cx)
+            .visible_len())
+            == 30_000,
+        "the controller still owns the whole directory"
+    );
+}
+
+#[test]
 fn presenting_without_an_owner_uses_an_application_modal_window() {
     let mut app = TestAppContext::single();
     app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));

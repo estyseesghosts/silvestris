@@ -102,8 +102,13 @@ struct Column {
 
 pub struct ColumnBrowser {
     columns: Vec<Column>,
-    /// Children already supplied, by parent id (the root is "").
-    children: HashMap<ItemId, Vec<BrowserNode>>,
+    /// Children already supplied, by parent id (the root is ""). Shared
+    /// immutably; a column's controller is the only per-column copy.
+    children: HashMap<ItemId, Rc<[BrowserNode]>>,
+    /// Recency for [`children`](Self::children); the current path and the most
+    /// recent branches stay, cold ones are dropped.
+    children_used: HashMap<ItemId, u64>,
+    clock: u64,
     preview: Option<PreviewFn>,
     rename: Option<RenameFn>,
     column_width: f32,
@@ -136,12 +141,17 @@ const GRIP_GAP: f32 = 3.0;
 const GRIP_INSET: f32 = 5.0;
 /// M: browser.rows: 19 px rows, as in the Finder list view.
 const ROW_HEIGHT: f32 = 19.0;
+/// Branch listings kept in memory: the current path plus a small recent set.
+/// Repeated browsing must not retain every directory ever visited.
+pub const MAX_CACHED_BRANCHES: usize = 32;
 
 impl ColumnBrowser {
     pub fn new(roots: Vec<BrowserNode>, cx: &mut Context<Self>) -> Self {
         let mut browser = Self {
             columns: Vec::new(),
             children: HashMap::new(),
+            children_used: HashMap::new(),
+            clock: 0,
             preview: None,
             rename: None,
             column_width: COLUMN_WIDTH,
@@ -149,7 +159,8 @@ impl ColumnBrowser {
             focus: cx.focus_handle(),
             resizing: None,
         };
-        browser.children.insert(ROOT.into(), roots);
+        browser.children.insert(ROOT.into(), Rc::from(roots));
+        browser.touch(ROOT.into());
         browser.push_column(None, cx);
         browser
     }
@@ -208,7 +219,9 @@ impl ColumnBrowser {
     /// re-open it.
     pub fn set_children(&mut self, parent: &str, nodes: Vec<BrowserNode>, cx: &mut Context<Self>) {
         let key: ItemId = parent.to_string().into();
-        self.children.insert(key.clone(), nodes.clone());
+        let shared: Rc<[BrowserNode]> = Rc::from(nodes);
+        self.children.insert(key.clone(), shared.clone());
+        self.touch(key.clone());
         for column in &mut self.columns {
             let matches = match &column.parent {
                 None => parent == ROOT,
@@ -217,17 +230,74 @@ impl ColumnBrowser {
             if matches {
                 column.loaded = true;
                 column.list.update(cx, |list, cx| {
-                    list.set_items(nodes.clone());
+                    list.set_items(shared.to_vec());
                     cx.notify();
                 });
             }
         }
+        self.prune_children();
         cx.notify();
     }
 
     /// Children supplied for `parent`, if any.
     pub fn children_of(&self, parent: &str) -> Option<&[BrowserNode]> {
-        self.children.get(parent).map(Vec::as_slice)
+        self.children.get(parent).map(|nodes| nodes.as_ref())
+    }
+
+    /// How many branch listings the cache currently holds. Bounded by
+    /// [`MAX_CACHED_BRANCHES`] plus the open path.
+    #[must_use]
+    pub fn cached_branch_count(&self) -> usize {
+        self.children.len()
+    }
+
+    /// Ids currently shown in any column, used to bound consumer-side entry
+    /// maps to what can still be acted on.
+    #[must_use]
+    pub fn visible_ids(&self, cx: &App) -> Vec<ItemId> {
+        let mut ids = Vec::new();
+        for column in &self.columns {
+            let list = column.list.read(cx);
+            ids.extend(list.visible().map(|node| node.id.clone()));
+        }
+        ids
+    }
+
+    fn touch(&mut self, key: ItemId) {
+        self.clock = self.clock.wrapping_add(1);
+        self.children_used.insert(key, self.clock);
+    }
+
+    /// Keep the root, every open column's parent and a small recent set.
+    /// A late answer for a truncated column may still be cached, but the cache
+    /// cannot grow with the session.
+    fn prune_children(&mut self) {
+        if self.children.len() <= MAX_CACHED_BRANCHES {
+            return;
+        }
+        let mut keep: std::collections::HashSet<ItemId> = std::collections::HashSet::new();
+        keep.insert(ROOT.into());
+        for column in &self.columns {
+            keep.insert(column.parent.clone().unwrap_or_else(|| ROOT.into()));
+        }
+        let mut recent: Vec<(u64, ItemId)> = self
+            .children
+            .keys()
+            .filter(|key| !keep.contains(*key))
+            .map(|key| {
+                (
+                    self.children_used.get(key).copied().unwrap_or(0),
+                    key.clone(),
+                )
+            })
+            .collect();
+        recent.sort_by_key(|(used, _)| std::cmp::Reverse(*used));
+        let room = MAX_CACHED_BRANCHES.saturating_sub(keep.len());
+        for (_, key) in recent.into_iter().take(room) {
+            keep.insert(key);
+        }
+        self.children.retain(|key, _| keep.contains(key));
+        self.children_used.retain(|key, _| keep.contains(key));
     }
 
     /// The selected path, root first.
@@ -303,7 +373,7 @@ impl ColumnBrowser {
         let loaded = known.is_some();
         let list = cx.new(|_| {
             let mut list = ListController::new(|n: &BrowserNode| n.id.clone());
-            list.set_items(known.unwrap_or_default());
+            list.set_items(known.map(|nodes| nodes.to_vec()).unwrap_or_default());
             list
         });
         let rename_parent: ItemId = parent.clone().unwrap_or_else(|| ROOT.into());
@@ -341,11 +411,13 @@ impl ColumnBrowser {
             loaded,
             _events: events,
         });
-        if !loaded {
-            if let Some(parent) = parent {
-                cx.emit(BrowserEvent::NeedsChildren(parent));
-            }
+        // Cached children paint immediately, but the app is asked to refresh
+        // them: reopening a branch must not resurrect stale rows, and the
+        // panel rebuilds its id-to-entry map from the answer.
+        if let Some(parent) = parent {
+            cx.emit(BrowserEvent::NeedsChildren(parent));
         }
+        self.prune_children();
     }
 
     /// Rebuild the columns right of `depth` from its selection.

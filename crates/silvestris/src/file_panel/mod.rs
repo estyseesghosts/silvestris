@@ -20,7 +20,7 @@ pub mod std_fs;
 pub use crate::controls::path_control::LocationId;
 pub use model::{
     choosable, compare_kind_folders_first, place_icon, FileBrowserEvent, FileBrowserModel,
-    FileViewMode,
+    FileSort, FileSortKey, FileViewMode,
 };
 pub use open::OpenPanel;
 pub use panel::{
@@ -29,7 +29,8 @@ pub use panel::{
 };
 pub use provider::{
     modified_seconds, validate_structural_name, FileAncestor, FileEntry, FileError, FileKind,
-    FileListing, FilePlace, FileProvider, FileProviderCapabilities, MemoryProvider, PlaceSection,
+    FileListing, FileMetadata, FilePlace, FileProvider, FileProviderCapabilities, MemoryProvider,
+    PlaceSection,
 };
 pub use save::SavePanel;
 pub use state::{MemoryPanelStateStore, PanelState, PanelStateStore, PreferencePanelStates};

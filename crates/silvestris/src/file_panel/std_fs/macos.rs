@@ -50,9 +50,12 @@ pub(super) fn host_places(home: Option<&Path>) -> Vec<HostPlace> {
         for entry in entries.flatten() {
             let path = entry.path();
             let label = entry.file_name().to_string_lossy().into_owned();
-            out.push(
-                HostPlace::place(path, label, Icon::Volume, PlaceSection::Devices).eject(true),
-            );
+            out.push(HostPlace::place(
+                path,
+                label,
+                Icon::Volume,
+                PlaceSection::Devices,
+            ));
         }
     }
     out

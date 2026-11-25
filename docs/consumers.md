@@ -382,7 +382,7 @@ Pins verified on 2026-11-23. Full commit ids, not abbreviations, belong in
 | Consumer | Pin | Form | Local patches |
 | --- | --- | --- | --- |
 | lotus | `d1db8f0c6cbe80e80fb1dfebbb5c78990d2b9265` | vendored `vendor/silvestris` (tree `a1b78ec`) | Inspector scroll, inspector focus deferral, printable keys, Settings bounds |
-| chaus | `a62b3b2553cc4af4c109b092d234522346006d30` | git revision | none |
+| chaus | `30173a5860ad263feacb3d417a73c3a354a21e78` | git revision | none |
 | johjoh | `d1db8f0c6cbe80e80fb1dfebbb5c78990d2b9265` | git revision | none |
 | sandcat | uncommitted checkout | path dependency | deferred |
 
@@ -435,7 +435,6 @@ deferred.
 | chaus | Close / conflict / recovery prompts (`editor_close.rs`, `editor_conflict.rs`, `editor_recovery.rs`) | [#37](https://github.com/estyseesghosts/silvestris/issues/37), [#22](https://github.com/estyseesghosts/silvestris/issues/22), [#23](https://github.com/estyseesghosts/silvestris/issues/23) (policies stay app-owned) |
 | chaus | Menus assembled by hand (`tests/menus.rs`) | [#24](https://github.com/estyseesghosts/silvestris/issues/24) |
 | chaus | Startup-only shortcut bindings | [#66](https://github.com/estyseesghosts/silvestris/issues/66) |
-| chaus | Open/Save | [#29](https://github.com/estyseesghosts/silvestris/issues/29) |
 | chaus | Locally registered Geist Sans house font (`chaus-app/assets/fonts`) | [#71](https://github.com/estyseesghosts/silvestris/issues/71) (font overrides), then [#70](https://github.com/estyseesghosts/silvestris/issues/70) |
 | chaus | Ropey editor, Vim engine, highlighting | app-owned by design (may reuse [#58](https://github.com/estyseesghosts/silvestris/issues/58) IME/selection traits) |
 | johjoh | `heading`/`caption`/`group` helpers | `group` → `controls::GroupBox` (#13, adoption: estyseesghosts/johjoh#4); `heading`/`caption` need typography roles (unfiled) |
@@ -444,6 +443,16 @@ deferred.
 | johjoh | `render_bottom` progress/status strip | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#8](https://github.com/estyseesghosts/silvestris/issues/8) |
 | johjoh | Error advice text | [#23](https://github.com/estyseesghosts/silvestris/issues/23) |
 | johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
+
+Chaus adopted #29 at `30173a58`: File → Open is
+`OpenPanel::run_modal` in a `WindowRole::OpenPanel` window, and Save As is
+`SavePanel::begin_sheet` attached to the document. Chaus keeps one
+`StdFsProvider` in `chaus-editor::FileDialogs` for the application session,
+persists the separate Open and Save panel state plus the Open frame in a
+UI-preferences document, and maps `SaveDisposition` onto its existing
+create-new/overwrite save engine. The consumer tests open a real editor
+window against a temporary directory and drive the real panel, so further
+Open/Save changes should be validated through Chaus before they ship.
 
 A new bespoke element goes in this table with an issue number or an app-owned
 reason. "App-owned" means the element encodes policy the framework cannot

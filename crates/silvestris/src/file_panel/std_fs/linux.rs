@@ -40,18 +40,15 @@ pub(super) fn host_places(home: Option<&Path>) -> Vec<HostPlace> {
         PlaceSection::Devices,
     ));
     for mount in removable_mounts() {
-        out.push(
-            HostPlace::place(
-                mount.clone(),
-                mount
-                    .file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| mount.display().to_string()),
-                Icon::Volume,
-                PlaceSection::Devices,
-            )
-            .eject(true),
-        );
+        out.push(HostPlace::place(
+            mount.clone(),
+            mount
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| mount.display().to_string()),
+            Icon::Volume,
+            PlaceSection::Devices,
+        ));
     }
     out
 }

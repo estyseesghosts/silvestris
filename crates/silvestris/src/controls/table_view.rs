@@ -197,11 +197,13 @@ impl<T: 'static> TableColumn<T> {
         self
     }
 
-    /// Sort by the column text, case-insensitively.
+    /// Sort by the column text, case-insensitively. The comparison folds each
+    /// character in place, so it allocates no temporary strings. A model with
+    /// a precomputed key should use [`sortable`](Self::sortable) instead.
     pub fn sort_by_text(self) -> Self {
         let text = self.text.clone();
         self.sortable(move |a, b| match &text {
-            Some(text) => text(a).to_lowercase().cmp(&text(b).to_lowercase()),
+            Some(text) => lower_order(&text(a), &text(b)),
             None => Ordering::Equal,
         })
     }
@@ -228,6 +230,13 @@ pub fn icon_text(icon: impl IntoElement, label: impl Into<SharedString>) -> AnyE
         .child(div().flex_none().child(icon))
         .child(div().truncate().child(label.into()))
         .into_any_element()
+}
+
+/// Case-insensitive string order without allocating a lowercase copy.
+fn lower_order(a: &str, b: &str) -> Ordering {
+    a.chars()
+        .flat_map(char::to_lowercase)
+        .cmp(b.chars().flat_map(char::to_lowercase))
 }
 
 /// What the user did, reported to the app.
@@ -286,6 +295,10 @@ pub struct TableView<T: 'static> {
     /// Display order as indices into `columns`.
     order: Vec<usize>,
     sort: Option<(SharedString, SortDirection)>,
+    /// When true the app owns sorting: a header click updates the indicator and
+    /// emits [`TableEvent::Sorted`], but does not change the controller. The
+    /// file panel sets this so its single sort model stays authoritative.
+    external_sort: bool,
     scroll: UniformListScrollHandle,
     focus: FocusHandle,
     row_height: f32,
@@ -324,6 +337,7 @@ impl<T: 'static> TableView<T> {
             columns,
             order,
             sort: None,
+            external_sort: false,
             scroll: UniformListScrollHandle::new(),
             focus: cx.focus_handle(),
             row_height: theme.metrics.table_row_height,
@@ -496,7 +510,33 @@ impl<T: 'static> TableView<T> {
         self.sort.clone()
     }
 
-    /// Sort by `column` programmatically (no event).
+    /// Let the app own sorting. A header click then updates only this table's
+    /// indicator and emits [`TableEvent::Sorted`]; the app applies the same
+    /// policy to the controller and to every other view.
+    pub fn set_external_sort(&mut self, external: bool, cx: &mut Context<Self>) {
+        self.external_sort = external;
+        cx.notify();
+    }
+
+    /// Show `column` as sorted without touching the controller or emitting an
+    /// event. The panel calls it when its sort model changes from a menu.
+    pub fn show_sort(&mut self, column: &str, direction: SortDirection, cx: &mut Context<Self>) {
+        if self.columns.iter().any(|c| c.id.as_ref() == column) {
+            self.sort = Some((column.to_string().into(), direction));
+            cx.notify();
+        }
+    }
+
+    /// Screen `column` as unsorted without touching the controller.
+    pub fn clear_sort(&mut self, cx: &mut Context<Self>) {
+        if self.sort.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Sort by `column` programmatically (no event). With
+    /// [`set_external_sort`](Self::set_external_sort) this only updates the
+    /// presentation, because the app owns the controller's comparator.
     pub fn set_sort(&mut self, column: &str, direction: SortDirection, cx: &mut Context<Self>) {
         let Some(compare) = self
             .columns
@@ -507,6 +547,10 @@ impl<T: 'static> TableView<T> {
             return;
         };
         self.sort = Some((column.to_string().into(), direction));
+        if self.external_sort {
+            self.reveal_lead(cx);
+            return;
+        }
         self.controller.update(cx, |controller, cx| {
             match direction {
                 SortDirection::Ascending => {

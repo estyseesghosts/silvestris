@@ -184,6 +184,28 @@ fn reloading_children_keeps_the_selection_by_id() {
 }
 
 #[test]
+fn the_branch_cache_is_bounded_after_visiting_many_branches() {
+    let mut app = TestAppContext::single();
+    let total = silvestris::controls::column_browser::MAX_CACHED_BRANCHES + 12;
+    let roots: Vec<BrowserNode> = (0..total)
+        .map(|index| branch(&format!("branch-{index}")))
+        .collect();
+    let mut f = open(&mut app, roots);
+    for index in 0..total {
+        let id = format!("branch-{index}");
+        f.click(&id);
+        f.set_children(&id, vec![leaf("child")]);
+    }
+    let cached = f.cx.read(|cx| f.browser.read(cx).cached_branch_count());
+    assert!(
+        cached <= silvestris::controls::column_browser::MAX_CACHED_BRANCHES + 1,
+        "cold branch listings are evicted: {cached} cached"
+    );
+    // The currently open path is still resolved from our answer.
+    assert!(f.cx.debug_bounds("table-row-child").is_some());
+}
+
+#[test]
 fn a_column_of_ten_thousand_rows_builds_only_the_rows_in_view() {
     let mut app = TestAppContext::single();
     let roots: Vec<BrowserNode> = (0..10_000).map(|i| leaf(&format!("row-{i}"))).collect();

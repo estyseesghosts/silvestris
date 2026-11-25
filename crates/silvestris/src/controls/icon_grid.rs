@@ -335,13 +335,7 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let controller_entity = self.controller.clone();
-        let controller = controller_entity.read(cx);
-        let count = controller.visible_len();
-        let items: Vec<(ItemId, SharedString)> = controller
-            .visible_items()
-            .into_iter()
-            .map(|item| (controller.id_of(item), (self.label)(item)))
-            .collect();
+        let count = controller_entity.read(cx).visible_len();
 
         let viewport = self.scroll.viewport().width;
         let columns = if viewport > px(0.) {
@@ -352,6 +346,7 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
         self.columns.set(columns);
         let rows = count.div_ceil(columns);
         let icon = self.icon.clone();
+        let label = self.label.clone();
         let focus = self.focus.clone();
         let view = cx.entity();
         let editing = self
@@ -365,13 +360,23 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                     let mut cells = Vec::with_capacity(columns);
                     for column in 0..columns {
                         let index = row * columns + column;
-                        let Some((id, label)) = items.get(index) else {
-                            break;
-                        };
-                        let id = id.clone();
-                        let is_selected = controller_entity.read(cx).is_selected(&id);
                         let active =
                             window.is_window_active() && focus.contains_focused(window, cx);
+                        let icon = icon.clone();
+                        // Materialise only the cells this range actually
+                        // builds; the controller stays the single source of
+                        // truth and no second item snapshot exists.
+                        let cell = controller_entity.update(cx, |controller, cx| {
+                            let item = controller.visible_item(index)?;
+                            let id = controller.id_of(item);
+                            let is_selected = controller.is_selected(&id);
+                            let label = (label)(item);
+                            let icon_element = (icon)(item, is_selected, active, window, cx);
+                            Some((id, is_selected, label, icon_element))
+                        });
+                        let Some((id, is_selected, label, icon_element)) = cell else {
+                            break;
+                        };
                         let selection = if active {
                             list_theme.lists.table_active
                         } else {
@@ -382,14 +387,6 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                         } else {
                             list_theme.colors.text
                         };
-                        let icon = icon.clone();
-                        let icon_element = controller_entity
-                            .update(cx, |controller, cx| {
-                                controller
-                                    .visible_item(index)
-                                    .map(|item| (icon)(item, is_selected, active, window, cx))
-                            })
-                            .unwrap_or_else(|| div().size(px(ICON_SIZE)).into_any_element());
                         let click_id = id.clone();
                         let menu_id = id.clone();
                         let view = view.clone();
@@ -437,7 +434,7 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                                         .w_full()
                                         .px(px(4.))
                                         .text_center()
-                                        .child(label.clone())
+                                        .child(label)
                                         .into_any_element(),
                                 })
                                 .child(

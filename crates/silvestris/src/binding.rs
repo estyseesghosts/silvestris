@@ -13,6 +13,7 @@
 //! do with a user selection.
 
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use gpui::{prelude::*, App, ElementId, Entity, SharedString, Window};
@@ -318,9 +319,16 @@ pub type ItemId = SharedString;
 pub struct ListController<T> {
     id: IdFn<T>,
     items: Vec<T>,
+    /// Item indices in current sort/filter order.
     visible: Vec<usize>,
+    /// Item index by id, rebuilt whenever the item set changes.
+    by_id: HashMap<ItemId, usize>,
+    /// Visible position by id, rebuilt on every refresh.
+    visible_by_id: HashMap<ItemId, usize>,
     /// Selected ids in selection order; the last one is the lead.
     selected: Vec<ItemId>,
+    /// Membership for [`selected`](Self::selected), so `is_selected` is O(1).
+    selected_set: HashSet<ItemId>,
     /// Where a Shift-extension starts (HIG p. 333 list selection).
     anchor: Option<ItemId>,
     filter: Option<FilterFn<T>>,
@@ -334,7 +342,10 @@ impl<T: 'static> ListController<T> {
             id: Rc::new(id),
             items: Vec::new(),
             visible: Vec::new(),
+            by_id: HashMap::new(),
+            visible_by_id: HashMap::new(),
             selected: Vec::new(),
+            selected_set: HashSet::new(),
             anchor: None,
             filter: None,
             sort: None,
@@ -342,10 +353,48 @@ impl<T: 'static> ListController<T> {
     }
 
     /// Replace the items, keeping the selection and the sort/filter. Selection
-    /// survives a reload because it is an id, not an index.
+    /// survives a reload because it is an id, not an index; ids that no longer
+    /// exist are pruned and an anchor that vanished is repaired to the lead.
     pub fn set_items(&mut self, items: Vec<T>) {
         self.items = items;
+        self.reindex();
+    }
+
+    /// Rebuild the id map, prune vanished selected ids and refresh the visible
+    /// order. Call it after mutating items in place.
+    fn reindex(&mut self) {
+        self.by_id = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| ((self.id)(item), index))
+            .collect();
+        self.selected.retain(|id| self.by_id.contains_key(id));
+        self.selected_set = self.selected.iter().cloned().collect();
+        if self
+            .anchor
+            .as_ref()
+            .is_some_and(|anchor| !self.by_id.contains_key(anchor))
+        {
+            self.anchor = self.selected.last().cloned();
+        }
         self.refresh();
+    }
+
+    /// Mutate every item in place, then rebuild the id map, sort and filter.
+    /// The update must not change an item's id; if it does, the new id wins.
+    pub fn update_items(&mut self, mut update: impl FnMut(&mut T)) {
+        for item in &mut self.items {
+            update(item);
+        }
+        self.reindex();
+    }
+
+    /// Drop items that no longer pass `keep`, rebuilding ids, selection and
+    /// the visible order. Used when late metadata reveals a hidden entry.
+    pub fn retain_items(&mut self, mut keep: impl FnMut(&T) -> bool) {
+        self.items.retain(|item| keep(item));
+        self.reindex();
     }
 
     #[must_use]
@@ -385,6 +434,11 @@ impl<T: 'static> ListController<T> {
         if let Some(sort) = &self.sort {
             visible.sort_by(|left, right| sort(&self.items[*left], &self.items[*right]));
         }
+        self.visible_by_id = visible
+            .iter()
+            .enumerate()
+            .map(|(position, index)| ((self.id)(&self.items[*index]), position))
+            .collect();
         self.visible = visible;
     }
 
@@ -419,7 +473,7 @@ impl<T: 'static> ListController<T> {
 
     #[must_use]
     pub fn is_selected(&self, id: &ItemId) -> bool {
-        self.selected.contains(id)
+        self.selected_set.contains(id)
     }
 
     /// Where the next Shift-extension starts.
@@ -436,16 +490,20 @@ impl<T: 'static> ListController<T> {
         if self.selected.len() == 1 && self.selected[0] == id {
             return false;
         }
-        self.selected = vec![id];
+        self.selected.clear();
+        self.selected.push(id.clone());
+        self.selected_set.clear();
+        self.selected_set.insert(id);
         true
     }
 
     /// Replace the selection. The last id becomes the lead and the anchor.
     /// Returns whether the selection changed.
     pub fn set_selection(&mut self, ids: Vec<ItemId>) -> bool {
+        let mut seen = HashSet::with_capacity(ids.len());
         let mut unique: Vec<ItemId> = Vec::with_capacity(ids.len());
         for id in ids {
-            if !unique.contains(&id) {
+            if seen.insert(id.clone()) {
                 unique.push(id);
             }
         }
@@ -453,6 +511,7 @@ impl<T: 'static> ListController<T> {
         if unique == self.selected {
             return false;
         }
+        self.selected_set = seen;
         self.selected = unique;
         true
     }
@@ -461,10 +520,13 @@ impl<T: 'static> ListController<T> {
     /// anchor either way.
     pub fn toggle(&mut self, id: impl Into<ItemId>) {
         let id = id.into();
-        if let Some(position) = self.selected.iter().position(|s| s == &id) {
-            self.selected.remove(position);
+        if self.selected_set.remove(&id) {
+            if let Some(position) = self.selected.iter().position(|selected| selected == &id) {
+                self.selected.remove(position);
+            }
         } else {
             self.selected.push(id.clone());
+            self.selected_set.insert(id.clone());
         }
         self.anchor = Some(id);
     }
@@ -491,16 +553,19 @@ impl<T: 'static> ListController<T> {
             .into_iter()
             .map(|visible| (self.id)(&self.items[self.visible[visible]]))
             .collect();
+        self.selected_set = self.selected.iter().cloned().collect();
     }
 
     /// Select every visible item.
     pub fn select_all(&mut self) {
         self.selected = self.visible_ids();
+        self.selected_set = self.selected.iter().cloned().collect();
         self.anchor = self.selected.first().cloned();
     }
 
     pub fn clear_selection(&mut self) {
         self.selected.clear();
+        self.selected_set.clear();
         self.anchor = None;
     }
 
@@ -508,14 +573,14 @@ impl<T: 'static> ListController<T> {
     #[must_use]
     pub fn selected(&self) -> Option<&T> {
         let id = self.selected.last()?;
-        self.items.iter().find(|item| &(self.id)(item) == id)
+        self.by_id.get(id).map(|index| &self.items[*index])
     }
 
     /// Selected items still present, in visible order.
     #[must_use]
     pub fn selected_items(&self) -> Vec<&T> {
         self.visible()
-            .filter(|item| self.selected.contains(&(self.id)(item)))
+            .filter(|item| self.selected_set.contains(&(self.id)(item)))
             .collect()
     }
 
@@ -525,12 +590,16 @@ impl<T: 'static> ListController<T> {
         self.visible.get(index).map(|item| &self.items[*item])
     }
 
+    /// The stable id at `index` in visible order.
+    #[must_use]
+    pub fn visible_id(&self, index: usize) -> Option<ItemId> {
+        self.visible_item(index).map(|item| (self.id)(item))
+    }
+
     /// Position of `id` in visible order.
     #[must_use]
     pub fn visible_index_of(&self, id: &ItemId) -> Option<usize> {
-        self.visible
-            .iter()
-            .position(|item| &(self.id)(&self.items[*item]) == id)
+        self.visible_by_id.get(id).copied()
     }
 
     /// The stable id of `item`.
@@ -541,7 +610,13 @@ impl<T: 'static> ListController<T> {
 
     #[must_use]
     pub fn index_of(&self, id: &ItemId) -> Option<usize> {
-        self.items.iter().position(|item| &(self.id)(item) == id)
+        self.by_id.get(id).copied()
+    }
+
+    /// The item at an item index (not a visible position).
+    #[must_use]
+    pub fn item(&self, index: usize) -> Option<&T> {
+        self.items.get(index)
     }
 
     /// Feed a source list without changing selection semantics.

@@ -54,6 +54,24 @@ fn wait<T: 'static>(
     result.expect("the provider task completed")
 }
 
+/// A listing arrives in two stages: names and kinds first, metadata second.
+fn enrich(
+    cx: &mut VisualTestContext,
+    provider: &StdFsProvider,
+    listing: &mut silvestris::file_panel::FileListing,
+) {
+    let Some(task) = cx.update(|_, cx| provider.metadata_enrichment(&listing.entries, cx)) else {
+        return;
+    };
+    let updates = wait(cx, task).expect("metadata enrichment");
+    let by_id: std::collections::HashMap<_, _> = updates.into_iter().collect();
+    for entry in &mut listing.entries {
+        if let Some(metadata) = by_id.get(&entry.id) {
+            metadata.apply(entry);
+        }
+    }
+}
+
 #[test]
 fn listing_returns_opaque_handles_not_display_paths() {
     let root = scratch("listing");
@@ -69,7 +87,10 @@ fn listing_returns_opaque_handles_not_display_paths() {
         "the public id is opaque: {location}"
     );
     let task = cx.update(|_, cx| provider.children(&location, cx));
-    let listing = wait(&mut cx, task).expect("directory listing");
+    let mut listing = wait(&mut cx, task).expect("directory listing");
+    // The cheap pass reports names immediately; metadata arrives separately.
+    assert!(listing.entries.iter().all(|entry| !entry.metadata_known));
+    enrich(&mut cx, &provider, &mut listing);
     assert!(listing.warnings.is_empty(), "{:?}", listing.warnings);
     assert_eq!(listing.entries.len(), 3);
 
@@ -264,6 +285,101 @@ fn trash_removes_the_original_path() {
     let task = cx.update(|_, cx| provider.trash(&location, &entry.id, cx));
     wait(&mut cx, task).expect("move to the Recycle Bin");
     assert!(!path.exists(), "the original path is gone");
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn rename_preserves_the_provider_handle_including_descendants() {
+    let root = scratch("rename-identity");
+    std::fs::create_dir_all(root.join("alpha/sub")).unwrap();
+    std::fs::write(root.join("alpha/sub/leaf.txt"), b"x").unwrap();
+
+    let (_app, mut cx) = app();
+    let provider = StdFsProvider::new();
+    let location = provider.location_for(&root).unwrap();
+    let task = cx.update(|_, cx| provider.children(&location, cx));
+    let listing = wait(&mut cx, task).unwrap();
+    let alpha = listing
+        .entries
+        .iter()
+        .find(|entry| entry.name == "alpha")
+        .unwrap()
+        .clone();
+    let sub_location = provider.child_location(&alpha.location, "sub").unwrap();
+    assert_eq!(
+        provider.resolve(&sub_location),
+        Some(root.join("alpha/sub"))
+    );
+
+    let task = cx.update(|_, cx| provider.rename(&location, &alpha.id, "beta", cx));
+    assert_eq!(wait(&mut cx, task), Ok(()));
+    assert_eq!(
+        provider.resolve(&alpha.location),
+        Some(root.join("beta")),
+        "the selected handle follows the rename"
+    );
+    assert_eq!(
+        provider.resolve(&sub_location),
+        Some(root.join("beta/sub")),
+        "an already-interned descendant follows its directory"
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[cfg(any(windows, target_os = "macos"))]
+#[test]
+fn a_case_only_rename_is_not_a_collision() {
+    let root = scratch("case-rename");
+    std::fs::write(root.join("Report.txt"), b"x").unwrap();
+
+    let (_app, mut cx) = app();
+    let provider = StdFsProvider::new();
+    let location = provider.location_for(&root).unwrap();
+    let task = cx.update(|_, cx| provider.children(&location, cx));
+    let listing = wait(&mut cx, task).unwrap();
+    let report = listing.entries.first().unwrap().clone();
+    let task = cx.update(|_, cx| provider.rename(&location, &report.id, "report.txt", cx));
+    assert_eq!(wait(&mut cx, task), Ok(()));
+    assert_eq!(
+        provider.resolve(&report.location),
+        Some(root.join("report.txt"))
+    );
+
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn interned_handles_stay_bounded_while_many_directories_are_visited() {
+    let root = scratch("intern-budget");
+    for directory in 0..200 {
+        let path = root.join(format!("dir-{directory}"));
+        std::fs::create_dir(&path).unwrap();
+        for file in 0..8 {
+            std::fs::write(path.join(format!("file-{file}.txt")), b"x").unwrap();
+        }
+    }
+
+    let (_app, mut cx) = app();
+    let provider = StdFsProvider::with_intern_capacity(64);
+    let root_location = provider.location_for(&root).unwrap();
+    cx.update(|_, cx| provider.retain(std::slice::from_ref(&root_location), cx));
+    for directory in 0..200 {
+        let path = root.join(format!("dir-{directory}"));
+        let location = provider.location_for(&path).unwrap();
+        let task = cx.update(|_, cx| provider.children(&location, cx));
+        wait(&mut cx, task).expect("listing");
+    }
+    assert!(
+        provider.interned_count() <= 64 + 16,
+        "cold path handles are reclaimed: {}",
+        provider.interned_count()
+    );
+    assert!(
+        provider.resolve(&root_location).is_some(),
+        "the retained root survived eviction"
+    );
+
     std::fs::remove_dir_all(root).ok();
 }
 

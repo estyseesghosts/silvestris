@@ -96,6 +96,11 @@ pub struct FileEntry {
     pub id: ItemId,
     pub location: LocationId,
     pub name: SharedString,
+    /// Lowercased display name, computed once when the name is set. Name
+    /// sorting and filename search use this key instead of lowercasing inside
+    /// every comparison. It is simple Unicode lowercasing, not full case
+    /// folding, which matches the previous semantics.
+    pub(crate) name_key: SharedString,
     pub kind: FileKind,
     pub is_dir: bool,
     /// A directory the Finder treats as a single document (`.app`, `.bundle`).
@@ -124,10 +129,12 @@ impl FileEntry {
         let id = id.into();
         let location: LocationId = id.to_string().into();
         let name = name.into();
+        let name_key: SharedString = name.to_lowercase().into();
         Self {
             id,
             location,
             name,
+            name_key,
             kind,
             is_dir,
             is_package: false,
@@ -189,6 +196,20 @@ impl FileEntry {
     pub fn icon(mut self, icon: Icon) -> Self {
         self.icon = icon;
         self
+    }
+
+    /// The lowercased name used for sorting and search. Display text stays in
+    /// [`name`](Self::name).
+    #[must_use]
+    pub fn name_key(&self) -> &SharedString {
+        &self.name_key
+    }
+
+    /// Replace the display name and its normalized key together. Providers
+    /// that rename an entry use this so the key never diverges from `name`.
+    pub fn set_name(&mut self, name: impl Into<SharedString>) {
+        self.name = name.into();
+        self.name_key = self.name.to_lowercase().into();
     }
 
     /// The extension without the dot, lowercased; empty when there is none.
@@ -295,6 +316,44 @@ impl FileListing {
     }
 }
 
+/// One entry's metadata, for providers that enumerate names first and fill in
+/// size, date, link target and host attributes afterwards.
+///
+/// Enrichment is addressed by id, so a late answer can never replace a
+/// different entry that now has the same name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileMetadata {
+    pub kind: FileKind,
+    pub is_dir: bool,
+    pub is_package: bool,
+    pub is_link: bool,
+    pub metadata_known: bool,
+    pub size: u64,
+    pub modified: u64,
+    pub hidden: bool,
+    pub icon: Icon,
+}
+
+/// The answer to [`FileProvider::metadata_enrichment`]: one metadata record per
+/// entry id that was enriched.
+pub type MetadataUpdates = Vec<(ItemId, FileMetadata)>;
+
+impl FileMetadata {
+    /// Apply this metadata to an entry, preserving its identity, location and
+    /// display name.
+    pub fn apply(self, entry: &mut FileEntry) {
+        entry.kind = self.kind;
+        entry.is_dir = self.is_dir;
+        entry.is_package = self.is_package;
+        entry.is_link = self.is_link;
+        entry.metadata_known = self.metadata_known;
+        entry.size = self.size;
+        entry.modified = self.modified;
+        entry.hidden = self.hidden;
+        entry.icon = self.icon;
+    }
+}
+
 /// Where a sidebar place belongs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PlaceSection {
@@ -359,6 +418,8 @@ pub struct FileProviderCapabilities {
     /// Permanently destroy an entry. Only a provider that owns the storage
     /// policy should set this; the panel asks for confirmation first.
     pub delete_permanently: bool,
+    /// Eject or unmount a removable location.
+    pub eject: bool,
 }
 
 impl FileProviderCapabilities {
@@ -370,6 +431,7 @@ impl FileProviderCapabilities {
             copy_path: true,
             trash: true,
             delete_permanently: true,
+            eject: true,
         }
     }
 }
@@ -386,6 +448,21 @@ pub trait FileProvider: 'static {
     /// policy. Entry locations must be set by the provider.
     fn children(&self, location: &LocationId, cx: &mut App)
         -> Task<Result<FileListing, FileError>>;
+
+    /// Fill in metadata that [`children`](Self::children) deliberately left
+    /// out. A provider that can enumerate names cheaply overrides this; the
+    /// model applies the answer to the same ids when it arrives. `None` means
+    /// the listing is already complete.
+    ///
+    /// The result must stay ordered as `entries` is: the model matches by id,
+    /// but a stable order keeps diagnostics and tests deterministic.
+    fn metadata_enrichment(
+        &self,
+        _entries: &[FileEntry],
+        _cx: &mut App,
+    ) -> Option<Task<Result<MetadataUpdates, FileError>>> {
+        None
+    }
 
     /// The ancestors of `location`, nearest parent first. The current
     /// location itself is not included.
@@ -477,6 +554,17 @@ pub trait FileProvider: 'static {
     /// What the panel may offer in its menus.
     fn capabilities(&self) -> FileProviderCapabilities {
         FileProviderCapabilities::default()
+    }
+
+    /// Keep these handles alive. Providers with a bounded handle table call
+    /// this with the current location and history so navigation can return to
+    /// them; a provider that never reclaims handles ignores it.
+    fn retain(&self, _locations: &[LocationId], _cx: &mut App) {}
+
+    /// Eject or unmount a removable location. Only offered when
+    /// [`capabilities`](Self::capabilities) says `eject`.
+    fn eject(&self, _location: &LocationId, _cx: &mut App) -> Task<Result<(), FileError>> {
+        Task::ready(Err(FileError::new("This provider cannot eject locations")))
     }
 
     /// A host path for a location, when the provider has one. The panel never
@@ -794,7 +882,7 @@ impl FileProvider for MemoryProvider {
             };
             let old_location = entry.location.clone();
             let renamed_kind = entry.kind;
-            entry.name = new_name.to_string().into();
+            entry.set_name(new_name.to_string());
             entry.id = new_name.to_string().into();
             entry.location = join_location(parent, new_name);
             entry.icon = renamed_kind.icon();
@@ -830,6 +918,16 @@ impl FileProvider for MemoryProvider {
 
     fn capabilities(&self) -> FileProviderCapabilities {
         FileProviderCapabilities::all()
+    }
+
+    fn eject(&self, location: &LocationId, _: &mut App) -> Task<Result<(), FileError>> {
+        let mut data = self.data.borrow_mut();
+        let before = data.places.len();
+        data.places.retain(|place| &place.id != location);
+        if data.places.len() == before {
+            return Task::ready(Err(FileError::new("No such removable place")));
+        }
+        Task::ready(Ok(()))
     }
 }
 

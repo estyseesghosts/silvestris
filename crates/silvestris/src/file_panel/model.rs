@@ -9,6 +9,8 @@
 //! generation; a result from an older generation is dropped, so a slow
 //! directory can never overwrite the location the user just chose.
 
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::{App, AppContext, Context, Entity, EventEmitter, Task};
@@ -16,9 +18,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::binding::ListController;
 use crate::controls::path_control::{LocationId, PathEntry};
+use crate::controls::SortDirection;
 use crate::icons::Icon;
 
-use super::provider::{FileAncestor, FileEntry, FileError, FileListing, FilePlace, FileProvider};
+use super::provider::{
+    FileAncestor, FileEntry, FileError, FileListing, FileMetadata, FilePlace, FileProvider,
+};
 
 /// Icons, list or columns. The order matches the toolbar segments in the
 /// 4.15.47 AM Open capture: icon, list, columns.
@@ -28,6 +33,108 @@ pub enum FileViewMode {
     #[default]
     List,
     Columns,
+}
+
+/// The column a panel sort uses. Every view consumes the same key.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FileSortKey {
+    #[default]
+    Name,
+    Kind,
+    Modified,
+    Size,
+}
+
+impl FileSortKey {
+    /// The direction the context menu uses the first time a key is chosen.
+    /// Finder shows the newest and largest first on those columns while name
+    /// and kind read naturally ascending.
+    #[must_use]
+    pub fn default_direction(self) -> SortDirection {
+        match self {
+            FileSortKey::Name | FileSortKey::Kind => SortDirection::Ascending,
+            FileSortKey::Modified | FileSortKey::Size => SortDirection::Descending,
+        }
+    }
+
+    /// The table column that presents this key.
+    #[must_use]
+    pub fn column_id(self) -> &'static str {
+        match self {
+            FileSortKey::Name => "name",
+            FileSortKey::Kind => "kind",
+            FileSortKey::Modified => "modified",
+            FileSortKey::Size => "size",
+        }
+    }
+
+    /// The key a table column id stands for, when it has one.
+    #[must_use]
+    pub fn from_column_id(column: &str) -> Option<Self> {
+        match column {
+            "name" => Some(FileSortKey::Name),
+            "kind" => Some(FileSortKey::Kind),
+            "modified" => Some(FileSortKey::Modified),
+            "size" => Some(FileSortKey::Size),
+            _ => None,
+        }
+    }
+}
+
+/// The panel's one sort policy: key plus direction. The list, icon and column
+/// views all order through [`FileSort::compare`], so switching views cannot
+/// change the ordering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileSort {
+    pub key: FileSortKey,
+    pub direction: SortDirection,
+}
+
+impl Default for FileSort {
+    fn default() -> Self {
+        Self {
+            key: FileSortKey::Name,
+            direction: SortDirection::Ascending,
+        }
+    }
+}
+
+impl FileSort {
+    #[must_use]
+    pub fn new(key: FileSortKey, direction: SortDirection) -> Self {
+        Self { key, direction }
+    }
+
+    /// Folders stay above files in both directions, as in Finder. Only the
+    /// key comparison reverses.
+    #[must_use]
+    pub fn compare(&self, a: &FileEntry, b: &FileEntry) -> Ordering {
+        let folders = b.is_dir.cmp(&a.is_dir);
+        if folders != Ordering::Equal {
+            return folders;
+        }
+        let order = match self.key {
+            FileSortKey::Name => a.name_key().cmp(b.name_key()),
+            FileSortKey::Kind => a.kind.cmp(&b.kind),
+            FileSortKey::Modified => a.modified.cmp(&b.modified),
+            FileSortKey::Size => a.size.cmp(&b.size),
+        };
+        match self.direction {
+            SortDirection::Ascending => order,
+            SortDirection::Descending => order.reverse(),
+        }
+    }
+
+    #[must_use]
+    pub fn toggled(self) -> Self {
+        Self {
+            direction: match self.direction {
+                SortDirection::Ascending => SortDirection::Descending,
+                SortDirection::Descending => SortDirection::Ascending,
+            },
+            ..self
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,6 +173,9 @@ pub struct FileBrowserModel {
     allowed_types: Vec<String>,
     allows_other_types: bool,
     view: FileViewMode,
+    /// One sort policy for list, icons and columns. `None` keeps provider
+    /// listing order.
+    sort: Option<FileSort>,
     generation: u64,
     task: Option<Task<()>>,
 }
@@ -92,6 +202,7 @@ impl FileBrowserModel {
             allowed_types: Vec::new(),
             allows_other_types: true,
             view: FileViewMode::List,
+            sort: None,
             generation: 0,
             task: None,
         };
@@ -117,6 +228,38 @@ impl FileBrowserModel {
     #[must_use]
     pub fn view(&self) -> FileViewMode {
         self.view
+    }
+
+    /// The panel's sort policy. Every view uses it.
+    #[must_use]
+    pub fn sort(&self) -> Option<FileSort> {
+        self.sort
+    }
+
+    /// Replace the sort policy and re-sort the controller. Selection survives
+    /// by id. `None` restores provider order.
+    pub fn set_sort(&mut self, sort: Option<FileSort>, cx: &mut Context<Self>) {
+        self.sort = sort;
+        let controller = self.controller.clone();
+        controller.update(cx, |controller, cx| {
+            match sort {
+                Some(sort) => {
+                    controller
+                        .set_sort(Some(move |a: &FileEntry, b: &FileEntry| sort.compare(a, b)));
+                }
+                None => controller.set_sort(None::<fn(&FileEntry, &FileEntry) -> Ordering>),
+            }
+            cx.notify();
+        });
+        cx.notify();
+    }
+
+    /// Sort `entries` with the panel policy, for a view that owns a separate
+    /// list (the column browser's child columns).
+    pub fn sort_entries(&self, entries: &mut [FileEntry]) {
+        if let Some(sort) = self.sort {
+            entries.sort_by(|a, b| sort.compare(a, b));
+        }
     }
 
     #[must_use]
@@ -361,6 +504,14 @@ impl FileBrowserModel {
             location: self.location.clone(),
         });
         let location = self.location.clone();
+        // Navigation history and the current location are live handles. A
+        // provider with a bounded handle table must not reclaim them while the
+        // user can still go back or forward to them.
+        let mut live = Vec::with_capacity(self.back.len() + self.forward.len() + 1);
+        live.push(location.clone());
+        live.extend(self.back.iter().cloned());
+        live.extend(self.forward.iter().cloned());
+        self.provider.retain(&live, cx);
         let pending = self.provider.children(&location, cx);
         let task = cx.spawn(async move |this, cx| {
             let result = pending.await;
@@ -395,6 +546,10 @@ impl FileBrowserModel {
                     .filter(|entry| self.show_hidden || !entry.is_hidden())
                     .collect();
                 let count = entries.len();
+                // Cheap listings can fill in size/date/link metadata after the
+                // names are visible. The answer is matched by id and guarded by
+                // the load generation.
+                let enrichment = self.provider.metadata_enrichment(&entries, cx);
                 let controller = self.controller.clone();
                 if !keep_selection {
                     controller.update(cx, |controller, cx| {
@@ -406,6 +561,41 @@ impl FileBrowserModel {
                     controller.set_items(entries);
                     cx.notify();
                 });
+                if let Some(task) = enrichment {
+                    let controller = self.controller.clone();
+                    let show_hidden = self.show_hidden;
+                    let generation = self.generation;
+                    cx.spawn(async move |this, cx| {
+                        let result = task.await;
+                        let _ = this.update(cx, |model, cx| {
+                            if model.generation != generation {
+                                return;
+                            }
+                            match result {
+                                Ok(updates) => {
+                                    let metadata: HashMap<_, FileMetadata> =
+                                        updates.into_iter().collect();
+                                    controller.update(cx, |controller, cx| {
+                                        controller.update_items(|entry| {
+                                            if let Some(metadata) = metadata.get(&entry.id) {
+                                                metadata.apply(entry);
+                                            }
+                                        });
+                                        if !show_hidden {
+                                            controller.retain_items(|entry| !entry.is_hidden());
+                                        }
+                                        cx.notify();
+                                    });
+                                }
+                                Err(error) => {
+                                    model.warnings.push(error);
+                                    cx.notify();
+                                }
+                            }
+                        });
+                    })
+                    .detach();
+                }
                 cx.emit(FileBrowserEvent::Loaded { location, count });
             }
             Err(error) => {
