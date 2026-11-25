@@ -243,6 +243,9 @@ pub enum TableEvent {
         ids: Vec<ItemId>,
         position: Point<Pixels>,
     },
+    /// Secondary click on the empty area below the rows (or between them):
+    /// the window position for a background contextual menu.
+    BackgroundContextMenu { position: Point<Pixels> },
     /// The user sorted by `column`.
     Sorted {
         column: SharedString,
@@ -1382,6 +1385,17 @@ impl<T: 'static> Render for TableView<T> {
                         });
                         this.emit_selection(cx);
                     }
+                }),
+            )
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                    window.focus(&this.focus, cx);
+                    this.finish_editing(true, window, cx);
+                    cx.emit(TableEvent::BackgroundContextMenu {
+                        position: event.position,
+                    });
+                    cx.stop_propagation();
                 }),
             )
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {

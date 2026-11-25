@@ -9,13 +9,17 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use std::time::Duration;
+
 use gpui::{
-    div, prelude::*, px, AnyElement, AnyWindowHandle, App, Context, Entity, FocusHandle, Focusable,
-    KeyDownEvent, SharedString, Subscription, Window,
+    deferred, div, prelude::*, px, Animation, AnimationExt, AnyElement, AnyWindowHandle, App,
+    ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyDownEvent, Point, SharedString,
+    Subscription, WeakEntity, Window,
 };
 
 use crate::binding::ItemId;
 use crate::chrome::WindowFrame;
+use crate::command::CommandRegistry;
 use crate::controls::column_browser::{BrowserEvent, BrowserNode, ColumnBrowser};
 use crate::controls::icon_grid::{IconGrid, IconGridEvent};
 use crate::controls::path_control::{LocationId, PathEntry, PathPopUp};
@@ -30,10 +34,12 @@ use crate::file_panel::model::{choosable, FileBrowserEvent, FileBrowserModel, Fi
 use crate::file_panel::provider::{FileEntry, FileError, FilePlace, FileProvider, PlaceSection};
 use crate::file_panel::state::{PanelState, PanelStateStore};
 use crate::icons;
+use crate::menu::PopupMenu;
 use crate::modal::{self, ModalPhase, ModalResult, ModalScope, ModalSession};
 use crate::sheet;
 use crate::window_role::{open_role, WindowRole};
 use crate::ActiveTheme;
+use silvestris_core::command::{CommandDescriptor, MenuEntry, MenuModel};
 
 /// Which panel is being shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,6 +79,20 @@ impl PanelOutcome {
 type FinishFn = Rc<dyn Fn(&PanelOutcome, &mut App)>;
 type AccessoryFn = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
+/// How the Save panel treats the typed extension.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ExtensionPolicy {
+    /// Keep exactly what the user typed. `allowed_types` only filters and
+    /// dims the browser; it never adds or replaces an extension.
+    #[default]
+    Any,
+    /// Append the first allowed extension when the name has none; a name with
+    /// a different extension is invalid.
+    Required,
+    /// Force this extension (without the dot), replacing a different one.
+    Fixed(String),
+}
+
 /// One entry in the Save panel's Format pop-up. `extensions` are without the
 /// dot; choosing a format applies them to the allowed-type policy.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -108,6 +128,7 @@ pub struct PanelOptions {
     pub can_choose_files: bool,
     pub can_choose_directories: bool,
     pub formats: Vec<FormatOption>,
+    pub extension_policy: ExtensionPolicy,
     pub state_store: Option<Rc<dyn PanelStateStore>>,
     pub frame_store: Option<Rc<dyn crate::window_role::FrameStore>>,
     pub accessory: Option<AccessoryFn>,
@@ -130,6 +151,7 @@ impl PanelOptions {
             can_choose_files: true,
             can_choose_directories: false,
             formats: Vec::new(),
+            extension_policy: ExtensionPolicy::Any,
             state_store: None,
             frame_store: None,
             accessory: None,
@@ -156,9 +178,12 @@ pub struct FilePanel {
     search: Entity<TextField>,
     name_field: Option<Entity<TextField>>,
     expanded: bool,
+    expand_serial: u64,
+    expand_animated: bool,
     hide_extension: bool,
     format: usize,
     formats: Vec<FormatOption>,
+    extension_policy: ExtensionPolicy,
     state_store: Option<Rc<dyn PanelStateStore>>,
     frame_store: Option<Rc<dyn crate::window_role::FrameStore>>,
     panel_state: PanelState,
@@ -185,9 +210,22 @@ pub struct FilePanel {
     new_folder_focus: FocusHandle,
     cancel_focus: FocusHandle,
     accept_focus: FocusHandle,
+    menu: Option<Entity<PopupMenu>>,
+    commands: Entity<CommandRegistry>,
+    context_target: Option<(LocationId, FileEntry)>,
+    pending_menu: Option<(Vec<MenuEntry>, Point<gpui::Pixels>)>,
+    sort: Option<SortKey>,
     _subscriptions: Vec<Subscription>,
     _model_subscription: Subscription,
     _session_subscription: Subscription,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SortKey {
+    Name,
+    Kind,
+    Modified,
+    Size,
 }
 
 impl FilePanel {
@@ -267,6 +305,7 @@ impl FilePanel {
             field
         });
         let session = cx.new(|_| ModalSession::new(ModalScope::Document));
+        let commands = cx.new(|_| CommandRegistry::default());
         let model_for_observe = model.clone();
         let session_for_observe = session.clone();
         let panel = cx.new(|cx| Self {
@@ -281,9 +320,12 @@ impl FilePanel {
             search,
             name_field,
             expanded,
+            expand_serial: 0,
+            expand_animated: false,
             hide_extension,
             format: 0,
             formats,
+            extension_policy: options.extension_policy.clone(),
             state_store: options.state_store.clone(),
             frame_store: options.frame_store.clone(),
             panel_state: PanelState {
@@ -314,6 +356,11 @@ impl FilePanel {
             new_folder_focus: cx.focus_handle(),
             cancel_focus: cx.focus_handle(),
             accept_focus: cx.focus_handle(),
+            menu: None,
+            commands,
+            context_target: None,
+            pending_menu: None,
+            sort: None,
             _subscriptions: Vec::new(),
             _model_subscription: cx.observe(&model_for_observe, |_: &mut Self, _, cx| cx.notify()),
             _session_subscription: cx.observe(&session_for_observe, |panel, session, cx| {
@@ -322,11 +369,13 @@ impl FilePanel {
                 }
             }),
         });
-        panel.update(cx, |panel, cx| panel.wire(cx));
+        panel.update(cx, |panel, cx| panel.wire(window, cx));
+        let weak = panel.downgrade();
+        panel.update(cx, |panel, cx| panel.install_context_menu(weak, window, cx));
         panel
     }
 
-    fn wire(&mut self, cx: &mut Context<Self>) {
+    fn wire(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let model = self.model.clone();
         self._subscriptions.push(
             cx.subscribe(&model, |panel, _, event: &FileBrowserEvent, cx| {
@@ -334,14 +383,19 @@ impl FilePanel {
             }),
         );
         let table = self.table.clone();
-        self._subscriptions.push(cx.subscribe(
-            &table,
-            |panel, _, event: &TableEvent, cx| match event {
+        self._subscriptions.push(
+            cx.subscribe_in(&table, window, |panel, _, event, window, cx| match event {
                 TableEvent::Activated(_) => panel.table_activated(cx),
                 TableEvent::SelectionChanged(_) => cx.notify(),
+                TableEvent::ContextMenu { ids, position } => {
+                    panel.file_context(ids, *position, window, cx)
+                }
+                TableEvent::BackgroundContextMenu { position } => {
+                    panel.background_context(*position, window, cx)
+                }
                 _ => {}
-            },
-        ));
+            }),
+        );
         let sidebar = self.sidebar.clone();
         self._subscriptions.push(cx.subscribe(
             &sidebar,
@@ -380,6 +434,304 @@ impl FilePanel {
         self.sidebar
             .update(cx, |sidebar, cx| sidebar.select(&location, cx));
         self.refresh_stops(cx);
+    }
+
+    fn install_context_menu(
+        &mut self,
+        weak: WeakEntity<FilePanel>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let commands = self.commands.clone();
+        let rows = [
+            ("file.open", "Open"),
+            ("file.rename", "Rename"),
+            ("file.delete", "Delete"),
+            ("file.copy-path", "Copy Path"),
+            ("file.new-folder", "New Folder"),
+            ("file.sort.name", "Name"),
+            ("file.sort.kind", "Kind"),
+            ("file.sort.modified", "Date Modified"),
+            ("file.sort.size", "Size"),
+            ("file.view.icons", "as Icons"),
+            ("file.view.list", "as List"),
+            ("file.view.columns", "as Columns"),
+            ("file.show-hidden", "Show Hidden Files"),
+        ];
+        for (id, label) in rows {
+            let weak = weak.clone();
+            commands.update(cx, |registry, cx| {
+                registry
+                    .register(
+                        CommandDescriptor::action(id, label),
+                        move |id, window, cx| {
+                            if let Some(panel) = weak.upgrade() {
+                                panel.update(cx, |panel, cx| {
+                                    panel.context_command(id.as_str(), window, cx)
+                                });
+                            }
+                        },
+                        cx,
+                    )
+                    .expect("unique panel context command");
+            });
+        }
+        let menu = cx.new(|cx| {
+            PopupMenu::new(
+                MenuModel {
+                    label: "File".into(),
+                    entries: Vec::new(),
+                },
+                commands,
+                window,
+                cx,
+            )
+        });
+        self.menu = Some(menu);
+    }
+
+    fn open_menu(
+        &mut self,
+        entries: Vec<MenuEntry>,
+        position: Point<gpui::Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(menu) = &self.menu {
+            menu.update(cx, |menu, cx| {
+                menu.set_model(
+                    MenuModel {
+                        label: "File".into(),
+                        entries,
+                    },
+                    window,
+                    cx,
+                );
+                menu.open(position, window, cx);
+            });
+        }
+    }
+
+    fn context_target_for(&self, id: &ItemId, cx: &App) -> Option<(LocationId, FileEntry)> {
+        self.browser_entry(id).or_else(|| {
+            let model = self.model.read(cx);
+            model
+                .selected_entries(cx)
+                .into_iter()
+                .find(|entry| entry.id == *id)
+                .map(|entry| (model.location().clone(), entry))
+        })
+    }
+
+    fn file_menu_entries(
+        &self,
+        parent: &LocationId,
+        entry: &FileEntry,
+        cx: &App,
+    ) -> Vec<MenuEntry> {
+        let mut entries = vec![MenuEntry::Heading(entry.name.to_string())];
+        if self.mode == PanelMode::Open {
+            entries.push(MenuEntry::Command("file.open".into()));
+        }
+        entries.push(MenuEntry::Command("file.rename".into()));
+        if self.model.read(cx).path_of_child(parent, entry).is_some() {
+            entries.push(MenuEntry::Command("file.copy-path".into()));
+        }
+        entries.push(MenuEntry::Separator);
+        entries.push(MenuEntry::Command("file.delete".into()));
+        entries.push(MenuEntry::Separator);
+        entries.push(MenuEntry::Command("file.new-folder".into()));
+        entries
+    }
+
+    fn file_context(
+        &mut self,
+        ids: &[ItemId],
+        position: Point<gpui::Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(id) = ids.first() else {
+            self.background_context(position, window, cx);
+            return;
+        };
+        let Some(target) = self.context_target_for(id, cx) else {
+            return;
+        };
+        self.context_target = Some(target.clone());
+        let (parent, entry) = target;
+        let entries = self.file_menu_entries(&parent, &entry, cx);
+        self.open_menu(entries, position, window, cx);
+    }
+
+    fn queue_file_context(
+        &mut self,
+        ids: &[ItemId],
+        position: Point<gpui::Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(id) = ids.first() else {
+            self.queue_background_context(position, cx);
+            return;
+        };
+        let Some(target) = self.context_target_for(id, cx) else {
+            return;
+        };
+        self.context_target = Some(target.clone());
+        let (parent, entry) = target;
+        let entries = self.file_menu_entries(&parent, &entry, cx);
+        self.pending_menu = Some((entries, position));
+        cx.notify();
+    }
+
+    fn queue_background_context(&mut self, position: Point<gpui::Pixels>, cx: &mut Context<Self>) {
+        self.context_target = None;
+        self.pending_menu = Some((self.background_menu_entries(), position));
+        cx.notify();
+    }
+
+    fn background_menu_entries(&self) -> Vec<MenuEntry> {
+        vec![
+            MenuEntry::Command("file.new-folder".into()),
+            MenuEntry::Separator,
+            MenuEntry::Submenu {
+                label: "Sort By".into(),
+                entries: vec![
+                    MenuEntry::Command("file.sort.name".into()),
+                    MenuEntry::Command("file.sort.kind".into()),
+                    MenuEntry::Command("file.sort.modified".into()),
+                    MenuEntry::Command("file.sort.size".into()),
+                ],
+            },
+            MenuEntry::Submenu {
+                label: "View".into(),
+                entries: vec![
+                    MenuEntry::Command("file.view.icons".into()),
+                    MenuEntry::Command("file.view.list".into()),
+                    MenuEntry::Command("file.view.columns".into()),
+                ],
+            },
+            MenuEntry::Separator,
+            MenuEntry::Command("file.show-hidden".into()),
+        ]
+    }
+
+    fn background_context(
+        &mut self,
+        position: Point<gpui::Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.context_target = None;
+        let entries = self.background_menu_entries();
+        self.open_menu(entries, position, window, cx);
+    }
+
+    fn context_command(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        match id {
+            "file.new-folder" => self.new_folder(cx),
+            "file.open" => {
+                if let Some((parent, entry)) = self.context_target.clone() {
+                    if entry.is_dir && !entry.is_package {
+                        let location = self.model.read(cx).location_of_child(&parent, &entry, cx);
+                        self.navigate(location, true, cx);
+                    } else if self.mode == PanelMode::Open && self.choosable_now(&entry, cx) {
+                        self.finish_open(&[(parent, entry)], cx);
+                    }
+                }
+            }
+            "file.rename" => {
+                if let Some((_, entry)) = self.context_target.clone() {
+                    match self.model.read(cx).view() {
+                        FileViewMode::Columns => {
+                            if let Some(browser) = &self.browser {
+                                browser.update(cx, |browser, cx| {
+                                    browser.begin_editing(&entry.id, window, cx);
+                                });
+                            }
+                        }
+                        FileViewMode::Icons => {
+                            self.ensure_icon_grid(cx);
+                            if let Some(icons) = &self.icons {
+                                icons.update(cx, |grid, cx| {
+                                    grid.begin_editing(entry.id.clone(), window, cx);
+                                });
+                            }
+                        }
+                        FileViewMode::List => {
+                            self.model
+                                .read(cx)
+                                .controller()
+                                .update(cx, |controller, cx| {
+                                    controller.select(entry.id.clone());
+                                    cx.notify();
+                                });
+                            self.table.update(cx, |table, cx| {
+                                table.begin_editing(entry.id.clone(), "name", window, cx)
+                            });
+                        }
+                    }
+                }
+            }
+            "file.delete" => {
+                if let Some((parent, entry)) = self.context_target.clone() {
+                    let provider = self.model.read(cx).provider().clone();
+                    let task = provider.delete(&parent, &entry.id, cx);
+                    let model = self.model.clone();
+                    cx.spawn(async move |this, cx| {
+                        let _ = task.await;
+                        let _ = this.update(cx, |panel, cx| {
+                            panel.context_target = None;
+                            model.update(cx, |model, cx| model.reload(cx));
+                            cx.notify();
+                        });
+                    })
+                    .detach();
+                }
+            }
+            "file.copy-path" => {
+                if let Some((parent, entry)) = self.context_target.clone() {
+                    if let Some(path) = self.model.read(cx).path_of_child(&parent, &entry) {
+                        cx.write_to_clipboard(ClipboardItem::new_string(
+                            path.display().to_string(),
+                        ));
+                    }
+                }
+            }
+            "file.view.icons" => self.set_view(FileViewMode::Icons, cx),
+            "file.view.list" => self.set_view(FileViewMode::List, cx),
+            "file.view.columns" => self.set_view(FileViewMode::Columns, cx),
+            "file.sort.name" => self.set_sort(SortKey::Name, cx),
+            "file.sort.kind" => self.set_sort(SortKey::Kind, cx),
+            "file.sort.modified" => self.set_sort(SortKey::Modified, cx),
+            "file.sort.size" => self.set_sort(SortKey::Size, cx),
+            "file.show-hidden" => {
+                let show = !self.model.read(cx).show_hidden();
+                self.model
+                    .update(cx, |model, cx| model.set_show_hidden(show, cx));
+            }
+            _ => {}
+        }
+    }
+
+    fn set_sort(&mut self, key: SortKey, cx: &mut Context<Self>) {
+        self.sort = Some(key);
+        let controller = self.model.read(cx).controller();
+        controller.update(cx, |controller, cx| {
+            controller.set_sort(Some(move |a: &FileEntry, b: &FileEntry| {
+                b.is_dir.cmp(&a.is_dir).then_with(|| match key {
+                    SortKey::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                    SortKey::Kind => a.kind.cmp(&b.kind),
+                    SortKey::Modified => b.modified.cmp(&a.modified),
+                    SortKey::Size => b.size.cmp(&a.size),
+                })
+            }));
+            cx.notify();
+        });
+        if self.model.read(cx).view() == FileViewMode::Columns {
+            self.rebuild_browser(cx);
+        }
+        cx.notify();
     }
 
     fn model_event(&mut self, event: &FileBrowserEvent, cx: &mut Context<Self>) {
@@ -536,21 +888,79 @@ impl FilePanel {
             .unwrap_or_default()
     }
 
+    /// The extension `Required` appends and accepts: the current Format's
+    /// first extension, or the model's first allowed type when the consumer
+    /// set only `allowed_types`.
+    fn required_extension(&self, cx: &App) -> Option<String> {
+        self.formats
+            .get(self.format)
+            .and_then(|format| format.extensions.first())
+            .or_else(|| self.model.read(cx).allowed_types().first())
+            .map(|extension| extension.trim_start_matches('.').to_string())
+    }
+
+    /// The name the provider will receive after the panel's extension policy.
+    fn resolved_name(&self, cx: &App) -> String {
+        let typed = self.name(cx);
+        if self.mode != PanelMode::Save || typed.is_empty() {
+            return typed;
+        }
+        let extension = |name: &str| {
+            name.rsplit_once('.')
+                .filter(|(stem, ext)| !stem.is_empty() && !ext.is_empty())
+                .map(|(_, ext)| ext.to_lowercase())
+        };
+        match &self.extension_policy {
+            ExtensionPolicy::Any => typed,
+            ExtensionPolicy::Required => {
+                if extension(&typed).is_some() {
+                    typed
+                } else if let Some(first) = self.required_extension(cx) {
+                    format!("{typed}.{first}")
+                } else {
+                    typed
+                }
+            }
+            ExtensionPolicy::Fixed(wanted) => {
+                let wanted = wanted.trim_start_matches('.').to_lowercase();
+                if extension(&typed).as_deref() == Some(wanted.as_str()) {
+                    typed
+                } else {
+                    let stem = typed
+                        .rsplit_once('.')
+                        .filter(|(stem, _)| !stem.is_empty())
+                        .map_or(typed.as_str(), |(stem, _)| stem);
+                    format!("{stem}.{wanted}")
+                }
+            }
+        }
+    }
+
     fn name_valid(&self, cx: &App) -> bool {
-        let name = self.name(cx);
+        let name = self.resolved_name(cx);
         !name.is_empty()
             && name != "."
             && name != ".."
             && !name.contains('/')
             && !name.contains('\\')
             && !name.contains(':')
+            && match (&self.extension_policy, self.mode) {
+                (ExtensionPolicy::Required, PanelMode::Save) => {
+                    self.required_extension(cx).is_none_or(|required| {
+                        name.rsplit_once('.')
+                            .filter(|(stem, _)| !stem.is_empty())
+                            .is_some_and(|(_, ext)| required.eq_ignore_ascii_case(ext))
+                    })
+                }
+                _ => true,
+            }
     }
 
     fn save_clicked(&mut self, cx: &mut Context<Self>) {
         if self.closing || self.mode != PanelMode::Save || !self.name_valid(cx) {
             return;
         }
-        let name = self.name(cx);
+        let name = self.resolved_name(cx);
         let entry = FileEntry::document(name.clone(), name.clone());
         let model = self.model.clone();
         let task = model.update(cx, |model, cx| model.exists(&name, cx));
@@ -768,7 +1178,7 @@ impl FilePanel {
         if self.browser.is_some() {
             return;
         }
-        let entries: Vec<FileEntry> = self
+        let mut entries: Vec<FileEntry> = self
             .model
             .read(cx)
             .controller()
@@ -777,6 +1187,7 @@ impl FilePanel {
             .into_iter()
             .cloned()
             .collect();
+        self.sort_entries(&mut entries);
         self.browser_entries.clear();
         let parent = self.model.read(cx).location().clone();
         for entry in &entries {
@@ -837,6 +1248,12 @@ impl FilePanel {
                 BrowserEvent::Activated(id) => {
                     panel.browser_activated(id, cx);
                 }
+                BrowserEvent::ContextMenu { ids, position } => {
+                    panel.queue_file_context(ids, *position, cx);
+                }
+                BrowserEvent::BackgroundContextMenu { position } => {
+                    panel.queue_background_context(*position, cx);
+                }
             },
         );
         self._subscriptions.push(subscription);
@@ -874,18 +1291,59 @@ impl FilePanel {
                 cx,
             )
         });
+        let provider = self.model.read(cx).provider().clone();
+        let rename_model = self.model.clone();
         icons.update(cx, |grid, cx| {
             grid.set_multiple(self.allows_multiple, cx);
+            grid.set_rename(
+                move |entry: &FileEntry, new_name: &str, cx: &mut App| {
+                    if new_name.trim().is_empty() || entry.name == new_name {
+                        return false;
+                    }
+                    let location = rename_model.read(cx).location().clone();
+                    let id = entry.id.clone();
+                    let name = new_name.to_string();
+                    let task = provider.rename(&location, &id, &name, cx);
+                    let model = rename_model.clone();
+                    cx.spawn(async move |cx| {
+                        let _ = task.await;
+                        cx.update(|cx| model.update(cx, |model, cx| model.reload(cx)));
+                    })
+                    .detach();
+                    true
+                },
+                cx,
+            );
         });
         let subscription =
             cx.subscribe(&icons, |panel, _, event: &IconGridEvent, cx| match event {
                 IconGridEvent::SelectionChanged => cx.notify(),
                 IconGridEvent::Activated(_) => panel.table_activated(cx),
+                IconGridEvent::ContextMenu { ids, position } => {
+                    panel.queue_file_context(ids, *position, cx);
+                }
+                IconGridEvent::BackgroundContextMenu { position } => {
+                    panel.queue_background_context(*position, cx);
+                }
             });
         self._subscriptions.push(subscription);
         self.icons = Some(icons);
         let _ = model;
         self.refresh_stops(cx);
+    }
+
+    fn sort_entries(&self, entries: &mut [FileEntry]) {
+        let Some(key) = self.sort else {
+            return;
+        };
+        entries.sort_by(|a, b| {
+            b.is_dir.cmp(&a.is_dir).then_with(|| match key {
+                SortKey::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                SortKey::Kind => a.kind.cmp(&b.kind),
+                SortKey::Modified => b.modified.cmp(&a.modified),
+                SortKey::Size => b.size.cmp(&a.size),
+            })
+        });
     }
 
     fn save_panel_state(&mut self, cx: &mut Context<Self>) {
@@ -928,7 +1386,8 @@ impl FilePanel {
                 let Some(browser) = &panel.browser else {
                     return;
                 };
-                if let Ok(entries) = result {
+                if let Ok(mut entries) = result {
+                    panel.sort_entries(&mut entries);
                     for entry in &entries {
                         panel
                             .browser_entries
@@ -1189,6 +1648,9 @@ impl Render for FilePanel {
                 window.focus(name, cx);
             }
         }
+        if let Some((entries, position)) = self.pending_menu.take() {
+            self.open_menu(entries, position, window, cx);
+        }
         if let Some(pending) = self.pending_rename.take() {
             if !self.model.read(cx).is_loading() {
                 if self.model.read(cx).view() == FileViewMode::Columns {
@@ -1297,7 +1759,7 @@ impl Render for FilePanel {
         let mut panel = div()
             .id("file-panel")
             .debug_selector(|| "file-panel".into())
-            .size_full()
+            .when(self.mode != PanelMode::Save, |el| el.size_full())
             .w_full()
             .flex()
             .flex_col()
@@ -1317,61 +1779,126 @@ impl Render for FilePanel {
                     );
                 }
             }));
-        if self.mode == PanelMode::Save {
-            panel = panel.child(self.name_row(window));
-            if !expanded {
-                panel = panel.child(self.where_row(cx));
+        let browser_area: AnyElement = match view {
+            FileViewMode::List => self.table.clone().into_any_element(),
+            FileViewMode::Icons => {
+                if self.icons.is_none() {
+                    self.ensure_icon_grid(cx);
+                }
+                self.icons
+                    .clone()
+                    .map(IntoElement::into_any_element)
+                    .unwrap_or_else(|| self.table.clone().into_any_element())
             }
-        }
-        if self.mode == PanelMode::Open || expanded {
-            panel = panel.child(toolbar);
-        }
-        if expanded {
-            let browser_area: AnyElement = match view {
-                FileViewMode::List => self.table.clone().into_any_element(),
-                FileViewMode::Icons => {
-                    if self.icons.is_none() {
-                        self.ensure_icon_grid(cx);
-                    }
-                    self.icons
-                        .clone()
-                        .map(IntoElement::into_any_element)
-                        .unwrap_or_else(|| self.table.clone().into_any_element())
+            FileViewMode::Columns => {
+                if self.browser.is_none() {
+                    self.ensure_browser(cx);
                 }
-                FileViewMode::Columns => {
-                    if self.browser.is_none() {
-                        self.ensure_browser(cx);
-                    }
-                    self.browser
-                        .clone()
-                        .map(IntoElement::into_any_element)
-                        .unwrap_or_else(|| self.table.clone().into_any_element())
-                }
-            };
-            panel = panel.child(
+                self.browser
+                    .clone()
+                    .map(IntoElement::into_any_element)
+                    .unwrap_or_else(|| self.table.clone().into_any_element())
+            }
+        };
+        let browser_area = div()
+            .debug_selector(|| "panel-browser-area".into())
+            .flex_1()
+            .min_h(px(0.))
+            .flex()
+            .border_t_1()
+            .border_b_1()
+            .border_color(hsla(theme.colors.divider))
+            .child(
                 div()
-                    .debug_selector(|| "panel-browser-area".into())
-                    .flex_1()
-                    .min_h(px(80.))
-                    .flex()
-                    .border_t_1()
-                    .border_b_1()
-                    .border_color(hsla(theme.colors.divider))
-                    .child(
-                        div()
-                            .debug_selector(|| "panel-sidebar".into())
-                            .relative()
-                            .flex_none()
-                            .w(px(self.sidebar_width))
-                            .h_full()
-                            .child(self.sidebar())
-                            .child(self.sidebar_divider(window, cx)),
+                    .debug_selector(|| "panel-sidebar".into())
+                    .relative()
+                    .flex_none()
+                    .w(px(self.sidebar_width))
+                    .h_full()
+                    .child(self.sidebar())
+                    .child(self.sidebar_divider(window, cx)),
+            )
+            .child(div().flex_1().min_w_0().h_full().child(browser_area));
+
+        // One Save panel, two states. The chooser block and the Where row
+        // trade height under a single 220 ms ease; the sheet/card is
+        // content-sized so it zooms open and closed as one surface.
+        let save = self.mode == PanelMode::Save;
+        let serial = self.expand_serial;
+        let animate = self.expand_animated && save;
+        let duration = if animate {
+            Duration::from_millis(220)
+        } else {
+            Duration::ZERO
+        };
+        let easing = gpui::ease_in_out;
+        let target = if expanded { 1.0 } else { 0.0 };
+        let progress = move |t: f32| if expanded { t } else { 1.0 - t };
+
+        if save {
+            panel = panel.child(self.name_row(window));
+            let where_row = div().child(self.where_row(cx));
+            let where_row: AnyElement = if animate {
+                where_row
+                    .with_animation(
+                        gpui::ElementId::Name(format!("save-where-{serial}").into()),
+                        Animation::new(duration).with_easing(easing),
+                        move |el, t| {
+                            let p = progress(t);
+                            el.h(px(30.0 * (1.0 - p)))
+                                .opacity(1.0 - p)
+                                .overflow_hidden()
+                        },
                     )
-                    .child(div().flex_1().min_w_0().h_full().child(browser_area)),
-            );
-            if self.mode == PanelMode::Save {
-                panel = panel.child(self.format_row(cx));
-            }
+                    .into_any_element()
+            } else {
+                where_row
+                    .h(px(30.0 * (1.0 - target)))
+                    .opacity(1.0 - target)
+                    .overflow_hidden()
+                    .into_any_element()
+            };
+            panel = panel.child(where_row);
+        }
+        let mut chooser = div()
+            .debug_selector(|| "panel-chooser".into())
+            .flex_none()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .when(save, |el| el.border_t_1())
+            .border_color(hsla(theme.colors.divider))
+            .child(toolbar)
+            .child(browser_area);
+        if save {
+            chooser = chooser.child(self.format_row(cx));
+        }
+        if save {
+            let chooser: AnyElement = if animate {
+                chooser
+                    .with_animation(
+                        gpui::ElementId::Name(format!("save-chooser-{serial}").into()),
+                        Animation::new(duration).with_easing(easing),
+                        move |el, t| {
+                            let p = progress(t);
+                            el.h(px(292.0 * p)).opacity(p)
+                        },
+                    )
+                    .into_any_element()
+            } else {
+                chooser
+                    .h(px(292.0 * target))
+                    .opacity(target)
+                    .into_any_element()
+            };
+            panel = panel.child(chooser);
+        } else {
+            panel = panel.child(chooser.flex_1());
+        }
+        if save {
+            // Minimal Save keeps its accessory space above the button row, as
+            // 10.6 does, instead of leaving a gap below the buttons.
+            panel = panel.child(div().flex_1().min_h(px(0.)));
         }
         if let Some(accessory) = &self.accessory {
             panel = panel.child(
@@ -1383,7 +1910,27 @@ impl Render for FilePanel {
             );
         }
         panel = panel.child(self.button_row(window, cx, selected_count, loading, error));
-        panel
+        if let Some(menu) = &self.menu {
+            panel = panel.child(deferred(menu.clone()).priority(1));
+        }
+        if save {
+            if animate {
+                panel
+                    .with_animation(
+                        gpui::ElementId::Name(format!("save-root-{serial}").into()),
+                        Animation::new(duration).with_easing(easing),
+                        move |el, t| {
+                            let p = progress(t);
+                            el.h(px(160.0 + 216.0 * p))
+                        },
+                    )
+                    .into_any_element()
+            } else {
+                panel.h(px(160.0 + 216.0 * target)).into_any_element()
+            }
+        } else {
+            panel.into_any_element()
+        }
     }
 }
 
@@ -1638,6 +2185,8 @@ impl FilePanel {
                         let next = *next;
                         this.update(cx, |panel, cx| {
                             panel.expanded = next;
+                            panel.expand_serial = panel.expand_serial.wrapping_add(1);
+                            panel.expand_animated = true;
                             panel.save_panel_state(cx);
                             panel.refresh_stops(cx);
                             cx.notify();
@@ -1706,6 +2255,7 @@ pub fn begin_sheet(
     cx: &mut App,
 ) -> Entity<FilePanel> {
     let session = panel.read(cx).session.clone();
+    let save = panel.read(cx).mode == PanelMode::Save;
     let height = panel.read(cx).preferred_height();
     panel.update(cx, |panel, cx| {
         panel.owner = Some(owner);
@@ -1715,17 +2265,28 @@ pub fn begin_sheet(
         });
         cx.notify();
     });
-    let sheet = sheet::Sheet::new_sized(
-        title.to_string(),
-        chrome::PANEL_WIDTH,
-        height,
-        session.clone(),
-        {
-            let panel = panel.clone();
-            move |_, _| panel.clone().into_any_element()
-        },
-        cx,
-    );
+    let sheet = if save {
+        // The Save panel's own root is content-sized and animated; the sheet
+        // card must follow it frame by frame rather than hold a fixed height.
+        let content_panel = panel.clone();
+        sheet::Sheet::new(
+            title.to_string(),
+            chrome::PANEL_WIDTH,
+            session.clone(),
+            move |_: &mut Window, _: &mut App| content_panel.clone().into_any_element(),
+            cx,
+        )
+    } else {
+        let content_panel = panel.clone();
+        sheet::Sheet::new_sized(
+            title.to_string(),
+            chrome::PANEL_WIDTH,
+            height,
+            session.clone(),
+            move |_: &mut Window, _: &mut App| content_panel.clone().into_any_element(),
+            cx,
+        )
+    };
     if !sheet::present(owner, sheet, cx) {
         modal::finish(session, ModalResult::Cancelled, window, cx);
     }
@@ -1864,6 +2425,10 @@ impl FilePanel {
                 .browser
                 .as_ref()
                 .is_some_and(|browser| browser.read(cx).is_editing(cx))
+            || self
+                .icons
+                .as_ref()
+                .is_some_and(|grid| grid.read(cx).is_editing())
     }
 
     /// Switch presentation without a toolbar click. The location, controller

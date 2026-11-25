@@ -108,6 +108,8 @@ trait FileProvider {
     fn location_of(&self, path: &Path) -> Option<LocationId>;    // optional
     fn label(&self, location: &LocationId, cx: &App) -> SharedString;
     fn location_icon(&self, location: &LocationId) -> Icon;
+    fn delete(&self, parent: &LocationId, id: &ItemId, cx: &mut App)
+        -> Task<Result<(), FileError>>;
 }
 ```
 
@@ -171,8 +173,21 @@ segment is not acceptable.
   disclosure, Cancel and Save. It has no toolbar, sidebar, browser or New
   Folder. Application content goes between Where and the buttons.
 - The expanded state adds the toolbar, sidebar, browser, Format slot, Hide
-  extension and New Folder (p. 248). The expanded state and Hide extension
-  persist through `PanelStateStore`.
+  extension and New Folder (p. 248). It is the same panel, not a second view:
+  the chooser unfolds from the Where row in one 220 ms eased transition, and
+  folds back into it. The sheet/card is content-sized, so it grows and shrinks
+  with the panel. The expanded state and Hide extension persist through
+  `PanelStateStore`.
+- `extension_policy` decides what happens to the typed extension. `Any` is
+  the default: the name is saved as typed and `allowed_types` only filters the
+  browser. `Fixed("txt")` replaces or appends that extension. `Required`
+  appends the first allowed extension when none was typed and rejects a
+  different one. A consumer that wants a free-form extension simply does not
+  set a policy.
+- Right-click a row for Open/Rename/Copy Path/Delete/New Folder. Right-click
+  the empty browser area for New Folder, Sort By, View and Show Hidden Files.
+  The menu is the shared `PopupMenu`; actions go through the provider or the
+  panel model, never directly to `std::fs`.
 - The name field is preselected from the start to the last dot, so typing
   replaces the base name and leaves the extension. `.hidden` keeps the whole
   name selected. The selection is renewed on every open.
@@ -211,10 +226,10 @@ three-segment view selector 69 px, the path pop-up 219 px, the search field
 branch arrow, grip and divider are `browser.*` in
 `reference/measurements.json`.
 
-The collapsed Save content height (160 px), the Save sheet's shadow and its
-200/160 ms emerge/retract timings, the 560 x 360 Open minimum and the
-grow-to-fit adaptation are estimates; they are logged in
-`docs/exceptions.md`.
+The collapsed Save content height (160 px), the Save sheet's shadow, its
+200/160 ms emerge/retract timings and the 220 ms expand/contract timing, the
+560 x 360 Open minimum and the grow-to-fit adaptation are estimates; they are
+logged in `docs/exceptions.md`.
 
 Goldens: `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`,
 `save-sheet-expanded` and `save-sheet-grow` are rendered through the capture

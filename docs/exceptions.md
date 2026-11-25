@@ -260,8 +260,10 @@ submenu placement, the arrow and the label inset.
   capture with both window edges exists. The Save sheet is a document sheet
   (HIG p. 247) but no corpus capture shows it; its 0.22 black shadow, 12 px
   blur, 5 px downward offset, 200 ms emerge and 160 ms retract are estimates.
-  Do not claim measured fidelity for Save until the user supplies the captures
-  requested in NSSAVEPANEL-2 S0.
+  The minimal/expanded transition is one panel whose chooser unfolds in 220 ms
+  with an ease-in-out curve; the height is content-driven. Do not claim
+  measured fidelity for Save until the user supplies the captures requested in
+  NSSAVEPANEL-2 S0.
 - Grow-to-fit: GPUI exposes content resize but no window move. The sheet grows
   the owner's content area from its existing origin and clamps the request to
   the display's remaining space; it restores the exact previous content size

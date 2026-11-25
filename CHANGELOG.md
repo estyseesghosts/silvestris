@@ -5,6 +5,26 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 5d5c38f
+
+Open and Save panel interaction pass:
+
+- `SavePanel::extension_policy` and `file_panel::ExtensionPolicy` (`Any`,
+  `Required`, `Fixed`). `Any` is the default; `allowed_types` only filters the
+  browser unless the consumer asks for enforcement.
+- Save minimal and expanded are one content-sized panel. The chooser unfolds
+  and folds with a 220 ms eased height/opacity transition; the sheet card
+  follows the panel height. The old fixed collapsed/expanded card heights are
+  gone.
+- Right-click menus in list, column and icon views: file rows offer
+  Open/Choose, Rename, Copy Path, Delete and New Folder; the empty area offers
+  New Folder, Sort By, View and Show Hidden Files. `TableView` gained
+  `TableEvent::BackgroundContextMenu`; `ColumnBrowser` forwards row and
+  background context events; `IconGrid` gained context events and inline
+  rename (`set_rename`, `begin_editing`, `finish_editing`, `is_editing`).
+- `FileProvider::delete` added (default refuses); `MemoryProvider` and
+  `StdFsProvider` implement it.
+
 ## After b90b569
 
 NSSAVEPANEL-2: presentation corrected for the Open and Save panels.
@@ -39,7 +59,8 @@ NSSAVEPANEL-2: presentation corrected for the Open and Save panels.
   resizable and its width persists.
 - File icons are designed full-colour 16 px artwork with inactive and disabled
   desaturation; new `Network` and `SmartSearch` variants and `IconView`. The
-  list shows Name and Date Modified with Size and Kind hidden.
+  list shows Name and Date Modified with Size and Kind hidden. `FileProvider`
+  gained default `label` and `location_icon` methods for the path pop-up.
 - Save has a real minimal state (Save As, Where, disclosure, Cancel, Save) and
   an expanded state (toolbar, sidebar, browser, Format, Hide extension, New
   Folder). The last view, expanded state, Hide extension and sidebar width

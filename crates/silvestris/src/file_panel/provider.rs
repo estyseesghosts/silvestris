@@ -330,6 +330,16 @@ pub trait FileProvider: 'static {
         Task::ready(Err(FileError::new("This provider cannot rename entries")))
     }
 
+    /// Delete an entry. Providers that cannot delete return the default error.
+    fn delete(
+        &self,
+        _parent: &LocationId,
+        _id: &ItemId,
+        _cx: &mut App,
+    ) -> Task<Result<(), FileError>> {
+        Task::ready(Err(FileError::new("This provider cannot delete entries")))
+    }
+
     /// A host path for a location, when the provider has one. The panel never
     /// needs it; a consumer that writes the chosen file does.
     fn resolve(&self, _location: &LocationId) -> Option<PathBuf> {
@@ -601,6 +611,36 @@ impl FileProvider for MemoryProvider {
         }
         Task::ready(Ok(()))
     }
+
+    fn delete(&self, parent: &LocationId, id: &ItemId, _: &mut App) -> Task<Result<(), FileError>> {
+        let mut data = self.data.borrow_mut();
+        let Some(location) = data.locations.get_mut(parent) else {
+            return Task::ready(Err(FileError::new("No such location")));
+        };
+        let Some(index) = location.entries.iter().position(|entry| entry.id == *id) else {
+            return Task::ready(Err(FileError::new("No such entry")));
+        };
+        let entry = location.entries.remove(index);
+        if entry.is_dir && !entry.is_package {
+            let child = join_location(parent, &entry.name);
+            let mut stack = vec![child];
+            let mut descendants = Vec::new();
+            while let Some(id) = stack.pop() {
+                descendants.push(id.clone());
+                let children: Vec<LocationId> = data
+                    .locations
+                    .iter()
+                    .filter(|(_, location)| location.parent.as_ref() == Some(&id))
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                stack.extend(children);
+            }
+            for id in descendants {
+                data.locations.remove(&id);
+            }
+        }
+        Task::ready(Ok(()))
+    }
 }
 
 /// The local disk, behind feature `std-fs`, so the core library keeps no
@@ -782,6 +822,24 @@ impl FileProvider for StdFsProvider {
     fn exists(&self, parent: &LocationId, name: &str, cx: &mut App) -> Task<bool> {
         let path = Self::path_of(parent).join(name);
         cx.background_executor().spawn(async move { path.exists() })
+    }
+
+    fn delete(
+        &self,
+        parent: &LocationId,
+        id: &ItemId,
+        cx: &mut App,
+    ) -> Task<Result<(), FileError>> {
+        let path = Self::path_of(parent).join(id.as_ref());
+        cx.background_executor().spawn(async move {
+            let is_dir = path.is_dir();
+            let result = if is_dir {
+                std::fs::remove_dir_all(&path)
+            } else {
+                std::fs::remove_file(&path)
+            };
+            result.map_err(|error| FileError::new(format!("{}: {error}", path.display())))
+        })
     }
 
     fn resolve(&self, location: &LocationId) -> Option<PathBuf> {

@@ -22,7 +22,8 @@ pub use model::{
 };
 pub use open::OpenPanel;
 pub use panel::{
-    begin_sheet, run_modal, FilePanel, FormatOption, PanelMode, PanelOptions, PanelOutcome,
+    begin_sheet, run_modal, ExtensionPolicy, FilePanel, FormatOption, PanelMode, PanelOptions,
+    PanelOutcome,
 };
 pub use provider::{
     modified_seconds, FileAncestor, FileEntry, FileError, FileKind, FilePlace, FileProvider,

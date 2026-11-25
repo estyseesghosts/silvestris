@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, Context, Entity, Modifiers, TestAppContext, VisualContext,
+    div, prelude::*, px, Context, Entity, Modifiers, MouseButton, TestAppContext, VisualContext,
     VisualTestContext, Window,
 };
 use silvestris::chrome::WindowFrame;
@@ -413,6 +413,40 @@ fn icon_view_renders_and_activates_a_file() {
     assert_eq!(
         outcome.first_location().map(ToString::to_string).as_deref(),
         Some("/note")
+    );
+}
+
+#[test]
+fn icon_cells_and_the_column_browser_open_a_context_menu() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let row = cx.debug_bounds("table-row-note").expect("note row");
+    cx.simulate_mouse_down(row.center(), MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(row.center(), MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.debug_bounds("menu-panel-0").is_some(),
+        "column row opens a file menu"
+    );
+    cx.simulate_keystrokes("escape");
+    draw(&mut cx);
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(&mut cx);
+    let cell = cx.debug_bounds("icon-cell-note").expect("note cell");
+    cx.simulate_mouse_down(cell.center(), MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(cell.center(), MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.debug_bounds("menu-panel-0").is_some(),
+        "icon cell opens a file menu"
+    );
+    let rename = cx.debug_bounds("menu-item-0-2").expect("Rename row");
+    cx.simulate_click(rename.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.read(|cx| panel.read(cx).is_editing(cx)),
+        "icon view renames in place"
     );
 }
 

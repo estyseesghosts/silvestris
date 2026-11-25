@@ -15,12 +15,13 @@ use std::rc::Rc;
 
 use gpui::{
     canvas, div, prelude::*, px, uniform_list, AnyElement, App, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, KeyDownEvent, ScrollStrategy, SharedString, UniformListScrollHandle,
-    Window,
+    FocusHandle, Focusable, KeyDownEvent, MouseButton, MouseDownEvent, Pixels, Point,
+    ScrollStrategy, SharedString, Subscription, UniformListScrollHandle, Window,
 };
 
 use super::scroll_source::ScrollSource as _;
 use super::scroll_view::{ScrollAxes, ScrollView};
+use super::text_field::{TextField, TextFieldEvent};
 use crate::binding::{ItemId, ListController};
 use crate::convert::hsla;
 use crate::{paint, ActiveTheme};
@@ -34,6 +35,13 @@ pub const ICON_SIZE: f32 = 32.0;
 
 type IconFn<T> = Rc<dyn Fn(&T, bool, bool, &mut Window, &mut App) -> AnyElement>;
 type LabelFn<T> = Rc<dyn Fn(&T) -> SharedString>;
+type RenameFn<T> = Rc<dyn Fn(&T, &str, &mut App) -> bool>;
+
+struct Editing {
+    id: ItemId,
+    field: Entity<TextField>,
+    _subscription: Subscription,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IconGridEvent {
@@ -42,6 +50,13 @@ pub enum IconGridEvent {
     SelectionChanged,
     /// Double-click or Return on the selection.
     Activated(Vec<ItemId>),
+    /// Secondary click on a cell.
+    ContextMenu {
+        ids: Vec<ItemId>,
+        position: Point<Pixels>,
+    },
+    /// Secondary click on the empty area.
+    BackgroundContextMenu { position: Point<Pixels> },
 }
 
 pub struct IconGrid<T> {
@@ -50,6 +65,8 @@ pub struct IconGrid<T> {
     scroll: UniformListScrollHandle,
     icon: IconFn<T>,
     label: LabelFn<T>,
+    rename: Option<RenameFn<T>>,
+    editing: Option<Editing>,
     multiple: bool,
     /// Columns in the last frame; keyboard movement needs the same pitch.
     columns: Rc<Cell<usize>>,
@@ -68,9 +85,107 @@ impl<T: 'static> IconGrid<T> {
             scroll: UniformListScrollHandle::new(),
             icon: Rc::new(icon),
             label: Rc::new(label),
+            rename: None,
+            editing: None,
             multiple: false,
             columns: Rc::new(Cell::new(4)),
         }
+    }
+
+    /// Call before the first render; renaming uses the same provider contract
+    /// as `TableView`.
+    pub fn set_rename(
+        &mut self,
+        rename: impl Fn(&T, &str, &mut App) -> bool + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.rename = Some(Rc::new(rename));
+        cx.notify();
+    }
+
+    /// Begin editing a cell's label. Returns false when the item is not
+    /// visible or the grid has no rename callback.
+    pub fn begin_editing(
+        &mut self,
+        id: ItemId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if self.rename.is_none() {
+            return false;
+        }
+        let label = {
+            let controller = self.controller.read(cx);
+            let Some(item) = controller
+                .visible()
+                .find(|item| controller.id_of(item) == id)
+            else {
+                return false;
+            };
+            (self.label)(item)
+        };
+        let field = cx.new(|cx| {
+            let mut field = TextField::new(window, cx);
+            field.set_text(label.to_string(), cx);
+            field
+        });
+        field.update(cx, |field, cx| window.focus(&field.focus_handle(cx), cx));
+        let subscription = cx.subscribe_in(
+            &field,
+            window,
+            |grid, _, event: &TextFieldEvent, window, cx| {
+                if matches!(
+                    event,
+                    TextFieldEvent::Submitted | TextFieldEvent::EndedEditing
+                ) {
+                    grid.finish_editing(true, window, cx);
+                }
+            },
+        );
+        self.editing = Some(Editing {
+            id,
+            field,
+            _subscription: subscription,
+        });
+        cx.notify();
+        true
+    }
+
+    /// End an edit, committing through the rename callback or discarding it.
+    pub fn finish_editing(&mut self, commit: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(editing) = self.editing.take() else {
+            return;
+        };
+        if commit {
+            let text = editing.field.read(cx).text().to_string();
+            let rename = self.rename.clone();
+            let controller = self.controller.clone();
+            if let Some(rename) = rename {
+                let found = {
+                    let controller = controller.read(cx);
+                    controller
+                        .visible()
+                        .any(|item| controller.id_of(item) == editing.id)
+                };
+                if found {
+                    controller.update(cx, |controller, cx| {
+                        if let Some(item) = controller
+                            .visible()
+                            .find(|item| controller.id_of(item) == editing.id)
+                        {
+                            rename(item, &text, cx);
+                        }
+                    });
+                }
+            }
+        }
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    #[must_use]
+    pub fn is_editing(&self) -> bool {
+        self.editing.is_some()
     }
 
     pub fn set_multiple(&mut self, multiple: bool, cx: &mut Context<Self>) {
@@ -239,6 +354,10 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
         let icon = self.icon.clone();
         let focus = self.focus.clone();
         let view = cx.entity();
+        let editing = self
+            .editing
+            .as_ref()
+            .map(|editing| (editing.id.clone(), editing.field.clone()));
         let list_theme = theme.clone();
         let list = uniform_list("icon-rows", rows, move |range, window, cx| {
             range
@@ -271,8 +390,11 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                                     .map(|item| (icon)(item, is_selected, active, window, cx))
                             })
                             .unwrap_or_else(|| div().size(px(ICON_SIZE)).into_any_element());
-                        let cell_id = id.clone();
+                        let click_id = id.clone();
+                        let menu_id = id.clone();
                         let view = view.clone();
+                        let click_view = view.clone();
+                        let menu_view = view.clone();
                         cells.push(
                             div()
                                 .id(SharedString::from(format!("icon-cell-{id}")))
@@ -305,23 +427,61 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                                     .inset_0(),
                                 )
                                 .child(icon_element)
-                                .child(div().w_full().px(px(4.)).text_center().child(label.clone()))
+                                .child(match &editing {
+                                    Some((editing_id, field)) if *editing_id == id => div()
+                                        .w_full()
+                                        .px(px(4.))
+                                        .child(field.clone())
+                                        .into_any_element(),
+                                    _ => div()
+                                        .w_full()
+                                        .px(px(4.))
+                                        .text_center()
+                                        .child(label.clone())
+                                        .into_any_element(),
+                                })
                                 .child(
                                     div()
                                         .id(SharedString::from(format!("icon-hit-{id}")))
                                         .absolute()
                                         .inset_0()
                                         .on_click(move |event, window, cx| {
-                                            let id = cell_id.clone();
+                                            let id = click_id.clone();
                                             let modifiers = event.modifiers();
                                             let click_count = event.click_count();
-                                            view.update(cx, |grid, cx| {
+                                            click_view.update(cx, |grid, cx| {
                                                 grid.click(id.clone(), modifiers, window, cx);
                                                 if click_count == 2 {
                                                     grid.activate(cx);
                                                 }
                                             });
-                                        }),
+                                        })
+                                        .on_mouse_down(
+                                            MouseButton::Right,
+                                            move |event, window, cx| {
+                                                let id = menu_id.clone();
+                                                menu_view.update(cx, |grid, cx| {
+                                                    window.focus(&grid.focus, cx);
+                                                    if !grid.controller.read(cx).is_selected(&id) {
+                                                        grid.controller.update(cx, |c, cx| {
+                                                            c.select(id.clone());
+                                                            cx.notify();
+                                                        });
+                                                    }
+                                                    let ids = grid
+                                                        .controller
+                                                        .read(cx)
+                                                        .selected_ids()
+                                                        .to_vec();
+                                                    cx.emit(IconGridEvent::ContextMenu {
+                                                        ids,
+                                                        position: event.position,
+                                                    });
+                                                    cx.notify();
+                                                });
+                                                cx.stop_propagation();
+                                            },
+                                        ),
                                 )
                                 .into_any_element(),
                         );
@@ -348,6 +508,27 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
             .on_key_down(cx.listener(|grid, event: &KeyDownEvent, window, cx| {
                 grid.key_down(event, window, cx);
             }))
+            .capture_key_down(cx.listener(|grid, event: &KeyDownEvent, window, cx| {
+                if grid.is_editing()
+                    && event.keystroke.key == "escape"
+                    && !event.keystroke.modifiers.modified()
+                {
+                    cx.stop_propagation();
+                    grid.finish_editing(false, window, cx);
+                }
+            }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|grid, event: &MouseDownEvent, window, cx| {
+                    if grid.is_editing() {
+                        grid.finish_editing(true, window, cx);
+                    }
+                    cx.emit(IconGridEvent::BackgroundContextMenu {
+                        position: event.position,
+                    });
+                    cx.stop_propagation();
+                }),
+            )
             .child(
                 ScrollView::new("icon-grid-scroll", &self.scroll)
                     .axes(ScrollAxes::Vertical)

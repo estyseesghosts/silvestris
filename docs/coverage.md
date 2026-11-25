@@ -37,6 +37,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Panel, inspector | `Shell` inspector, `Sidebar` | functional | four | — | #20, #27 |
 | Dialog, alert | `Alert`, `ConfirmationSheet` | functional | four | `save-sheet-minimal` | #21, #23 |
 | Sheet | `sheet::Sheet` | functional | four | `save-sheet-minimal`, `save-sheet-expanded` | #22 |
+| Open dialog | `WindowRole::OpenPanel`, `OpenPanel::run_modal` | measured | four | `open-dialog-columns`, `open-dialog-list` | #29 |
 | Source list, sidebar | `SourceList`, `SourceListEvent`, `SourceListStyle`, `Sidebar` | measured | four | `source-list`, `source-list-secondary` | #3, #4 |
 | Source-list row accessories | `RowAccessory`, `RowStatus` | measured | four | `source-list-secondary` | #4 |
 | Find window | none | missing | — | — | #77 |

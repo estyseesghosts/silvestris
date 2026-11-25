@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use gpui::{AnyWindowHandle, App, Entity, Window};
 
-use super::panel::{self, FilePanel, FormatOption, PanelOptions, PanelOutcome};
+use super::panel::{self, ExtensionPolicy, FilePanel, FormatOption, PanelOptions, PanelOutcome};
 use super::provider::FileProvider;
 use super::state::PanelStateStore;
 
@@ -66,6 +66,16 @@ impl SavePanel {
     #[must_use]
     pub fn allows_other_types(mut self, allows: bool) -> Self {
         self.options.allows_other_types = allows;
+        self
+    }
+
+    /// What to do with the typed extension. The default, `Any`, keeps exactly
+    /// what the user typed: `allowed_types` only filters the browser. Use
+    /// `Fixed("txt")` to force an extension or `Required` to append the first
+    /// allowed extension when none was typed.
+    #[must_use]
+    pub fn extension_policy(mut self, policy: ExtensionPolicy) -> Self {
+        self.options.extension_policy = policy;
         self
     }
 

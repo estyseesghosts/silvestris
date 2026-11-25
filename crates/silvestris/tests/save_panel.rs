@@ -5,12 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, Context, Entity, Focusable, Modifiers, TestAppContext, VisualContext,
-    VisualTestContext, Window,
+    div, prelude::*, px, Context, Entity, Focusable, Modifiers, MouseButton, TestAppContext,
+    VisualContext, VisualTestContext, Window,
 };
 use silvestris::chrome::WindowFrame;
 use silvestris::file_panel::{
-    FileEntry, FilePanel, FileViewMode, LocationId, MemoryProvider, PanelOutcome, SavePanel,
+    ExtensionPolicy, FileEntry, FilePanel, FileViewMode, LocationId, MemoryProvider, PanelOutcome,
+    SavePanel,
 };
 use silvestris::ActiveTheme;
 use silvestris::{ThemeId, ThemePreference};
@@ -352,17 +353,23 @@ fn new_folder_in_columns_mode_selects_and_renames_the_row() {
 fn the_disclosure_hides_and_shows_the_browser() {
     let mut app = TestAppContext::single();
     let (panel, _outcome, _provider, mut cx) = present(&mut app, "fresh.txt", false, false, false);
-    assert!(cx.debug_bounds("panel-sidebar").is_none());
+    let chooser = cx.debug_bounds("panel-chooser").expect("chooser block");
     assert!(
-        cx.debug_bounds("panel-toolbar").is_none(),
-        "minimal Save has no toolbar (HIG p. 247)"
+        f32::from(chooser.size.height) < 2.0,
+        "the chooser is folded away in minimal Save (HIG p. 247), got {}",
+        chooser.size.height
     );
     assert!(
         cx.debug_bounds("save-where-row").is_some(),
         "minimal Save has a Where pop-up"
     );
-    assert!(cx.debug_bounds("save-format-row").is_none());
-    assert!(cx.debug_bounds("hide-extension").is_none());
+    let panel_bottom = cx.debug_bounds("file-panel").expect("panel").bottom();
+    let accept_bottom = cx.debug_bounds("panel-accept").expect("accept").bottom();
+    assert!(
+        panel_bottom - accept_bottom < px(30.),
+        "the accessory gap sits above the buttons, not below them: {} px",
+        panel_bottom - accept_bottom
+    );
     assert!(
         cx.debug_bounds("panel-new-folder").is_none(),
         "New Folder belongs to the expanded state"
@@ -371,7 +378,11 @@ fn the_disclosure_hides_and_shows_the_browser() {
     cx.simulate_click(disclosure.center(), Modifiers::default());
     draw(&mut cx);
     assert!(cx.read(|cx| panel.read(cx).expanded()));
-    assert!(cx.debug_bounds("panel-sidebar").is_some());
+    let chooser = cx.debug_bounds("panel-chooser").expect("chooser block");
+    assert!(
+        f32::from(chooser.size.height) > 200.0,
+        "the chooser unfolds in the same panel"
+    );
 }
 
 #[test]
@@ -444,6 +455,212 @@ fn the_accessory_slot_is_drawn_above_the_buttons() {
     let mut app = TestAppContext::single();
     let (_panel, _outcome, _provider, mut cx) = present(&mut app, "fresh.txt", false, true, true);
     assert!(cx.debug_bounds("save-accessory").is_some());
+}
+
+#[test]
+fn the_extension_policy_is_opt_in_and_fixed_forces_only_when_asked() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    app.update(|cx| cx.set_reduce_motion(true));
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let outcome: Outcome = Rc::default();
+    let slot = outcome.clone();
+    let panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(provider()))
+            .directory("/")
+            .name("report")
+            .allowed_types(["txt"])
+            .expanded(true)
+            .on_finish(move |outcome, _| *slot.borrow_mut() = Some(outcome.clone()))
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let accept = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(accept.center(), Modifiers::default());
+    draw(cx);
+    let first = outcome.borrow_mut().take().expect("first outcome");
+    assert_eq!(
+        first.first_location().map(ToString::to_string).as_deref(),
+        Some("/report"),
+        "allowed_types does not force an extension by default"
+    );
+    let _ = panel;
+
+    let outcome: Outcome = Rc::default();
+    let slot = outcome.clone();
+    let _panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(provider()))
+            .directory("/")
+            .name("forced")
+            .allowed_types(["txt"])
+            .extension_policy(ExtensionPolicy::Fixed("txt".into()))
+            .expanded(true)
+            .on_finish(move |outcome, _| *slot.borrow_mut() = Some(outcome.clone()))
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let accept = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(accept.center(), Modifiers::default());
+    draw(cx);
+    let second = outcome.borrow().clone().expect("second outcome");
+    assert_eq!(
+        second.first_location().map(ToString::to_string).as_deref(),
+        Some("/forced.txt"),
+        "Fixed appends the requested extension"
+    );
+
+    let outcome: Outcome = Rc::default();
+    let slot = outcome.clone();
+    let _panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(provider()))
+            .directory("/")
+            .name("required")
+            .allowed_types(["txt"])
+            .extension_policy(ExtensionPolicy::Required)
+            .expanded(true)
+            .on_finish(move |outcome, _| *slot.borrow_mut() = Some(outcome.clone()))
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let accept = cx.debug_bounds("panel-accept").unwrap();
+    cx.simulate_click(accept.center(), Modifiers::default());
+    draw(cx);
+    let third = outcome.borrow().clone().expect("third outcome");
+    assert_eq!(
+        third.first_location().map(ToString::to_string).as_deref(),
+        Some("/required.txt"),
+        "Required falls back to allowed_types when there is no Format pop-up"
+    );
+}
+
+#[test]
+fn right_clicking_a_file_offers_rename_delete_and_new_folder() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, provider, mut cx) = present(&mut app, "fresh.txt", false, true, false);
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
+    let row = cx.debug_bounds("table-row-report").expect("report row");
+    cx.simulate_mouse_down(row.center(), MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(row.center(), MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    assert!(cx.debug_bounds("menu-panel-0").is_some(), "file menu opens");
+    // Heading, Rename, Separator, Delete, Separator, New Folder.
+    let delete = cx.debug_bounds("menu-item-0-3").expect("Delete row");
+    cx.simulate_click(delete.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        !provider
+            .entries(&LocationId::from("/"))
+            .iter()
+            .any(|entry| entry.name == "report.txt"),
+        "Delete removes the file through the provider"
+    );
+    let _ = panel;
+}
+
+#[test]
+fn right_click_rename_starts_an_inline_edit() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, _provider, mut cx) = present(&mut app, "fresh.txt", false, true, false);
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
+    let row = cx.debug_bounds("table-row-report").expect("report row");
+    cx.simulate_mouse_down(row.center(), MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(row.center(), MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    let rename = cx.debug_bounds("menu-item-0-1").expect("Rename row");
+    cx.simulate_click(rename.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(cx.read(|cx| panel.read(cx).is_editing(cx)));
+}
+
+#[test]
+fn right_clicking_empty_browser_space_offers_sort_view_and_new_folder() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, provider, mut cx) = present(&mut app, "fresh.txt", false, true, false);
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
+    let area = cx.debug_bounds("panel-browser-area").expect("browser area");
+    let empty = gpui::point(area.center().x, area.bottom() - px(8.));
+    cx.simulate_mouse_down(empty, MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(empty, MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.debug_bounds("menu-panel-0").is_some(),
+        "background menu opens"
+    );
+    let new_folder = cx.debug_bounds("menu-item-0-0").expect("New Folder");
+    cx.simulate_click(new_folder.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        provider
+            .entries(&LocationId::from("/"))
+            .iter()
+            .any(|entry| entry.name == "untitled folder"),
+        "New Folder creates through the provider"
+    );
+    let _ = panel;
+}
+
+#[test]
+fn the_save_panel_zooms_between_minimal_and_expanded() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let _panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(provider()))
+            .directory("/")
+            .name("fresh.txt")
+            .expanded(false)
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(250));
+    draw(cx);
+    let start = cx.debug_bounds("file-panel").expect("panel");
+    assert!(
+        f32::from(start.size.height) < 200.0,
+        "minimal starts small: {}",
+        start.size.height
+    );
+    let disclosure = cx.debug_bounds("save-disclosure").expect("disclosure");
+    cx.simulate_click(disclosure.center(), Modifiers::default());
+    assert!(
+        cx.read(|cx| _panel.read(cx).expanded()),
+        "the disclosure expands the panel"
+    );
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(110));
+    draw(cx);
+    let middle = cx.debug_bounds("file-panel").expect("panel");
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(220));
+    draw(cx);
+    let end = cx.debug_bounds("file-panel").expect("panel");
+    assert!(
+        middle.size.height > start.size.height && middle.size.height < end.size.height,
+        "the panel passes through an intermediate height: {} -> {} -> {}",
+        start.size.height,
+        middle.size.height,
+        end.size.height
+    );
+    assert!(
+        f32::from(end.size.height) > 350.0,
+        "expanded ends large: {}",
+        end.size.height
+    );
 }
 
 #[test]

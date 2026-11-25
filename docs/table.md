@@ -75,7 +75,8 @@ cx.subscribe(&table, |_, _, event: &TableEvent, cx| { /* … */ }).detach();
   function; Escape cancels. A row with nothing editable sends `Activated`.
 - Double-click sends `Activated`; a secondary click selects the row when it
   is not already selected and sends `ContextMenu { ids, position }` so the
-  app can open a `PopupMenu`.
+  app can open a `PopupMenu`. A secondary click on the empty area below the
+  rows sends `BackgroundContextMenu { position }`.
 - `TableEvent::SelectionChanged` is sent only for user changes.
   Programmatic `ListController::select` and `set_selection` send nothing.
 - The selection is `Lists::table_active` while the table has focus in the

@@ -1,7 +1,9 @@
 # Open and Save panel visual comparison
 
 The correction brief is `NSSAVEPANEL-2.md` (commit `8d038b1`); the panels it
-corrects are from `b90b569`. This sheet records the rectangles and capture
+corrects are from `b90b569`. The sheet rewrite is `5d5c38f`; the interaction
+pass on top adds the per-panel extension policy, the browser context menus and
+the single-panel Save transition. This sheet records the rectangles and capture
 hashes used to compare the corrected renders. No corpus image or crop is
 committed.
 

@@ -80,6 +80,14 @@ pub enum BrowserEvent {
     PathChanged(Vec<ItemId>),
     /// Double-click or Return on a leaf.
     Activated(ItemId),
+    /// Secondary click on a row: the selection to act on and the window
+    /// position for a contextual menu.
+    ContextMenu {
+        ids: Vec<ItemId>,
+        position: gpui::Point<gpui::Pixels>,
+    },
+    /// Secondary click on a column's empty area.
+    BackgroundContextMenu { position: gpui::Point<gpui::Pixels> },
 }
 
 struct Column {
@@ -373,6 +381,17 @@ impl ColumnBrowser {
                 if let (Some(id), Some(_)) = (leaf, ids.first()) {
                     cx.emit(BrowserEvent::Activated(id));
                 }
+            }
+            TableEvent::ContextMenu { ids, position } => {
+                cx.emit(BrowserEvent::ContextMenu {
+                    ids: ids.clone(),
+                    position: *position,
+                });
+            }
+            TableEvent::BackgroundContextMenu { position } => {
+                cx.emit(BrowserEvent::BackgroundContextMenu {
+                    position: *position,
+                });
             }
             _ => {}
         }

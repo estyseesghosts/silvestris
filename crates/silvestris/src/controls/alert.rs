@@ -291,7 +291,8 @@ impl Alert {
         let alert = cx.new(|_| alert);
         let alert_for_window = alert.clone();
         let panel_title = title.clone();
-        let bounds = gpui::Bounds::new(gpui::point(px(0.), px(0.)), gpui::size(px(420.), px(190.)));
+        let bounds =
+            crate::window_role::centered_on(window.bounds(), gpui::size(px(420.), px(190.)));
         match open_role(WindowRole::Dialog, title, bounds, cx, move |window, cx| {
             let handle = window.window_handle();
             alert_for_window.update(cx, |alert, cx| {
