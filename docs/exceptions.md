@@ -272,7 +272,8 @@ submenu placement, the arrow and the label inset.
 - Symlinks and reparse points are classified but not decorated: a link to a
   directory is navigable, a link to a file is a document, and a broken link is
   an `Alias`. No separate link badge is drawn; the icon set has no link variant.
-  Windows junctions are followed as directories.
+  Windows junctions are followed as directories. Rename and trash operate on
+  the link itself, never on its target.
 - Grow-to-fit: GPUI exposes content resize but no window move. The sheet grows
   the owner's content area from its existing origin and clamps the request to
   the display's remaining space; it restores the exact previous content size

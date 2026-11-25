@@ -194,8 +194,8 @@ handle from one instance does not resolve in another.
 Directory listing runs on GPUI's background executor. It reports unreadable
 entries as warnings, leaves the size/date unknown when metadata is missing, and
 classifies symlinks by their target: a link to a directory is navigable, a
-broken link is an `Alias`. Windows hidden attributes and Unix dotfiles both set
-the hidden flag. Name validation is platform-specific (Windows reserved
+broken link is an `Alias`; rename and trash act on the link itself. Windows
+hidden attributes and Unix dotfiles both set the hidden flag. Name validation is platform-specific (Windows reserved
 devices, trailing dots/spaces and reserved characters; Unix only `/` and NUL).
 `trash` uses `SHFileOperationW` with `FOF_ALLOWUNDO` on Windows and the
 freedesktop `files/` + `info/*.trashinfo` layout on Linux; macOS and other Unix
