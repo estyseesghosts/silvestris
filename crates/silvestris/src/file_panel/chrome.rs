@@ -37,6 +37,12 @@ pub const PANEL_CONTENT_HEIGHT: f32 = PANEL_HEIGHT - TITLEBAR_HEIGHT;
 /// Minimal Save height. Estimate: no 10.6 Save-sheet capture exists
 /// (`docs/exceptions.md`). This is the sheet's content height.
 pub const COLLAPSED_HEIGHT: f32 = 160.0;
+/// Optional message line above Save As, measured from the NSSavePanel
+/// references (`docs/file-panel-comparison.md`).
+pub const MESSAGE_HEIGHT: f32 = 30.0;
+/// Inset accessory box plus its margins, measured from the NSSavePanel
+/// references.
+pub const ACCESSORY_HEIGHT: f32 = 88.0;
 /// Toolbar row (M: panel.outer, y 57-98).
 pub const TOOLBAR_HEIGHT: f32 = 42.0;
 /// Sidebar plus its scroller, to the divider (M: panel.geometry).

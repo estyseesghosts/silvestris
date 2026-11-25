@@ -4894,6 +4894,7 @@ dependencies = [
  "anyhow",
  "gpui",
  "image",
+ "libc",
  "log",
  "raw-window-handle",
  "serde",

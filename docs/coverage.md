@@ -127,7 +127,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | --- | --- | --- | --- | --- | --- |
 | Alert | `Alert`, `AlertButton`, `AlertResult`, `AlertRole` | functional | four | `save-sheet-minimal` (replace alert in modal window is behavioural) | #23 |
 | Sheet | `sheet::Sheet`, `sheet::present`, `sheet::dismiss`, `sheet::overlay`, `sheet::card_shell` | functional | four | `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #22 |
-| Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry`, `PanelStateStore` | functional | four | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #29 |
+| Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry`, `FileListing`, `FileProviderCapabilities`, `SaveDisposition`, `PanelStateStore` | functional | four | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #29 |
 | Print, Page Setup | none | missing | — | — | #47 |
 | About | none | missing | — | — | #47 |
 | Progress copy window | none | missing | — | — | #47 |

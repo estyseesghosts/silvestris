@@ -18,7 +18,7 @@ use crate::binding::ListController;
 use crate::controls::path_control::{LocationId, PathEntry};
 use crate::icons::Icon;
 
-use super::provider::{FileAncestor, FileEntry, FileError, FilePlace, FileProvider};
+use super::provider::{FileAncestor, FileEntry, FileError, FileListing, FilePlace, FileProvider};
 
 /// Icons, list or columns. The order matches the toolbar segments in the
 /// 4.15.47 AM Open capture: icon, list, columns.
@@ -61,6 +61,7 @@ pub struct FileBrowserModel {
     controller: Entity<ListController<FileEntry>>,
     loading: bool,
     error: Option<FileError>,
+    warnings: Vec<FileError>,
     show_hidden: bool,
     allowed_types: Vec<String>,
     allows_other_types: bool,
@@ -86,6 +87,7 @@ impl FileBrowserModel {
             controller,
             loading: false,
             error: None,
+            warnings: Vec::new(),
             show_hidden: false,
             allowed_types: Vec::new(),
             allows_other_types: true,
@@ -125,6 +127,13 @@ impl FileBrowserModel {
     #[must_use]
     pub fn error(&self) -> Option<&FileError> {
         self.error.as_ref()
+    }
+
+    /// Non-fatal failures from the last listing: an entry vanished or its
+    /// metadata could not be read while the directory itself loaded.
+    #[must_use]
+    pub fn warnings(&self) -> &[FileError] {
+        &self.warnings
     }
 
     #[must_use]
@@ -260,12 +269,6 @@ impl FileBrowserModel {
     }
 
     #[must_use]
-    pub fn places(&self, cx: &App) -> Vec<FilePlace> {
-        self.provider.places(cx)
-    }
-
-    /// Selected entries in visible order.
-    #[must_use]
     pub fn selected_entries(&self, cx: &App) -> Vec<FileEntry> {
         self.controller
             .read(cx)
@@ -280,18 +283,21 @@ impl FileBrowserModel {
     pub fn selected_paths(&self, cx: &App) -> Vec<std::path::PathBuf> {
         self.selected_entries(cx)
             .into_iter()
-            .filter_map(|entry| {
-                self.provider
-                    .resolve(&entry_location(&self.location, &entry))
-            })
+            .filter_map(|entry| self.provider.resolve(&entry.location))
             .collect()
     }
 
     /// The candidate path for `name` in the current location.
     #[must_use]
     pub fn path_for(&self, name: &str) -> Option<std::path::PathBuf> {
-        let base = self.provider.resolve(&self.location)?;
-        Some(base.join(name))
+        self.provider.resolve(&self.child_location(name)?)
+    }
+
+    /// The provider handle a child called `name` would have, including a
+    /// target that does not exist yet.
+    #[must_use]
+    pub fn child_location(&self, name: &str) -> Option<LocationId> {
+        self.provider.child_location(&self.location, name)
     }
 
     /// Start a folder creation in the current location. The caller selects the
@@ -300,53 +306,50 @@ impl FileBrowserModel {
         self.provider.create_folder(&self.location, name, cx)
     }
 
-    /// The location id for a child entry, preferring the provider's own path
-    /// mapping and falling back to the parent/name convention.
+    /// The provider-owned location for a listed entry.
     #[must_use]
     pub fn location_of_entry(&self, entry: &FileEntry, cx: &App) -> LocationId {
         self.location_of_child(&self.location, entry, cx)
     }
 
     /// Like [`location_of_entry`](Self::location_of_entry), for an entry that
-    /// belongs to `parent` rather than the panel's current location. A column
-    /// browser's later columns are not the current directory.
+    /// belongs to `parent` rather than the panel's current location. The
+    /// entry's location comes from the provider; the parent is not used to
+    /// rebuild a path from display text.
     #[must_use]
     pub fn location_of_child(
         &self,
-        parent: &LocationId,
+        _parent: &LocationId,
         entry: &FileEntry,
-        cx: &App,
+        _: &App,
     ) -> LocationId {
-        let _ = cx;
-        if let Some(path) = self.provider.resolve(parent) {
-            let child = path.join(entry.name.as_ref());
-            if let Some(id) = self.provider.location_of(&child) {
-                return id;
-            }
-        }
-        child_location(parent, entry)
+        entry.location.clone()
     }
 
     /// The host path for a child entry, when the provider resolves paths.
     #[must_use]
     pub fn path_of_entry(&self, entry: &FileEntry) -> Option<std::path::PathBuf> {
-        self.path_of_child(&self.location, entry)
+        self.provider.resolve(&entry.location)
     }
 
-    /// Like [`path_of_entry`](Self::path_of_entry), for a specific parent.
+    /// Like [`path_of_entry`](Self::path_of_entry), for a specific parent. The
+    /// entry's provider-owned location is authoritative.
     #[must_use]
     pub fn path_of_child(
         &self,
-        parent: &LocationId,
+        _parent: &LocationId,
         entry: &FileEntry,
     ) -> Option<std::path::PathBuf> {
-        self.provider
-            .resolve(parent)
-            .map(|base| base.join(entry.name.as_ref()))
+        self.provider.resolve(&entry.location)
     }
 
-    pub fn exists(&self, name: &str, cx: &mut App) -> Task<bool> {
+    pub fn exists(&self, name: &str, cx: &mut App) -> Task<Result<bool, FileError>> {
         self.provider.exists(&self.location, name, cx)
+    }
+
+    /// Ask the provider whether a name is legal here. Pure and non-blocking.
+    pub fn validate_name(&self, name: &str, cx: &App) -> Result<(), FileError> {
+        self.provider.validate_name(&self.location, name, cx)
     }
 
     fn load(&mut self, keep_selection: bool, cx: &mut Context<Self>) {
@@ -375,7 +378,7 @@ impl FileBrowserModel {
     fn apply(
         &mut self,
         location: LocationId,
-        result: Result<Vec<FileEntry>, FileError>,
+        result: Result<FileListing, FileError>,
         keep_selection: bool,
         cx: &mut Context<Self>,
     ) {
@@ -384,7 +387,9 @@ impl FileBrowserModel {
         }
         self.loading = false;
         match result {
-            Ok(entries) => {
+            Ok(listing) => {
+                let FileListing { entries, warnings } = listing;
+                self.warnings = warnings;
                 let entries: Vec<FileEntry> = entries
                     .into_iter()
                     .filter(|entry| self.show_hidden || !entry.is_hidden())
@@ -405,6 +410,7 @@ impl FileBrowserModel {
             }
             Err(error) => {
                 self.error = Some(error.clone());
+                self.warnings.clear();
                 let controller = self.controller.clone();
                 controller.update(cx, |controller, cx| {
                     controller.clear_selection();
@@ -415,24 +421,6 @@ impl FileBrowserModel {
             }
         }
         cx.notify();
-    }
-}
-
-/// Build the id the provider uses for a child in `parent`. Providers fill
-/// `FileEntry::id` themselves; this helper is for adapters whose ids are
-/// relative names.
-#[must_use]
-pub fn child_location(parent: &LocationId, entry: &FileEntry) -> LocationId {
-    entry_location(parent, entry)
-}
-
-fn entry_location(parent: &LocationId, entry: &FileEntry) -> LocationId {
-    if entry.id.starts_with('/') || entry.id.contains('\\') {
-        entry.id.clone()
-    } else if parent.ends_with('/') || parent.ends_with('\\') {
-        format!("{parent}{}", entry.id).into()
-    } else {
-        format!("{parent}/{}", entry.id).into()
     }
 }
 

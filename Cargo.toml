@@ -28,7 +28,7 @@ image = { version = "0.25", default-features = false }
 smallvec = { version = "1.6", features = ["union", "const_new"] }
 log = "0.4"
 raw-window-handle = "=0.6.2"
-windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi"] }
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi"] }
 
 # GPUI is pinned to the exact Zed commit Lotus builds against
 # (lotus config/pins.toml [gpui]). Moving it is a deliberate change: update

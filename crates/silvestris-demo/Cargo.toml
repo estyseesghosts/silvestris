@@ -20,7 +20,7 @@ path = "src/bin/capture.rs"
 required-features = ["capture"]
 
 [dependencies]
-silvestris = { workspace = true }
+silvestris = { workspace = true, features = ["std-fs"] }
 gpui = { workspace = true }
 gpui_platform = { workspace = true }
 image = { workspace = true, features = ["png"] }

@@ -14,23 +14,25 @@ pub mod panel;
 pub mod provider;
 pub mod save;
 pub mod state;
+#[cfg(feature = "std-fs")]
+pub mod std_fs;
 
 pub use crate::controls::path_control::LocationId;
 pub use model::{
-    child_location, choosable, compare_kind_folders_first, place_icon, FileBrowserEvent,
-    FileBrowserModel, FileViewMode,
+    choosable, compare_kind_folders_first, place_icon, FileBrowserEvent, FileBrowserModel,
+    FileViewMode,
 };
 pub use open::OpenPanel;
 pub use panel::{
     begin_sheet, run_modal, ExtensionPolicy, FilePanel, FormatOption, PanelMode, PanelOptions,
-    PanelOutcome,
+    PanelOutcome, SaveDisposition,
 };
 pub use provider::{
-    modified_seconds, FileAncestor, FileEntry, FileError, FileKind, FilePlace, FileProvider,
-    MemoryProvider, PlaceSection,
+    modified_seconds, validate_structural_name, FileAncestor, FileEntry, FileError, FileKind,
+    FileListing, FilePlace, FileProvider, FileProviderCapabilities, MemoryProvider, PlaceSection,
 };
 pub use save::SavePanel;
 pub use state::{MemoryPanelStateStore, PanelState, PanelStateStore, PreferencePanelStates};
 
 #[cfg(feature = "std-fs")]
-pub use provider::StdFsProvider;
+pub use std_fs::StdFsProvider;

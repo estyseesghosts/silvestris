@@ -116,63 +116,165 @@ impl FrameStore for GalleryFrames {
     }
 }
 
-/// S5: a small Untitled document window whose File menu opens the Save sheet
-/// (minimal and expanded) and the application-modal Open dialog.
+/// S5: a small document window whose File menu opens the Save sheet
+/// (minimal and expanded) and the application-modal Open dialog. It is a real
+/// consumer: Save writes the text, Open reads it, and the accessory's backup
+/// checkbox writes a second copy.
 struct DocumentDemo {
     state: std::rc::Rc<MemoryPanelStateStore>,
     frames: std::rc::Rc<GalleryFrames>,
+    content: std::rc::Rc<std::cell::RefCell<String>>,
+    status: std::rc::Rc<std::cell::RefCell<String>>,
+    backup: std::rc::Rc<std::cell::Cell<bool>>,
 }
 
 impl DocumentDemo {
-    fn provider() -> std::rc::Rc<dyn silvestris::file_panel::FileProvider> {
-        std::rc::Rc::new(gallery_file_provider())
+    fn new(state: std::rc::Rc<MemoryPanelStateStore>, frames: std::rc::Rc<GalleryFrames>) -> Self {
+        Self {
+            state,
+            frames,
+            content: std::rc::Rc::new(std::cell::RefCell::new(
+                "The quick brown fox jumps over the lazy dog.\n\n\
+                 File > Save As writes this text to the chosen file.\n\
+                 File > Open reads a text file back into this document."
+                    .to_string(),
+            )),
+            status: std::rc::Rc::new(std::cell::RefCell::new(String::new())),
+            backup: std::rc::Rc::new(std::cell::Cell::new(false)),
+        }
+    }
+
+    fn provider() -> std::rc::Rc<silvestris::file_panel::StdFsProvider> {
+        std::rc::Rc::new(silvestris::file_panel::StdFsProvider::new())
+    }
+
+    fn directory(
+        provider: &silvestris::file_panel::StdFsProvider,
+    ) -> silvestris::file_panel::LocationId {
+        provider.home().unwrap_or_else(|| provider.root())
     }
 }
 
 impl gpui::Render for DocumentDemo {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let this = cx.entity();
         let state = self.state.clone();
         let frames = self.frames.clone();
+        let content = self.content.clone();
+        let status = self.status.clone();
+        let backup = self.backup.clone();
         let file = PopUpButton::new(
             "document-file-menu",
             "File",
             vec![
-                "Save As\u{2026}".into(),
+                "Save\u{2026}".into(),
                 "Save As (expanded)\u{2026}".into(),
                 "Open\u{2026}".into(),
             ],
         )
         .size(ControlSize::Regular)
         .min_width(76.0)
-        .on_choose(move |index, window, cx| match *index {
-            0 => {
-                SavePanel::new(Self::provider())
-                    .directory("/")
-                    .name("Untitled.txt")
-                    .allowed_types(["txt"])
-                    .expanded(false)
-                    .state_store(state.clone())
-                    .begin_sheet(window.window_handle(), window, cx);
-            }
-            1 => {
-                SavePanel::new(Self::provider())
-                    .directory("/")
-                    .name("Untitled.txt")
-                    .allowed_types(["txt"])
-                    .expanded(true)
-                    .state_store(state.clone())
-                    .begin_sheet(window.window_handle(), window, cx);
-            }
-            _ => {
-                OpenPanel::new(Self::provider())
-                    .directory("/")
-                    .title("Gallery: Open")
-                    .state_store(state.clone())
-                    .frame_store(frames.clone())
-                    .run_modal(window, cx);
+        .on_choose(move |index, window, cx| {
+            let content_for_save = content.clone();
+            let status_for_save = status.clone();
+            let backup_for_save = backup.clone();
+            let content_for_open = content.clone();
+            let status_for_open = status.clone();
+            let this_for_save = this.clone();
+            let this_for_open = this.clone();
+            match *index {
+                0 | 1 => {
+                    let expanded = *index == 1;
+                    let provider = Self::provider();
+                    let directory = Self::directory(&provider);
+                    let accessory_backup = backup_for_save.clone();
+                    SavePanel::new(provider)
+                        .directory(directory)
+                        .name("Untitled.txt")
+                        .message("Choose a destination for this document.")
+                        .allowed_types(["txt", "md"])
+                        .expanded(expanded)
+                        .state_store(state.clone())
+                        .accessory(move |_, _cx| {
+                            let backup = accessory_backup.clone();
+                            Checkbox::new("save-backup", "Keep a backup copy")
+                                .size(ControlSize::Small)
+                                .checked(backup.get())
+                                .on_change(move |state, _, _| {
+                                    backup.set(*state == CheckState::On);
+                                })
+                                .into_any_element()
+                        })
+                        .on_finish(move |outcome, cx| {
+                            let Some(path) = outcome.first_path() else {
+                                return;
+                            };
+                            let text = content_for_save.borrow().clone();
+                            let result = match outcome.disposition {
+                                Some(silvestris::file_panel::SaveDisposition::New) => {
+                                    std::fs::OpenOptions::new()
+                                        .write(true)
+                                        .create_new(true)
+                                        .open(path)
+                                        .and_then(|mut file| {
+                                            std::io::Write::write_all(&mut file, text.as_bytes())
+                                        })
+                                }
+                                _ => std::fs::write(path, text.as_bytes()),
+                            };
+                            match result {
+                                Ok(()) => {
+                                    if backup_for_save.get() {
+                                        let mut backup_path = path.clone();
+                                        let name = backup_path
+                                            .file_name()
+                                            .map(|name| name.to_string_lossy().into_owned())
+                                            .unwrap_or_else(|| "document".into());
+                                        backup_path.set_file_name(format!("{name}.bak"));
+                                        let _ = std::fs::write(&backup_path, text.as_bytes());
+                                    }
+                                    *status_for_save.borrow_mut() =
+                                        format!("Saved {}", path.display());
+                                }
+                                Err(error) => {
+                                    *status_for_save.borrow_mut() = format!("Save failed: {error}");
+                                }
+                            }
+                            this_for_save.update(cx, |_, cx| cx.notify());
+                        })
+                        .begin_sheet(window.window_handle(), window, cx);
+                }
+                _ => {
+                    let provider = Self::provider();
+                    let directory = Self::directory(&provider);
+                    OpenPanel::new(provider)
+                        .directory(directory)
+                        .title("Gallery: Open")
+                        .state_store(state.clone())
+                        .frame_store(frames.clone())
+                        .on_finish(move |outcome, cx| {
+                            let Some(path) = outcome.first_path() else {
+                                return;
+                            };
+                            match std::fs::read_to_string(path) {
+                                Ok(text) => {
+                                    *content_for_open.borrow_mut() = text;
+                                    *status_for_open.borrow_mut() =
+                                        format!("Opened {}", path.display());
+                                }
+                                Err(error) => {
+                                    *status_for_open.borrow_mut() = format!("Open failed: {error}");
+                                }
+                            }
+                            this_for_open.update(cx, |_, cx| cx.notify());
+                        })
+                        .run_modal(window, cx);
+                }
             }
         });
+        let body = self.content.borrow().clone();
+        let status = self.status.borrow().clone();
         WindowFrame::new("Untitled")
             .role(WindowRole::Document)
             .toolbar(
@@ -194,20 +296,22 @@ impl gpui::Render for DocumentDemo {
             .child(
                 div()
                     .size_full()
+                    .flex()
+                    .flex_col()
+                    .gap(px(10.))
                     .bg(silvestris::convert::hsla(theme.colors.content))
                     .p(px(18.))
                     .text_size(px(13.))
                     .text_color(silvestris::convert::hsla(theme.colors.text))
-                    .child(
-                        div()
-                            .w(px(380.))
-                            .flex()
-                            .flex_col()
-                            .gap(px(10.))
-                            .child("The quick brown fox jumps over the lazy dog.")
-                            .child("File > Save As opens the Save sheet. Its disclosure expands the browser.")
-                            .child("File > Open opens the application-modal Open dialog."),
-                    ),
+                    .child(div().w(px(440.)).child(body))
+                    .when(!status.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                                .child(status),
+                        )
+                    }),
             )
     }
 }
@@ -1585,7 +1689,7 @@ impl Render for Gallery {
                                     let state = state.clone();
                                     let frames = frames.clone();
                                     let _ = open_window(options, cx, move |_, cx| {
-                                        cx.new(|_| DocumentDemo { state, frames })
+                                        cx.new(|_| DocumentDemo::new(state, frames))
                                     });
                                 }),
                         )
@@ -2090,77 +2194,6 @@ fn main() {
 
 /// A titled gallery section: bold heading, a secondary note (HIG page or
 /// purpose), a separator, then the samples.
-/// Deterministic file provider for the gallery's panel buttons.
-fn gallery_file_provider() -> silvestris::file_panel::MemoryProvider {
-    use silvestris::file_panel::{FileEntry, FileKind, FilePlace, MemoryProvider, PlaceSection};
-    use silvestris::icons::Icon;
-
-    let provider = MemoryProvider::new();
-    provider.add_location(
-        "/",
-        "Computer",
-        Icon::Volume,
-        None,
-        vec![
-            FileEntry::folder("applications", "Applications").modified(1_735_689_600),
-            FileEntry::folder("documents", "Documents").modified(1_735_689_600),
-            FileEntry::document("readme", "Read Me.txt")
-                .size(4096)
-                .modified(1_735_603_200),
-            FileEntry::document("photo", "Photo.png")
-                .size(1_048_576)
-                .modified(1_735_516_800),
-            FileEntry::new("preview", "Preview.app", FileKind::Application, true)
-                .package(true)
-                .size(18_874_368)
-                .modified(1_735_430_400),
-        ],
-    );
-    provider.add_location(
-        "/documents",
-        "Documents",
-        Icon::Documents,
-        Some("/".into()),
-        vec![
-            FileEntry::document("notes", "Notes.txt")
-                .size(12_288)
-                .modified(1_735_603_200),
-            FileEntry::document("report", "Report.pdf")
-                .size(892_928)
-                .modified(1_735_516_800),
-            FileEntry::folder("archive", "Archive").modified(1_735_430_400),
-        ],
-    );
-    provider.add_location(
-        "/applications",
-        "Applications",
-        Icon::Application,
-        Some("/".into()),
-        vec![
-            FileEntry::new("preview", "Preview.app", FileKind::Application, true)
-                .package(true)
-                .size(18_874_368)
-                .modified(1_735_430_400),
-        ],
-    );
-    provider.set_places(vec![
-        FilePlace::new("/", "Computer", Icon::Volume, PlaceSection::Devices).eject(true),
-        FilePlace::new(
-            "/documents",
-            "Documents",
-            Icon::Documents,
-            PlaceSection::Places,
-        ),
-        FilePlace::new(
-            "search:today",
-            "Today",
-            Icon::SmartSearch,
-            PlaceSection::SearchFor,
-        ),
-    ]);
-    provider
-}
-
 fn section(
     title: &'static str,
     note: impl Into<gpui::SharedString>,

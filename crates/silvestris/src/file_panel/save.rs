@@ -55,6 +55,14 @@ impl SavePanel {
         self
     }
 
+    /// An application message above the Save As row, centred like the
+    /// NSSavePanel message line.
+    #[must_use]
+    pub fn message(mut self, message: impl Into<gpui::SharedString>) -> Self {
+        self.options.message = Some(message.into());
+        self
+    }
+
     /// Allowed extensions without the dot. Empty accepts everything.
     #[must_use]
     pub fn allowed_types(mut self, types: impl IntoIterator<Item = impl Into<String>>) -> Self {

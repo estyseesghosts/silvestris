@@ -25,6 +25,48 @@ Open and Save panel interaction pass:
 - `FileProvider::delete` added (default refuses); `MemoryProvider` and
   `StdFsProvider` implement it.
 
+## After 04febbb
+
+File-panel provider hardening and the real-application layout pass:
+
+- `FileEntry` gained `location`, `is_link` and `metadata_known`. The provider
+  owns identity: the panel no longer rebuilds a child path from a parent and a
+  display name. `FileEntry::at` sets the location; `MemoryProvider::children`
+  fills it and `StdFsProvider` maps opaque `fs-location-*` handles to exact
+  `PathBuf`s (including non-UTF-8 Unix names).
+- `FileProvider::children` returns `FileListing { entries, warnings }`; an
+  unreadable entry or metadata failure is a warning, not a zero-byte row.
+  `exists` returns `Task<Result<bool, FileError>>` and uses `try_exists`, so an
+  IO failure is never mistaken for "missing".
+- `FileProvider::validate_name` is provider-owned and pure. The panel keeps
+  only the structural rules; `StdFsProvider` applies Windows reserved names
+  and characters or Unix's small rule set.
+- `FileProvider::capabilities` drives the menus. Added `trash` and the
+  `delete_permanently` seam; `FileProvider::delete` from `04febbb` is removed.
+  Move to Trash is implemented for Windows (Recycle Bin) and Linux
+  (freedesktop `files/` + `info/*.trashinfo`, including `.Trash-<uid>` for
+  other mounts). The panel confirms a destructive alert before
+  `delete_permanently`; local disk does not enable it.
+- `FileProvider::places` is asynchronous and cached nowhere. Windows uses
+  known-folder APIs and logical drives; Linux reads `user-dirs.dirs` and
+  removable mount points. The fake `terezi` home and `search:*` places are
+  gone from the local adapter.
+- `StdFsProvider` implements `rename`, detects symlinks by target, reports the
+  Windows hidden attribute, and gives metadata-unavailable entries `--` labels.
+  `home()`, `root()` and `location_for(path)` create handles; keep the provider
+  instance alive for its handles to resolve.
+- `PanelOutcome` gained `disposition: Option<SaveDisposition>` (`New` or
+  `ReplaceConfirmed`), so a consumer can create-new or overwrite without a
+  check-then-write race.
+- Layout follows the supplied NSSavePanel/NSOpenPanel references:
+  `SavePanel::message` above Save As, the disclosure at the trailing edge of
+  the field, an inset accessory box above the buttons, an Open preview column,
+  and a default Open selection band. `FilePanel::select_entry` restores a
+  selection by id, including the browser path and preview.
+- `FilePanel::preferred_height` includes the optional message and accessory.
+  The gallery's document demo now uses `StdFsProvider` and actually writes,
+  reads and backs up the chosen file.
+
 ## After b90b569
 
 NSSAVEPANEL-2: presentation corrected for the Open and Save panels.

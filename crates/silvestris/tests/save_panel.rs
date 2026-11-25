@@ -5,12 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, px, Context, Entity, Focusable, Modifiers, MouseButton, TestAppContext,
-    VisualContext, VisualTestContext, Window,
+    div, prelude::*, px, App, Context, Entity, Focusable, Modifiers, MouseButton, Task,
+    TestAppContext, VisualContext, VisualTestContext, Window,
 };
 use silvestris::chrome::WindowFrame;
 use silvestris::file_panel::{
-    ExtensionPolicy, FileEntry, FilePanel, FileViewMode, LocationId, MemoryProvider, PanelOutcome,
+    ExtensionPolicy, FileAncestor, FileEntry, FileError, FileListing, FilePanel, FilePlace,
+    FileProvider, FileViewMode, LocationId, MemoryProvider, PanelOutcome, SaveDisposition,
     SavePanel,
 };
 use silvestris::ActiveTheme;
@@ -231,6 +232,7 @@ fn saving_a_new_name_returns_its_location() {
     draw(&mut cx);
     let outcome = outcome.borrow().clone().expect("a panel outcome");
     assert!(outcome.accepted());
+    assert_eq!(outcome.disposition, Some(SaveDisposition::New));
     assert_eq!(
         outcome.first_location().map(ToString::to_string).as_deref(),
         Some("/fresh.txt")
@@ -281,6 +283,7 @@ fn an_existing_name_asks_before_replacing_and_cancel_returns_to_the_panel() {
     draw(&mut cx);
     let outcome = outcome.borrow().clone().expect("a panel outcome");
     assert!(outcome.accepted());
+    assert_eq!(outcome.disposition, Some(SaveDisposition::ReplaceConfirmed));
     assert_eq!(
         outcome.first_location().map(ToString::to_string).as_deref(),
         Some("/report.txt")
@@ -538,7 +541,7 @@ fn the_extension_policy_is_opt_in_and_fixed_forces_only_when_asked() {
 }
 
 #[test]
-fn right_clicking_a_file_offers_rename_delete_and_new_folder() {
+fn right_clicking_a_file_offers_move_to_trash_and_new_folder() {
     let mut app = TestAppContext::single();
     let (panel, _outcome, provider, mut cx) = present(&mut app, "fresh.txt", false, true, false);
     let list = cx.debug_bounds("segment-list").expect("list segment");
@@ -549,16 +552,63 @@ fn right_clicking_a_file_offers_rename_delete_and_new_folder() {
     cx.simulate_mouse_up(row.center(), MouseButton::Right, Modifiers::default());
     draw(&mut cx);
     assert!(cx.debug_bounds("menu-panel-0").is_some(), "file menu opens");
-    // Heading, Rename, Separator, Delete, Separator, New Folder.
-    let delete = cx.debug_bounds("menu-item-0-3").expect("Delete row");
-    cx.simulate_click(delete.center(), Modifiers::default());
+    // Heading, Rename, Copy Path, Move to Trash, Delete Immediately, New
+    // Folder. Separators do not take an item index.
+    let trash = cx.debug_bounds("menu-item-0-3").expect("Move to Trash row");
+    cx.simulate_click(trash.center(), Modifiers::default());
     draw(&mut cx);
     assert!(
         !provider
             .entries(&LocationId::from("/"))
             .iter()
             .any(|entry| entry.name == "report.txt"),
-        "Delete removes the file through the provider"
+        "Move to Trash removes the file through the provider"
+    );
+    let _ = panel;
+}
+
+#[test]
+fn permanent_delete_requires_confirmation() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, provider, mut cx) = present(&mut app, "fresh.txt", false, true, false);
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
+    let row = cx.debug_bounds("table-row-report").expect("report row");
+    cx.simulate_mouse_down(row.center(), MouseButton::Right, Modifiers::default());
+    cx.simulate_mouse_up(row.center(), MouseButton::Right, Modifiers::default());
+    draw(&mut cx);
+    let delete = cx
+        .debug_bounds("menu-item-0-4")
+        .expect("Delete Immediately row");
+    cx.simulate_click(delete.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        provider
+            .entries(&LocationId::from("/"))
+            .iter()
+            .any(|entry| entry.name == "report.txt"),
+        "the destructive callback does not run before confirmation"
+    );
+    let owner = cx.window_handle();
+    let alert_window = cx
+        .cx
+        .windows()
+        .into_iter()
+        .find(|window| *window != owner)
+        .expect("delete confirmation window");
+    let mut alert_cx = VisualTestContext::from_window(alert_window, &cx.cx);
+    let confirm = alert_cx
+        .debug_bounds("alert-delete")
+        .expect("destructive Delete button");
+    alert_cx.simulate_click(confirm.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        !provider
+            .entries(&LocationId::from("/"))
+            .iter()
+            .any(|entry| entry.name == "report.txt"),
+        "Delete Immediately runs only after the alert is confirmed"
     );
     let _ = panel;
 }
@@ -688,5 +738,113 @@ fn typing_in_the_name_field_does_not_type_select_the_browser() {
         cx.read(|cx| panel.read(cx).selected_count(cx)),
         1,
         "the browser keeps its selection while the name field takes the keys"
+    );
+}
+
+#[test]
+fn the_message_sits_above_the_name_row_and_the_disclosure_beside_the_field() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let _panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(provider()))
+            .directory("/")
+            .name("fresh.txt")
+            .expanded(true)
+            .message("Choose a destination for this document.")
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let message = cx.debug_bounds("panel-message").expect("message line");
+    let row = cx.debug_bounds("save-name-row").expect("name row");
+    let disclosure = cx.debug_bounds("save-disclosure").expect("disclosure");
+    assert!(
+        message.bottom() <= row.top(),
+        "the message is above the Save As row"
+    );
+    assert!(
+        disclosure.top() >= row.top() && disclosure.bottom() <= row.bottom(),
+        "the disclosure sits inside the name row"
+    );
+    assert!(
+        disclosure.left() > row.center().x,
+        "the disclosure is at the trailing edge of the field"
+    );
+}
+
+struct ExistsError {
+    inner: MemoryProvider,
+}
+
+impl FileProvider for ExistsError {
+    fn children(
+        &self,
+        location: &LocationId,
+        cx: &mut App,
+    ) -> Task<Result<FileListing, FileError>> {
+        self.inner.children(location, cx)
+    }
+
+    fn ancestors(&self, location: &LocationId, cx: &App) -> Vec<FileAncestor> {
+        self.inner.ancestors(location, cx)
+    }
+
+    fn places(&self, cx: &mut App) -> Task<Result<Vec<FilePlace>, FileError>> {
+        self.inner.places(cx)
+    }
+
+    fn create_folder(
+        &self,
+        parent: &LocationId,
+        name: &str,
+        cx: &mut App,
+    ) -> Task<Result<LocationId, FileError>> {
+        self.inner.create_folder(parent, name, cx)
+    }
+
+    fn exists(
+        &self,
+        _parent: &LocationId,
+        _name: &str,
+        _cx: &mut App,
+    ) -> Task<Result<bool, FileError>> {
+        Task::ready(Err(FileError::new("Permission denied")))
+    }
+}
+
+#[test]
+fn an_existence_error_keeps_the_panel_open_instead_of_accepting() {
+    let mut app = TestAppContext::single();
+    app.update(|cx| silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx));
+    app.update(silvestris::modal::install);
+    let (_owner, cx) = app.add_window_view(|_, cx| Owner {
+        body: cx.new(|_| Body),
+    });
+    let owner = cx.window_handle();
+    let outcome: Outcome = Rc::default();
+    let slot = outcome.clone();
+    let _panel = cx.update(|window, cx| {
+        SavePanel::new(Rc::new(ExistsError { inner: provider() }))
+            .directory("/")
+            .name("fresh.txt")
+            .expanded(true)
+            .on_finish(move |outcome, _| *slot.borrow_mut() = Some(outcome.clone()))
+            .begin_sheet(owner, window, cx)
+    });
+    draw(cx);
+    let accept = cx.debug_bounds("panel-accept").expect("accept");
+    cx.simulate_click(accept.center(), Modifiers::default());
+    draw(cx);
+    assert!(
+        outcome.borrow().is_none(),
+        "an IO failure is not a Save and is not a Replace prompt"
+    );
+    assert!(
+        cx.debug_bounds("file-panel").is_some(),
+        "the panel stays open with the error"
     );
 }

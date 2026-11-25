@@ -324,7 +324,7 @@ const PANEL_SAMPLES: [Sample; 5] = [
     Sample {
         id: "save-sheet-expanded",
         width: 760.,
-        height: 480.,
+        height: 560.,
     },
     Sample {
         // At rest after the 400 x 300 document grew to fit the 527-wide
@@ -564,29 +564,67 @@ impl CaptureView {
             let provider: std::rc::Rc<dyn silvestris::file_panel::FileProvider> =
                 std::rc::Rc::new(capture_file_provider());
             let specs = [
-                (PanelMode::Open, true, FileViewMode::Columns, "Untitled.txt"),
-                (PanelMode::Open, true, FileViewMode::List, "Untitled.txt"),
+                (
+                    PanelMode::Open,
+                    true,
+                    FileViewMode::Columns,
+                    "Untitled.txt",
+                    false,
+                ),
+                (
+                    PanelMode::Open,
+                    true,
+                    FileViewMode::List,
+                    "Untitled.txt",
+                    false,
+                ),
                 (
                     PanelMode::Save,
                     false,
                     FileViewMode::Columns,
                     "Untitled.txt",
+                    false,
                 ),
-                (PanelMode::Save, true, FileViewMode::Columns, "Untitled.txt"),
-                (PanelMode::Save, true, FileViewMode::Columns, "Untitled.txt"),
+                (
+                    PanelMode::Save,
+                    true,
+                    FileViewMode::List,
+                    "Untitled.txt",
+                    true,
+                ),
+                (
+                    PanelMode::Save,
+                    true,
+                    FileViewMode::Columns,
+                    "Untitled.txt",
+                    false,
+                ),
             ];
             specs
                 .into_iter()
-                .map(|(mode, expanded, view, name)| {
+                .enumerate()
+                .map(|(index, (mode, expanded, view, name, extras))| {
                     let mut options = PanelOptions::new(mode, "/".into());
                     options.expanded = expanded;
                     options.expanded_set = true;
                     options.name = name.into();
                     options.allowed_types = vec!["txt".into()];
+                    if extras {
+                        options.message = Some("Choose a destination for this document.".into());
+                        options.accessory = Some(std::rc::Rc::new(|_, _| {
+                            Checkbox::new("capture-save-backup", "Keep a backup copy")
+                                .size(ControlSize::Small)
+                                .checked(false)
+                                .into_any_element()
+                        }));
+                    }
                     let panel = FilePanel::build(options, provider.clone(), window, cx);
                     panel.update(cx, |panel, cx| {
                         let model = panel.model();
                         model.update(cx, |model, cx| model.set_view(view, cx));
+                        if index == 0 {
+                            panel.select_entry(&SharedString::from("photo"), cx);
+                        }
                         cx.notify();
                     });
                     panel
@@ -932,13 +970,9 @@ fn frame_body() -> impl IntoElement {
 
 /// A small document window with the Save sheet attached under its toolbar.
 /// The parent is not dimmed; the sheet uses the same chrome as `sheet.rs`.
-fn save_sheet_sample(panel: &Entity<FilePanel>, expanded: bool, cx: &mut App) -> impl IntoElement {
+fn save_sheet_sample(panel: &Entity<FilePanel>, _expanded: bool, cx: &mut App) -> impl IntoElement {
     let theme = cx.theme().clone();
-    let height = if expanded {
-        silvestris::file_panel::chrome::PANEL_CONTENT_HEIGHT
-    } else {
-        silvestris::file_panel::chrome::COLLAPSED_HEIGHT
-    };
+    let height = panel.read(cx).preferred_height();
     WindowFrame::new("Untitled")
         .role(WindowRole::Document)
         .toolbar(
@@ -1050,7 +1084,7 @@ fn capture_file_provider() -> MemoryProvider {
     );
     for (id, label, icon) in [
         ("/desktop", "Desktop", Icon::Desktop),
-        ("/home", "terezi", Icon::Home),
+        ("/home", "Home", Icon::Home),
         ("/applications", "Applications", Icon::Application),
         ("/downloads", "Downloads", Icon::Documents),
     ] {
@@ -1059,7 +1093,7 @@ fn capture_file_provider() -> MemoryProvider {
     provider.set_places(vec![
         FilePlace::new("/", "Macintosh HD", Icon::Volume, PlaceSection::Devices).eject(true),
         FilePlace::new("/desktop", "Desktop", Icon::Desktop, PlaceSection::Places),
-        FilePlace::new("/home", "terezi", Icon::Home, PlaceSection::Places),
+        FilePlace::new("/home", "Home", Icon::Home, PlaceSection::Places),
         FilePlace::new(
             "/documents",
             "Documents",
@@ -1071,24 +1105,6 @@ fn capture_file_provider() -> MemoryProvider {
             "Applications",
             Icon::Application,
             PlaceSection::Places,
-        ),
-        FilePlace::new(
-            "search:today",
-            "Today",
-            Icon::SmartSearch,
-            PlaceSection::SearchFor,
-        ),
-        FilePlace::new(
-            "search:yesterday",
-            "Yesterday",
-            Icon::SmartSearch,
-            PlaceSection::SearchFor,
-        ),
-        FilePlace::new(
-            "search:week",
-            "Past Week",
-            Icon::SmartSearch,
-            PlaceSection::SearchFor,
         ),
     ]);
     provider

@@ -610,3 +610,20 @@ fn the_sidebar_uses_devices_places_and_search_groups() {
     let sidebar = cx.debug_bounds("panel-sidebar").expect("sidebar");
     assert!(f32::from(sidebar.size.width) >= 150.0);
 }
+
+#[test]
+fn selecting_a_file_in_columns_shows_the_preview_column() {
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let row = cx.debug_bounds("table-row-note").expect("note row");
+    cx.simulate_click(row.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.debug_bounds("browser-preview").is_some(),
+        "the column browser reserves a preview column for a leaf"
+    );
+    assert!(
+        cx.debug_bounds("panel-preview").is_some(),
+        "the Open panel fills it with the selected file's metadata"
+    );
+}

@@ -9,7 +9,7 @@ use gpui::{
 };
 use silvestris::controls::path_control::LocationId;
 use silvestris::file_panel::{
-    FileAncestor, FileBrowserEvent, FileBrowserModel, FileEntry, FileError, FilePlace,
+    FileAncestor, FileBrowserEvent, FileBrowserModel, FileEntry, FileError, FileListing, FilePlace,
     FileProvider, FileViewMode, MemoryProvider, PlaceSection,
 };
 use silvestris::icons::Icon;
@@ -221,7 +221,7 @@ fn an_older_location_result_never_overwrites_a_newer_one() {
             &self,
             location: &LocationId,
             cx: &mut App,
-        ) -> Task<Result<Vec<FileEntry>, FileError>> {
+        ) -> Task<Result<FileListing, FileError>> {
             let entries = self.inner.entries(location);
             let delay = if location.as_ref() == "/" {
                 self.root_delay
@@ -231,7 +231,7 @@ fn an_older_location_result_never_overwrites_a_newer_one() {
             let executor = cx.background_executor().clone();
             cx.background_executor().spawn(async move {
                 executor.timer(delay).await;
-                Ok(entries)
+                Ok(FileListing::new(entries))
             })
         }
 
@@ -239,7 +239,7 @@ fn an_older_location_result_never_overwrites_a_newer_one() {
             self.inner.ancestors(location, cx)
         }
 
-        fn places(&self, cx: &App) -> Vec<FilePlace> {
+        fn places(&self, cx: &mut App) -> Task<Result<Vec<FilePlace>, FileError>> {
             self.inner.places(cx)
         }
 
@@ -252,7 +252,12 @@ fn an_older_location_result_never_overwrites_a_newer_one() {
             self.inner.create_folder(parent, name, cx)
         }
 
-        fn exists(&self, parent: &LocationId, name: &str, cx: &mut App) -> Task<bool> {
+        fn exists(
+            &self,
+            parent: &LocationId,
+            name: &str,
+            cx: &mut App,
+        ) -> Task<Result<bool, FileError>> {
             self.inner.exists(parent, name, cx)
         }
     }

@@ -22,20 +22,26 @@ SavePanel / OpenPanel
 
 ```rust
 use std::rc::Rc;
-use silvestris::file_panel::{OpenPanel, SavePanel, StdFsProvider};
+use silvestris::file_panel::{OpenPanel, SaveDisposition, SavePanel, StdFsProvider};
 
 let provider = Rc::new(StdFsProvider::new());
+let home = provider.home().expect("a home directory");
 
 // Save As is a document sheet (HIG p. 247).
 let panel = SavePanel::new(provider.clone())
-    .directory(home_location)
+    .directory(home.clone())
     .name("Untitled.txt")
+    .message("Choose a destination for this document.")
     .allowed_types(["txt"])
     .allows_other_types(false)
     .state_store(panel_state_store.clone())
     .on_finish(|outcome, cx| {
         if let Some(path) = outcome.first_path() {
-            my_document.save_to(path, cx);
+            if outcome.disposition == Some(SaveDisposition::ReplaceConfirmed) {
+                my_document.save_replacing(path, cx);
+            } else {
+                my_document.save_new(path, cx);
+            }
         }
     })
     .begin_sheet(owner_window, window, cx);
@@ -82,8 +88,20 @@ next Open reopens at the user's size.
   Escape, `Cancelled` when the owner window closed the session.
 - `paths`: host paths, when the provider implements `resolve`. Empty for a
   provider that has no host paths.
-- `locations`: provider location ids, always one per accepted target.
+- `locations`: provider location ids, always one per accepted target when the
+  provider can address children. A location id is an opaque handle owned by the
+  provider instance; do not parse or persist it as a path.
 - `hide_extension`: the Save panel's checkbox.
+- `disposition`: `Some(SaveDisposition::New)` when the provider reported that
+  the target did not exist, `Some(ReplaceConfirmed)` when the user explicitly
+  chose Replace, and `None` for Open or a cancelled Save. A consumer writes a
+  new file with create-new semantics and a replacement with overwrite
+  semantics; this closes the check-then-write race.
+
+`FileEntry` carries both `id` (selection and rename identity) and `location`
+(provider identity for navigation and `resolve`). The panel never joins a
+parent path and a display name. A filename, including one that cannot be
+represented in UTF-8, stays exact in the provider; the label may be lossy.
 
 A Save panel returns only after the replace-existing alert resolves to
 Replace. The alert is application-modal (HIG p. 251), not a second sheet over
@@ -96,22 +114,57 @@ The trait is asynchronous where it can block:
 ```rust
 trait FileProvider {
     fn children(&self, location: &LocationId, cx: &mut App)
-        -> Task<Result<Vec<FileEntry>, FileError>>;
+        -> Task<Result<FileListing, FileError>>;
     fn ancestors(&self, location: &LocationId, cx: &App) -> Vec<FileAncestor>;
-    fn places(&self, cx: &App) -> Vec<FilePlace>;             // sections + eject
+    fn places(&self, cx: &mut App)
+        -> Task<Result<Vec<FilePlace>, FileError>>;
     fn create_folder(&self, parent: &LocationId, name: &str, cx: &mut App)
         -> Task<Result<LocationId, FileError>>;
-    fn exists(&self, parent: &LocationId, name: &str, cx: &mut App) -> Task<bool>;
+    fn exists(&self, parent: &LocationId, name: &str, cx: &mut App)
+        -> Task<Result<bool, FileError>>;
+    fn validate_name(&self, parent: &LocationId, name: &str, cx: &App)
+        -> Result<(), FileError>;                 // pure, no IO
+    fn child_location(&self, parent: &LocationId, name: &str)
+        -> Option<LocationId>;
     fn rename(&self, parent: &LocationId, id: &ItemId, name: &str, cx: &App)
-        -> Task<Result<(), FileError>>;                      // default: error
-    fn resolve(&self, location: &LocationId) -> Option<PathBuf>; // optional
-    fn location_of(&self, path: &Path) -> Option<LocationId>;    // optional
+        -> Task<Result<(), FileError>>;
+    fn trash(&self, parent: &LocationId, id: &ItemId, cx: &mut App)
+        -> Task<Result<(), FileError>>;
+    fn delete_permanently(&self, parent: &LocationId, id: &ItemId, cx: &mut App)
+        -> Task<Result<(), FileError>>;
+    fn capabilities(&self) -> FileProviderCapabilities;
+    fn resolve(&self, location: &LocationId) -> Option<PathBuf>;
+    fn location_of(&self, path: &Path) -> Option<LocationId>;
     fn label(&self, location: &LocationId, cx: &App) -> SharedString;
     fn location_icon(&self, location: &LocationId) -> Icon;
-    fn delete(&self, parent: &LocationId, id: &ItemId, cx: &mut App)
-        -> Task<Result<(), FileError>>;
 }
 ```
+
+`FileListing` separates the entries from non-fatal `warnings`: an entry that
+disappears during enumeration or whose metadata cannot be read is reported,
+not silently turned into a zero-byte file. An unreadable directory is an
+`Err`.
+
+`exists` is fallible. An IO error is never reinterpreted as "the target does
+not exist"; the Save panel stays open and shows the error.
+
+`validate_name` belongs to the provider. The panel enforces only the
+structural rules (non-empty, not `.`/`..`); `StdFsProvider` applies Windows
+reserved names, trailing dots/spaces and reserved characters, or Unix's much
+smaller rule set. A custom or remote provider can use its own syntax.
+
+`capabilities` is the menu contract. The panel adds Rename, Move to Trash,
+Delete Immediately, Copy Path and New Folder only when the provider says it can
+perform them. `trash` is reversible and needs no confirmation; a local-disk
+provider implements it with the Windows Recycle Bin or the freedesktop trash
+directory. `delete_permanently` is the seam for a file-manager application
+that owns its storage policy: the panel asks a destructive alert before
+calling it, and `StdFsProvider` leaves the capability off.
+
+`places` is asynchronous because host discovery may touch redirected profiles,
+mount tables or removable volumes. Memory places are a ready task; the local
+adapter fills the sidebar after construction rather than blocking the first
+frame.
 
 `label` and `location_icon` feed the path pop-up's display name and icon, so a
 provider can return "Macintosh HD" rather than its raw id. The defaults fall
@@ -129,18 +182,55 @@ duplicate id.
 silvestris = { version = "0.1", features = ["std-fs"] }
 ```
 
-`FileEntry` carries the row metadata: id, name, kind, directory/package flags,
-size, modification epoch and hidden state. `size_label` and `modified_label`
-format for the table; modification labels are UTC because the core has no
-local-time dependency. Fixtures must supply names, dates, sizes and kinds for
-every entry, including folders; a row of `--` makes a working control look
-broken.
+It keeps exact `PathBuf`s in an `Arc<Mutex<...>>` map. `LocationId`s are opaque
+handles (`fs-location-00000001`) owned by that provider instance; the display
+name is only a label. `home()`, `root()` and `location_for(path)` create
+handles, and `FileProvider::resolve` returns the exact host path. Keep one
+provider alive for the panel and for the code that acts on its outcome; a
+handle from one instance does not resolve in another.
+
+Directory listing runs on GPUI's background executor. It reports unreadable
+entries as warnings, leaves the size/date unknown when metadata is missing, and
+classifies symlinks by their target: a link to a directory is navigable, a
+broken link is an `Alias`. Windows hidden attributes and Unix dotfiles both set
+the hidden flag. Name validation is platform-specific (Windows reserved
+devices, trailing dots/spaces and reserved characters; Unix only `/` and NUL).
+`trash` uses `SHFileOperationW` with `FOF_ALLOWUNDO` on Windows and the
+freedesktop `files/` + `info/*.trashinfo` layout on Linux; macOS and other Unix
+systems use their home trash. `delete_permanently` is not enabled for local
+disk.
+
+Host places are discovered on the background executor. Windows asks
+`SHGetKnownFolderPath` for Home, Desktop, Documents, Downloads, Pictures, Music
+and Videos, and enumerates logical drives. Linux reads `user-dirs.dirs` rather
+than assuming English folder names, and lists removable mounts under
+`/media`, `/run/media` and `/mnt`. The provider never invents search
+locations; `PlaceSection::SearchFor` exists for a provider that actually
+implements search.
+
+`MemoryProvider` is deterministic and belongs in tests, the gallery fixtures
+and the capture samples: `add_location`, `set_places`, `push_entry`,
+`set_entries`, `entries`. Its locations keep distinct ids; two sidebar places
+may share a location but not a duplicate id. It overrides `child_location`,
+`resolve` is absent, and its `trash`/`delete_permanently` mutate only the
+in-memory tree.
+
+`FileEntry` carries the row metadata: id, location, name, kind,
+directory/package/link flags, whether metadata was available, size,
+modification epoch and hidden state. `size_label` and `modified_label` format
+for the table; modification labels are UTC because the core has no local-time
+dependency. Fixtures must supply names, dates, sizes and kinds for every entry,
+including folders; a row of `--` makes a working control look broken unless it
+really means "metadata unavailable".
 
 ## Views
 
 - **Columns** is the default on first open, as in the 4.15.47 AM capture. The
   last-used view persists through `PanelStateStore`. Selecting a branch opens
-  its children; selecting a file leaves the directory alone.
+  its children; selecting a file leaves the directory alone. The Open panel
+  fills the preview column with the selected leaf's icon, name, kind, size and
+  date; a consumer accessory replaces the default selection band below the
+  browser.
 - **List** shows Name and Date Modified by default. Size and Kind are available
   columns, hidden by default. Name and Date fill the browser; no horizontal
   scroller appears unless the user widens a column past the viewport.
@@ -172,6 +262,10 @@ segment is not acceptable.
 - The minimal state (HIG p. 247) is the Save As field, Where pop-up,
   disclosure, Cancel and Save. It has no toolbar, sidebar, browser or New
   Folder. Application content goes between Where and the buttons.
+- The disclosure is the bevel button at the trailing edge of the Save As
+  field, as in the NSSavePanel references. `SavePanel::message` draws an
+  application line centred above that row. An `accessory` is an inset,
+  bordered box above the button row and is present in both states.
 - The expanded state adds the toolbar, sidebar, browser, Format slot, Hide
   extension and New Folder (p. 248). It is the same panel, not a second view:
   the chooser unfolds from the Where row in one 220 ms eased transition, and
@@ -184,15 +278,21 @@ segment is not acceptable.
   appends the first allowed extension when none was typed and rejects a
   different one. A consumer that wants a free-form extension simply does not
   set a policy.
-- Right-click a row for Open/Rename/Copy Path/Delete/New Folder. Right-click
-  the empty browser area for New Folder, Sort By, View and Show Hidden Files.
-  The menu is the shared `PopupMenu`; actions go through the provider or the
-  panel model, never directly to `std::fs`.
+- Right-click a row for Open/Rename/Copy Path/Move to Trash/New Folder, plus
+  Delete Immediately only when the provider implements the permanent-delete
+  seam. Right-click the empty browser area for New Folder, Sort By, View and
+  Show Hidden Files. The menu is the shared `PopupMenu`; actions go through the
+  provider or the panel model, never directly to `std::fs`.
 - The name field is preselected from the start to the last dot, so typing
   replaces the base name and leaves the extension. `.hidden` keeps the whole
   name selected. The selection is renewed on every open.
-- Save is disabled while the name is empty, `.`, `..`, or contains a path
-  separator or a colon.
+- Save is disabled while the name is empty or `.`/`..`, while the extension
+  policy rejects it, or while the provider's `validate_name` rejects it.
+  Host-specific rules (Windows `CON`, trailing dots, reserved characters;
+  Unix's much smaller set) live in the provider, not in the panel.
+- Move to Trash is reversible and immediate. Delete Immediately, when a
+  provider offers it, is a destructive alert first; `StdFsProvider` does not
+  enable it.
 - "Hide extension" travels in the outcome; the panel does not rename the file.
 - New Folder asks the provider for a unique `untitled folder`, reloads, selects
   the new row and starts an in-place rename. The list uses
@@ -212,9 +312,8 @@ segment is not acceptable.
 - Typing in the name field never reaches the table's type-select.
 
 Not implemented in this version, and listed as deferred: Cmd-Shift-G go to
-folder, drag and drop (#36), Spotlight search, and the column browser's preview
-column in the panel. The column browser itself supports a preview; the panel
-does not install one.
+folder, drag and drop (#36) and Spotlight search. The column browser's preview
+column is installed for Open; it shows file metadata, not a document renderer.
 
 ## Geometry and evidence
 
@@ -230,6 +329,14 @@ The collapsed Save content height (160 px), the Save sheet's shadow, its
 200/160 ms emerge/retract timings and the 220 ms expand/contract timing, the
 560 x 360 Open minimum and the grow-to-fit adaptation are estimates; they are
 logged in `docs/exceptions.md`.
+
+The NSSavePanel references supplied for this pass are used for row order, not
+for theme pixels: a centred message line, Save As with a trailing disclosure
+button, the toolbar/sidebar/browser block, an inset accessory box and a bottom
+row with New Folder at the leading edge and Cancel/Save at the trailing edge.
+The Open reference adds the selected-file preview column and a metadata band
+above Cancel/Open. `docs/file-panel-comparison.md` records the files and their
+hashes.
 
 Goldens: `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`,
 `save-sheet-expanded` and `save-sheet-grow` are rendered through the capture
