@@ -198,6 +198,8 @@ pub(super) fn validate_name(name: &str) -> Result<(), FileError> {
 }
 
 pub(super) fn move_to_trash(path: &Path, home: Option<&Path>) -> io::Result<()> {
+    use std::os::unix::fs::MetadataExt;
+
     let home = home
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "the home directory is unknown"))?;
     let source = absolute(path);
