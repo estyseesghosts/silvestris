@@ -50,6 +50,16 @@ impl OpenPanel {
         self
     }
 
+    /// The directory the panel opens in, as a host path. Does nothing when the
+    /// provider cannot map the path to a location.
+    #[must_use]
+    pub fn directory_path(mut self, path: impl AsRef<std::path::Path>) -> Self {
+        if let Some(location) = self.provider.location_of(path.as_ref()) {
+            self.options.location = location;
+        }
+        self
+    }
+
     /// The dialog title; default "Open", or an app-supplied "TextEdit: Open"
     /// (HIG p. 245).
     #[must_use]

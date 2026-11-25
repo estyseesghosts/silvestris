@@ -72,7 +72,9 @@ OpenPanel::new(provider)
 document window; it is named so it cannot be reached by accident.
 
 Both builders take `Rc<dyn FileProvider>` and must be called from code that has
-a `Window` (the name field is created there).
+a `Window` (the name field is created there). `.directory(location)` takes a
+provider id; `.directory_path(path)` is the shorthand for a host path and is a
+no-op when the provider cannot map it.
 
 `PanelStateStore` remembers the view, expanded state, Hide extension and
 sidebar width. `MemoryPanelStateStore` serves tests and the gallery;

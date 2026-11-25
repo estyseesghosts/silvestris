@@ -47,6 +47,17 @@ impl SavePanel {
         self
     }
 
+    /// The directory the panel opens in, as a host path. Does nothing when the
+    /// provider cannot map the path to a location; use [`directory`](Self::directory)
+    /// for a provider without host paths.
+    #[must_use]
+    pub fn directory_path(mut self, path: impl AsRef<std::path::Path>) -> Self {
+        if let Some(location) = self.provider.location_of(path.as_ref()) {
+            self.options.location = location;
+        }
+        self
+    }
+
     /// The suggested name. For a Save As the field selects the base name and
     /// leaves the extension unselected, as 10.6 does.
     #[must_use]
