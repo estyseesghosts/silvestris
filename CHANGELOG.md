@@ -5,6 +5,34 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 8beaf4d
+
+Standard toolbar and bottom-bar composition (#26, #75):
+
+- `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode,
+  ToolbarItemStyle}` is the public toolbar model: command buttons/toggles,
+  segmented controls, pop-down menus, real search fields, fixed/flexible spaces
+  and groups, with stable IDs and external labels. Items measure their natural
+  width and lower-priority items move to a shared overflow menu; `WindowFrame::
+  toolbar_component` mounts the bar at the display mode's height.
+- `CommandButton` gained `external_label`, `template_image`, `presentation` and
+  `tooltip`, and resolves current state through the responder chain when one is
+  supplied. `MenuEntry::Action` lets a host supply a menu action id and label
+  without registering a command.
+- `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus, BottomBarSize,
+  BottomBarControlStyle}` adds status values (optional help and activation),
+  fixed/flexible spaces, regular/small rectangular commands and square gradient
+  source-list controls. `WindowFrame::bottom_bar_component` mounts it at the
+  family height. Status text truncates before controls shrink.
+- `Metrics::bottom_bar_height` is now the HIG standard 32 px control-bearing
+  regular bar (was 24 px, a measured status-only strip);
+  `Metrics::bottom_bar_small_height` (22 px) is new. Geist uses 40/30 around its
+  taller controls.
+- `Button` with `ButtonStyle::Textured` now honours `ControlSize`: small and mini
+  use `push_small_height`/`push_mini_height` instead of staying at the regular
+  22 px. Existing small textured buttons (preferences Show All, sidebar pins)
+  become shorter.
+
 ## After f1c2a01
 
 Save-panel and icon-view fidelity pass (`docs/SAVEPANEL-3.txt`):

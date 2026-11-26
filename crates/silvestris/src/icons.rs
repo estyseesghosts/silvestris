@@ -52,6 +52,9 @@ pub enum TemplateImage {
     Sidebar,
     Inspector,
     Eject,
+    /// Provisional toolbar overflow affordance; replace when a measured 10.6
+    /// capture is available.
+    Overflow,
 }
 
 /// Fixed template-image slots supported by the Aqua toolbar hosts.
@@ -261,6 +264,7 @@ impl TemplateImage {
             Self::Sidebar => "sidebar",
             Self::Inspector => "inspector",
             Self::Eject => "eject",
+            Self::Overflow => "overflow",
         }
     }
 
@@ -282,6 +286,7 @@ impl TemplateImage {
             "sidebar" => Self::Sidebar,
             "inspector" => Self::Inspector,
             "eject" => Self::Eject,
+            "overflow" => Self::Overflow,
             _ => return None,
         })
     }
@@ -358,6 +363,20 @@ impl TemplateImage {
             Self::Eject => {
                 frame.poly(&[(0.50, 0.20), (0.84, 0.62), (0.16, 0.62)], color, window);
                 frame.rect(0.16, 0.72, 0.68, 0.09, 0.5, color, window);
+            }
+            Self::Overflow => {
+                frame.poly(
+                    &[
+                        (0.20, 0.35),
+                        (0.50, 0.65),
+                        (0.80, 0.35),
+                        (0.80, 0.50),
+                        (0.50, 0.80),
+                        (0.20, 0.50),
+                    ],
+                    color,
+                    window,
+                );
             }
         }
     }

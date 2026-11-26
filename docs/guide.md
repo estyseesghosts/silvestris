@@ -42,6 +42,71 @@ opens a window whose root is a `WindowFrame`. Use
 `chrome::fixed_window_options` and `WindowFrame::fixed_size` for preferences
 and other fixed-size windows.
 
+Build a toolbar from the typed item model and mount it through
+`WindowFrame::toolbar_component`; that host chooses the height from the active
+theme and display mode. Do not stretch controls or assemble arbitrary children
+into the toolbar.
+
+```rust
+let toolbar = Toolbar::new(
+    "document-toolbar",
+    "Document",
+    commands.clone(),
+    vec![
+        ToolbarItem::toggle("sidebar", "Sidebar", "view.sidebar")
+            .image(TemplateImage::Sidebar)
+            .toggle_help("Hide the sidebar", "Show the sidebar"),
+        ToolbarItem::segmented("view", "View", view_segments, None::<&str>, on_view),
+        ToolbarItem::flexible_space("search-gap"),
+        ToolbarItem::search("search", "Search", search_field),
+    ],
+)
+.chain(responders.clone())
+.display_mode(ToolbarDisplayMode::IconAndLabel);
+let frame = WindowFrame::new("Document").toolbar_component(toolbar, cx);
+```
+
+Items have stable IDs and external descriptive labels. Use command-backed
+buttons/toggles, homogeneous icon-or-text segmented controls, pop-down menus,
+real search fields, groups, and fixed/flexible spaces. `priority` determines
+which measured natural-width items move to overflow first; overflow retains
+command reachability and returns focus to an overflowed search field. Rectangular
+textured items are the default; `ToolbarItemStyle::Capsule` opts into the
+capsule treatment. Prefer a consistent bezel style within one toolbar. The
+display mode supports Icon Only, Icon & Label, and Text Only. Toolbar control
+spacing is 8 px.
+
+Build a bottom bar from status values, fixed/flexible spaces, and small
+rectangular or square gradient controls, then mount it through
+`WindowFrame::bottom_bar_component`. A bottom bar is not a second toolbar:
+it holds controls that affect the window body's contents or organization, not
+the most frequent commands (HIG pp. 212–214).
+
+```rust
+let bar = BottomBar::new(
+    "document-bottom-bar",
+    "Document status",
+    vec![
+        BottomBarItem::status("count", BottomBarStatus::new("count", "12 items")),
+        BottomBarItem::flexible_space("gap"),
+        BottomBarItem::command("add", "Add", "list.add").image(TemplateImage::Add)
+            .style(BottomBarControlStyle::Gradient),
+        BottomBarItem::command("remove", "Remove", "list.remove").image(TemplateImage::Remove)
+            .style(BottomBarControlStyle::Gradient),
+    ],
+)
+.registry(commands.clone())
+.chain(responders.clone());
+let frame = WindowFrame::new("Document").bottom_bar_component(bar, cx);
+```
+
+`BottomBarSize::Regular` uses regular controls and `BottomBarSize::Small` uses
+small controls; the host takes the height from the active theme. Status values
+carry their own text, optional help tag and optional activation callback; they
+truncate before controls shrink. The application owns status computation and
+omits zero-value entries. The bar reserves the resize-grip hit region, and its
+material follows the active/inactive window appearance.
+
 Choose the window role before choosing its content. A document window gets a
 size control and a title; a utility panel gets neither; a dialog gets no zoom.
 Window roles are #20; until that lands, encode the role in these options and

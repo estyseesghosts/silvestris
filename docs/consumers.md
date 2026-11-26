@@ -206,6 +206,8 @@ all four appearances.
 | Scroll view | `ScrollView`, `Scrollbar`, `ScrollSource` | Content plus both scroll bars and the corner over a `ScrollHandle`, `UniformListScrollHandle` or `ListState`; regular, small and mini; Appearance preferences. [scrollbar.md](scrollbar.md) |
 | Source list | `SourceList`, `SourceListEvent`, `SourceListStyle`, `RowAccessory`, `RowStatus` | Sidebar tree with sections, badges, eject and status accessories. [source-list.md](source-list.md) |
 | Column browser | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | Hierarchical columns over provider-supplied children; late answers, Left/Right, resize grip, preview. [column-browser.md](column-browser.md) |
+| Toolbar | `toolbar::Toolbar`, `ToolbarItem`, `ToolbarSegment`, `ToolbarDisplayMode`, `ToolbarItemStyle` | Command-backed buttons/toggles, segmented controls, pop-downs, real search fields, groups and spaces. Measured-width overflow keeps commands reachable. Mount with `WindowFrame::toolbar_component`. |
+| Bottom bar | `bottom_bar::BottomBar`, `BottomBarItem`, `BottomBarStatus`, `BottomBarSize`, `BottomBarControlStyle` | Status values with optional activation, fixed/flexible spaces, regular/small rectangular commands and gradient source-list controls. Mount with `WindowFrame::bottom_bar_component`. |
 | Path controls | `PathPopUp`, `PathControl`, `PathEntry` | Ancestors plus Recent Places, and the Finder breadcrumb. Emit a location id; the app navigates |
 | Open and Save panels | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `PanelStateStore`, `ExtensionPolicy`, `SaveDisposition` | `SavePanel::begin_sheet` for Save/Save As, `OpenPanel::run_modal` for File > Open, `OpenPanel::begin_sheet` for Choose. Right-click menus expose only provider capabilities; Move to Trash is provider-owned, permanent delete is a confirmed opt-in. `extension_policy` is per panel. Returns paths/locations plus a Save disposition; never writes files. [file-panels.md](file-panels.md) |
 | Sheet | `sheet::Sheet`, `sheet::card_shell` | Document-owned surface flush with the band; one per window; modal policy stays in `modal` |
@@ -387,7 +389,7 @@ Pins verified on 2026-11-23. Full commit ids, not abbreviations, belong in
 | Consumer | Pin | Form | Local patches |
 | --- | --- | --- | --- |
 | lotus | `d1db8f0c6cbe80e80fb1dfebbb5c78990d2b9265` | vendored `vendor/silvestris` (tree `a1b78ec`) | Inspector scroll, inspector focus deferral, printable keys, Settings bounds |
-| chaus | `30173a5860ad263feacb3d417a73c3a354a21e78` | git revision | none |
+| chaus | `f1c2a010c1c84a90c9ad938eb307f5f2ef5a5ba7` | git revision | none |
 | johjoh | `d1db8f0c6cbe80e80fb1dfebbb5c78990d2b9265` | git revision | none |
 | sandcat | uncommitted checkout | path dependency | deferred |
 
@@ -447,11 +449,11 @@ deferred.
 | johjoh | `prompt_for_paths` native dialogs | [#29](https://github.com/estyseesghosts/silvestris/issues/29), [#63](https://github.com/estyseesghosts/silvestris/issues/63) |
 | johjoh | `render_bottom` progress/status strip | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#8](https://github.com/estyseesghosts/silvestris/issues/8) |
 | johjoh | Error advice text | [#23](https://github.com/estyseesghosts/silvestris/issues/23) |
+| johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
 | pain | Terminal is one app-owned domain view; it does not use a Shell/sidebar application architecture | App-owned by design; Pain owns PTY/session state, terminal geometry and Ghostty state |
 | pain | Simple theme, palette and profile preferences | Keep a simple `WindowRole::Preferences` form; #14 must preserve this path |
-| johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
 
-Chaus adopted #29 at `30173a58`: File → Open is
+Chaus adopted #29 at `f1c2a01`: File → Open is
 `OpenPanel::run_modal` in a `WindowRole::OpenPanel` window, and Save As is
 `SavePanel::begin_sheet` attached to the document. Chaus keeps one
 `StdFsProvider` in `chaus-editor::FileDialogs` for the application session,

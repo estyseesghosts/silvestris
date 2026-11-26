@@ -62,7 +62,10 @@ fn metrics() -> Metrics {
         titlebar_height: 32.0,
         toolbar_height: 40.0,
         toolbar_labelled_height: 52.0,
-        bottom_bar_height: 26.0,
+        // designed: Geist keeps the same HIG layout rules around its taller
+        // controls (4 + 28 + 8 regular, 2 + 24 + 4 small).
+        bottom_bar_height: 40.0,
+        bottom_bar_small_height: 30.0,
         traffic_diameter: 12.0,
         traffic_left: 12.0,
         traffic_top: 10.0,

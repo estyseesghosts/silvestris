@@ -6,6 +6,9 @@ use gpui::{
     Window,
 };
 use silvestris::binding::{Binding, ListController};
+use silvestris::bottom_bar::{
+    BottomBar, BottomBarControlStyle, BottomBarItem, BottomBarSize, BottomBarStatus,
+};
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
@@ -24,6 +27,9 @@ use silvestris::menu::PopupMenu;
 use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
+};
+use silvestris::toolbar::{
+    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarSegment,
 };
 use silvestris::transient::TransientLayer;
 use silvestris::window_role::FrameStore;
@@ -64,8 +70,6 @@ impl gpui::Render for RoleWindow {
 
 struct Gallery {
     menu: Entity<PopupMenu>,
-    // Toolbar View button bounds, so its menu hangs from the button.
-    view_button: std::rc::Rc<std::cell::Cell<Bounds<gpui::Pixels>>>,
     commands: Entity<CommandRegistry>,
     selected_view: gpui::SharedString,
     selected_tab: gpui::SharedString,
@@ -79,10 +83,12 @@ struct Gallery {
     fidelity_scroll_small: gpui::ScrollHandle,
     last_source: gpui::SharedString,
     details_expanded: bool,
+    bottom_bar_small: bool,
     checks: [CheckState; 3],
     focus: gpui::FocusHandle,
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
+    toolbar_search: Entity<TextField>,
     composer: Entity<TextArea>,
     last_field: gpui::SharedString,
     combo: Entity<TextField>,
@@ -386,6 +392,7 @@ impl Gallery {
         });
         let search = field("Search", "Search", window, cx);
         search.update(cx, |field, cx| field.set_search(true, cx));
+        let toolbar_search = field("Toolbar Search", "Search", window, cx);
         let combo = field("Location", "Location", window, cx);
         let mut collection =
             silvestris::core::source_list::SourceNode::new("collection", "Collection");
@@ -523,12 +530,26 @@ impl Gallery {
             g.sync_sidebar_command(cx);
             cx.notify();
         });
+        let toggle_bottom_bar = cx.listener(|g, _: &CommandId, _, cx| {
+            g.bottom_bar_small = !g.bottom_bar_small;
+            g.sync_bottom_bar_command(cx);
+            cx.notify();
+        });
         commands.update(cx, |registry, cx| {
             registry
                 .register(
                     CommandDescriptor::toggle("view.sidebar", "Sidebar", true)
                         .shortcut("secondary-b"),
                     toggle_sidebar,
+                    cx,
+                )
+                .unwrap()
+        });
+        commands.update(cx, |registry, cx| {
+            registry
+                .register(
+                    CommandDescriptor::toggle("gallery.bottom-small", "Small Bar", false),
+                    toggle_bottom_bar,
                     cx,
                 )
                 .unwrap()
@@ -615,6 +636,17 @@ impl Gallery {
                     cx,
                 )
                 .unwrap()
+        });
+        commands.update(cx, |registry, cx| {
+            for (id, label) in [
+                ("gallery.add", "Add Item"),
+                ("gallery.remove", "Remove Item"),
+                ("gallery.action", "Action"),
+            ] {
+                registry
+                    .register(CommandDescriptor::action(id, label), |_, _, _| {}, cx)
+                    .unwrap();
+            }
         });
         let files_table = cx.new(|cx| {
             let files = cx.new(|_| {
@@ -747,7 +779,6 @@ impl Gallery {
         menu.update(cx, |menu, cx| menu.set_chain(routing.clone(), cx));
         Gallery {
             menu,
-            view_button: Default::default(),
             commands,
             selected_view: "grid".into(),
             selected_tab: "date".into(),
@@ -764,10 +795,12 @@ impl Gallery {
             fidelity_scroll_small: gpui::ScrollHandle::new(),
             last_source: "No source-list event".into(),
             details_expanded: false,
+            bottom_bar_small: false,
             focus: cx.focus_handle(),
             checks: [CheckState::Off, CheckState::On, CheckState::Mixed],
             last_click: "none".into(),
             fields: vec![name, password, small, disabled, search],
+            toolbar_search,
             composer,
             combo,
             radio: 0,
@@ -793,6 +826,13 @@ impl Gallery {
         let descriptor =
             CommandDescriptor::toggle("view.sidebar", "Sidebar", self.sidebar.expanded)
                 .shortcut("secondary-b");
+        self.commands
+            .update(cx, |registry, cx| registry.publish(descriptor, cx).unwrap());
+    }
+
+    fn sync_bottom_bar_command(&mut self, cx: &mut Context<Self>) {
+        let checked = self.bottom_bar_small;
+        let descriptor = CommandDescriptor::toggle("gallery.bottom-small", "Small Bar", checked);
         self.commands
             .update(cx, |registry, cx| registry.publish(descriptor, cx).unwrap());
     }
@@ -2070,6 +2110,116 @@ impl Render for Gallery {
                 .into_any_element(),
             )
         });
+        let toolbar_view = cx.entity();
+        let toolbar = Toolbar::new(
+            "gallery-toolbar",
+            "Gallery",
+            self.commands.clone(),
+            vec![
+                ToolbarItem::group(
+                    "toolbar-window-controls",
+                    "Window",
+                    vec![
+                        ToolbarItem::toggle("toolbar-sidebar", "Sidebar", "view.sidebar")
+                            .image(silvestris::icons::TemplateImage::Sidebar)
+                            .toggle_help("Hide the sidebar", "Show the sidebar"),
+                        ToolbarItem::segmented(
+                            "toolbar-view",
+                            "View",
+                            vec![
+                                ToolbarSegment::new("grid", "Icon View")
+                                    .image(silvestris::icons::TemplateImage::IconView),
+                                ToolbarSegment::new("list", "List View")
+                                    .image(silvestris::icons::TemplateImage::ListView),
+                                ToolbarSegment::new("columns", "Column View")
+                                    .image(silvestris::icons::TemplateImage::ColumnView),
+                            ],
+                            Some(self.selected_view.clone()),
+                            move |selected, _, cx| {
+                                toolbar_view.update(cx, |gallery, cx| {
+                                    gallery.selected_view = selected.clone();
+                                    cx.notify();
+                                });
+                            },
+                        )
+                        .priority(160),
+                        ToolbarItem::toggle(
+                            "toolbar-small-bar",
+                            "Small Bar",
+                            "gallery.bottom-small",
+                        )
+                        .toggle_help("Use the small bottom bar", "Use the regular bottom bar")
+                        .priority(200),
+                    ],
+                ),
+                ToolbarItem::pop_down(
+                    "toolbar-action",
+                    "Action",
+                    MenuModel {
+                        label: "Action".into(),
+                        entries: vec![
+                            MenuEntry::Command("view.sidebar".into()),
+                            MenuEntry::Command("view.badges".into()),
+                            MenuEntry::Separator,
+                            MenuEntry::Submenu {
+                                label: "Appearance".into(),
+                                entries: [
+                                    "theme.aqua-light",
+                                    "theme.aqua-dark",
+                                    "theme.geist-light",
+                                    "theme.geist-dark",
+                                ]
+                                .into_iter()
+                                .map(|id| MenuEntry::Command(id.into()))
+                                .collect(),
+                            },
+                        ],
+                    },
+                )
+                .image(silvestris::icons::TemplateImage::Action)
+                .style(ToolbarItemStyle::Capsule)
+                .priority(100),
+                ToolbarItem::flexible_space("toolbar-search-gap"),
+                ToolbarItem::search(
+                    "toolbar-search",
+                    "Search Gallery",
+                    self.toolbar_search.clone(),
+                )
+                .priority(255),
+            ],
+        )
+        .chain(self.routing.clone())
+        .display_mode(ToolbarDisplayMode::IconAndLabel);
+        let bottom_bar = BottomBar::new(
+            "gallery-bottom-bar",
+            "Gallery status",
+            vec![
+                BottomBarItem::status(
+                    BottomBarStatus::new("gallery-bottom-selection", "3 of 2,000 items selected")
+                        .help("Selection status; status values may expose details"),
+                ),
+                BottomBarItem::status(BottomBarStatus::new("gallery-bottom-state", "Ready")),
+                BottomBarItem::flexible_space("gallery-bottom-gap"),
+                BottomBarItem::command("gallery-bottom-badges", "Row Badges", "view.badges")
+                    .image(silvestris::icons::TemplateImage::ListView),
+                BottomBarItem::command("gallery-bottom-add", "Add", "gallery.add")
+                    .image(silvestris::icons::TemplateImage::Add)
+                    .style(BottomBarControlStyle::Gradient),
+                BottomBarItem::command("gallery-bottom-remove", "Remove", "gallery.remove")
+                    .image(silvestris::icons::TemplateImage::Remove)
+                    .style(BottomBarControlStyle::Gradient),
+                BottomBarItem::command("gallery-bottom-action", "Action", "gallery.action")
+                    .image(silvestris::icons::TemplateImage::Action)
+                    .style(BottomBarControlStyle::Gradient),
+            ],
+        )
+        .registry(self.commands.clone())
+        .chain(self.routing.clone())
+        .size(if self.bottom_bar_small {
+            BottomBarSize::Small
+        } else {
+            BottomBarSize::Regular
+        });
 
         div()
             .size_full()
@@ -2084,46 +2234,8 @@ impl Render for Gallery {
             .on_action(|_: &FocusPrev, window, cx| window.focus_prev(cx))
             .child(
                 WindowFrame::new(format!("Silvestris Gallery — {label}"))
-                    .toolbar(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(8.))
-                            .child(CommandButton::new(
-                                "sidebar-toolbar",
-                                "view.sidebar",
-                                self.commands.clone(),
-                            ))
-                            .child({
-                                let bounds = self.view_button.clone();
-                                div()
-                                    .relative()
-                                    .child(
-                                        Button::new("view-menu", "View")
-                                            .style(ButtonStyle::Textured)
-                                            .on_click(cx.listener(|g, _, window, cx| {
-                                                // A toolbar menu hangs from the
-                                                // button's bottom edge.
-                                                let b = g.view_button.get();
-                                                let position =
-                                                    point(b.left(), b.bottom());
-                                                g.menu.update(cx, |menu, cx| {
-                                                    menu.open_pop_down(position, window, cx)
-                                                });
-                                            })),
-                                    )
-                                    .child(
-                                        canvas(
-                                            move |b, _, _| bounds.set(b),
-                                            |_, _, _, _| {},
-                                        )
-                                        .absolute()
-                                        .inset_0(),
-                                    )
-                            }),
-                        theme.metrics.toolbar_height,
-                    )
-                    .bottom_bar(div())
+                    .toolbar_component(toolbar, cx)
+                    .bottom_bar_component(bottom_bar, cx)
                     .child(
                         div()
                             // The frame's content slot is a block box, so fill it
@@ -2234,7 +2346,7 @@ impl Render for Gallery {
                                         div().h(px(260.)).flex().child(materials.flex_1()),
                                     )),
                             ))
-                            .child(Scrollbar::new("gallery-scrollbar", &self.gallery_scroll)),
+            .child(Scrollbar::new("gallery-scrollbar", &self.gallery_scroll)),
                     ),
             )
             .child(gpui::deferred(self.menu.clone()).priority(1))

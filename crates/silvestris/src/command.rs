@@ -2,6 +2,7 @@
 //! UI/shortcut adapters revalidate descriptors at invocation time, then run
 //! the application callback outside the registry's entity borrow.
 use crate::controls::{Button, ButtonStyle, ControlSize};
+use crate::icons::{TemplateImage, TemplateImageSlot};
 use crate::responder::ResponderChain;
 use gpui::{
     prelude::*, App, Context, ElementId, Entity, KeyBinding, KeyBindingContextPredicate, Window,
@@ -366,6 +367,11 @@ pub struct CommandButton {
     chain: Option<Entity<ResponderChain>>,
     style: ButtonStyle,
     size: ControlSize,
+    external_label: Option<gpui::SharedString>,
+    template_image: Option<TemplateImage>,
+    show_icon: bool,
+    show_label: bool,
+    tooltip: Option<gpui::SharedString>,
 }
 impl CommandButton {
     pub fn new(
@@ -380,6 +386,11 @@ impl CommandButton {
             chain: None,
             style: ButtonStyle::Textured,
             size: ControlSize::Regular,
+            external_label: None,
+            template_image: None,
+            show_icon: true,
+            show_label: true,
+            tooltip: None,
         }
     }
     /// Resolve and validate through the window's responder chain (#57).
@@ -395,38 +406,89 @@ impl CommandButton {
         self.size = size;
         self
     }
+
+    /// Override the command title used as the toolbar's external label.
+    pub fn external_label(mut self, label: impl Into<gpui::SharedString>) -> Self {
+        self.external_label = Some(label.into());
+        self
+    }
+
+    /// Present the command with a template image in the fixed toolbar slot.
+    pub fn template_image(mut self, image: TemplateImage) -> Self {
+        self.template_image = Some(image);
+        self
+    }
+
+    /// Choose whether the toolbar presentation shows its template image,
+    /// external label, or both. The accessibility name remains the label.
+    pub fn presentation(mut self, show_icon: bool, show_label: bool) -> Self {
+        self.show_icon = show_icon;
+        self.show_label = show_label;
+        self
+    }
+
+    /// Override the command descriptor's help text for this presentation.
+    pub fn tooltip(mut self, text: impl Into<gpui::SharedString>) -> Self {
+        self.tooltip = Some(text.into());
+        self
+    }
 }
 impl RenderOnce for CommandButton {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let descriptor = self
-            .registry
-            .read(cx)
-            .descriptors
-            .get(&self.command)
-            .cloned();
-        let label = descriptor
-            .as_ref()
-            .map(|d| d.menu_label())
-            .unwrap_or_else(|| self.command.to_string());
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let descriptor = self.chain.as_ref().map_or_else(
+            || {
+                self.registry
+                    .read(cx)
+                    .descriptors
+                    .get(&self.command)
+                    .cloned()
+            },
+            |chain| {
+                chain
+                    .read(cx)
+                    .present(&self.registry, &self.command, window, cx)
+            },
+        );
+        let label = self.external_label.clone().unwrap_or_else(|| {
+            descriptor
+                .as_ref()
+                .map(|d| d.menu_label())
+                .unwrap_or_else(|| self.command.to_string())
+                .into()
+        });
         let enabled = descriptor.as_ref().is_some_and(|d| d.enabled);
         let checked = descriptor.as_ref().is_some_and(|d| d.checked);
-        Button::new(self.id, label)
+        let tooltip = self.tooltip.or_else(|| {
+            descriptor
+                .as_ref()
+                .and_then(|descriptor| descriptor.tooltip.clone().map(Into::into))
+        });
+        let mut button = Button::new(self.id, label)
             .style(self.style)
             .size(self.size)
             .disabled(!enabled)
             .selected(checked)
-            .on_click(move |_, window, cx| {
-                cx.stop_propagation();
-                match self.chain.clone() {
-                    Some(chain) => {
-                        let chain = chain.read(cx).clone();
-                        chain.dispatch(&self.registry, &self.command, window, cx);
-                    }
-                    None => {
-                        CommandRegistry::invoke(&self.registry, &self.command, window, cx);
-                    }
+            .icon_and_label(self.show_label);
+        if let Some(tooltip) = tooltip {
+            button = button.tooltip(tooltip);
+        }
+        if self.show_icon {
+            if let Some(image) = self.template_image {
+                button = button.icon(image.button_icon_renderer(TemplateImageSlot::Toolbar));
+            }
+        }
+        button.on_click(move |_, window, cx| {
+            cx.stop_propagation();
+            match self.chain.clone() {
+                Some(chain) => {
+                    let chain = chain.read(cx).clone();
+                    chain.dispatch(&self.registry, &self.command, window, cx);
                 }
-            })
+                None => {
+                    CommandRegistry::invoke(&self.registry, &self.command, window, cx);
+                }
+            }
+        })
     }
 }
 

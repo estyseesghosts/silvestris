@@ -254,6 +254,11 @@ pub fn display_shortcut(keys: &str, platform: Platform) -> String {
 pub enum MenuEntry {
     Command(CommandId),
     Separator,
+    /// A menu action supplied by its host instead of the command registry.
+    Action {
+        id: String,
+        label: String,
+    },
     Submenu {
         label: String,
         entries: Vec<MenuEntry>,

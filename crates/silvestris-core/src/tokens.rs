@@ -473,7 +473,11 @@ pub struct Metrics {
     pub toolbar_height: f32,
     /// Unified toolbar band for icon-over-label items.
     pub toolbar_labelled_height: f32,
+    /// Regular bottom bar: 4 px above a regular control, the control, then
+    /// 6 px below it (HIG p. 365).
     pub bottom_bar_height: f32,
+    /// Small bottom bar: 2 px above and below a small control (HIG p. 366).
+    pub bottom_bar_small_height: f32,
     pub traffic_diameter: f32,
     pub traffic_left: f32,
     pub traffic_top: f32,

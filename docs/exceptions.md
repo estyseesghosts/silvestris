@@ -52,6 +52,23 @@ repeated here; they are listed in place next to the token.
 `estimated:` tokens come from post-10.6 captures the user supplied because no
 10.6 capture shows the state. They are fits, not measurements.
 
+- Bottom-bar heights are derived from HIG pp. 365-366 rather than a bar
+  capture: regular is 4 px + a 22 px regular control + 6 px = 32; small is
+  2 px + an 18 px small control + 2 px = 22. The Finder Home capture
+  (`bottombar.column`) measures a control-free strip of 24 including its
+  separator, which is not the standard control-bearing bar. Geist uses the
+  same layout around its 28/24 px controls (40/30).
+- Small and mini textured toolbar controls reuse `push_small_height` (18) and
+  `push_mini_height` (15) because the HIG states the size families but does
+  not give separate textured heights. Regular remains the measured 22 px.
+- Toolbar overflow uses the provisional `TemplateImage::Overflow` chevron.
+  It is a simple affordance pending a measured toolbar capture; no toolbar crop
+  is indexed in `reference/crops.json`. Its host remains the regular textured
+  control. Do not describe this glyph or its geometry as measured 10.6 fidelity.
+- Toolbar rectangular/textured is the default, with capsule style available as
+  an explicit item choice. The HIG recommends consistency within a toolbar;
+  exact 10.6 toolbar height/bezel measurements still come from captures, not
+  the HIG illustrations.
 - #48 template-image silhouettes for Stop, Refresh, Add, Remove, Action, Info,
   Sidebar and Inspector are solid-colour placeholders, not measured 10.6 art.
   They exist to exercise the typed roles and control-state ink; replace them

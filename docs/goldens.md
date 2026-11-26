@@ -11,7 +11,9 @@ disclosures (collapsed/expanded/button), group box, well, separator and both
 source-list styles. 175% exists for the device-pixel snapping rule (#12); see
 [docs/snapping.md](snapping.md). The frames are a document window and a fixed
 About window plus the edited document, so the role-driven title-bar buttons are
-gated too (#20).
+gated too (#20). The toolbar samples cover rectangular and capsule items,
+disabled state, Icon Only and Text Only; the bottom-bar samples cover the
+regular and small families.
 
 Committed:
 

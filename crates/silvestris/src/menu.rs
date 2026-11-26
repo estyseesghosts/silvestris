@@ -14,6 +14,10 @@ use gpui::{
     Render, Window,
 };
 use silvestris_core::command::{display_shortcut, CommandId, MenuEntry, MenuModel, Platform};
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
+type MenuAction = Rc<dyn Fn(&mut Window, &mut App)>;
 
 /// Project the command model to GPUI's native application menu. GPUI currently
 /// provides this surface on macOS; other consumers can use the same models
@@ -46,7 +50,7 @@ pub fn native_menus(
                     gpui::Menu::new(label.clone()).items(items(entries, descriptors)),
                 )),
                 MenuEntry::Separator => Some(gpui::MenuItem::separator()),
-                MenuEntry::Heading(_) => None,
+                MenuEntry::Heading(_) | MenuEntry::Action { .. } => None,
             })
             .collect()
     }
@@ -80,6 +84,7 @@ pub struct PopupMenu {
     pop_down: bool,
     layer: Entity<TransientLayer>,
     surface: Option<SurfaceId>,
+    actions: BTreeMap<String, MenuAction>,
     // One highlighted row per open menu column.
     path: Vec<Option<usize>>,
     scroll: Vec<gpui::ScrollHandle>,
@@ -110,6 +115,7 @@ impl PopupMenu {
             pop_down: false,
             layer,
             surface: None,
+            actions: BTreeMap::new(),
             path: vec![None],
             scroll: vec![gpui::ScrollHandle::new()],
         }
@@ -137,6 +143,21 @@ impl PopupMenu {
         self.layer
             .update(cx, |layer, _| layer.set_chain(chain.clone()));
         self.chain = Some(chain);
+    }
+
+    /// Register host behavior for a non-command row such as an overflow item
+    /// that returns focus to an existing control.
+    pub fn on_action(
+        &mut self,
+        id: impl Into<String>,
+        action: impl Fn(&mut Window, &mut App) + 'static,
+    ) {
+        self.actions.insert(id.into(), Rc::new(action));
+    }
+
+    /// Remove host actions before installing the current overflow rows.
+    pub fn clear_actions(&mut self) {
+        self.actions.clear();
     }
     fn descriptor(
         &self,
@@ -278,6 +299,7 @@ impl PopupMenu {
     fn enabled(&self, entry: &MenuEntry, window: &Window, cx: &App) -> bool {
         match entry {
             MenuEntry::Command(id) => self.descriptor(id, window, cx).is_some_and(|d| d.enabled),
+            MenuEntry::Action { id, .. } => self.actions.contains_key(id),
             MenuEntry::Submenu { entries, .. } => !entries.is_empty(),
             _ => false,
         }
@@ -324,7 +346,11 @@ impl PopupMenu {
         }
     }
     fn choose(view: &Entity<Self>, depth: usize, index: usize, window: &mut Window, cx: &mut App) {
-        let command = view.update(cx, |menu, cx| {
+        enum Choice {
+            Command(CommandId),
+            Action(MenuAction),
+        }
+        let choice = view.update(cx, |menu, cx| {
             let entry = menu.entries(depth).get(index)?.clone();
             if !menu.enabled(&entry, window, cx) {
                 return None;
@@ -332,7 +358,12 @@ impl PopupMenu {
             match entry {
                 MenuEntry::Command(id) => {
                     menu.dismiss(window, cx, true);
-                    Some(id)
+                    Some(Choice::Command(id))
+                }
+                MenuEntry::Action { id, .. } => {
+                    let action = menu.actions.get(&id)?.clone();
+                    menu.dismiss(window, cx, true);
+                    Some(Choice::Action(action))
                 }
                 MenuEntry::Submenu { .. } => {
                     menu.highlight(depth, index, true, window, cx);
@@ -341,20 +372,24 @@ impl PopupMenu {
                 _ => None,
             }
         });
-        if let Some(id) = command {
-            let (registry, chain) = {
-                let menu = view.read(cx);
-                (menu.registry.clone(), menu.chain.clone())
-            };
-            match chain {
-                Some(chain) => {
-                    let chain = chain.read(cx).clone();
-                    chain.dispatch(&registry, &id, window, cx);
-                }
-                None => {
-                    CommandRegistry::invoke(&registry, &id, window, cx);
+        match choice {
+            Some(Choice::Command(id)) => {
+                let (registry, chain) = {
+                    let menu = view.read(cx);
+                    (menu.registry.clone(), menu.chain.clone())
+                };
+                match chain {
+                    Some(chain) => {
+                        let chain = chain.read(cx).clone();
+                        chain.dispatch(&registry, &id, window, cx);
+                    }
+                    None => {
+                        CommandRegistry::invoke(&registry, &id, window, cx);
+                    }
                 }
             }
+            Some(Choice::Action(action)) => action(window, cx),
+            None => {}
         }
     }
     fn key(view: &Entity<Self>, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut App) {
@@ -426,6 +461,7 @@ impl PopupMenu {
                                     .map(|d| d.label.clone())
                                     .unwrap_or_default(),
                                 MenuEntry::Submenu { label, .. } => label.clone(),
+                                MenuEntry::Action { label, .. } => label.clone(),
                                 _ => String::new(),
                             };
                             label.to_lowercase().starts_with(&key.to_lowercase())
@@ -472,6 +508,7 @@ impl PopupMenu {
                 ),
                 MenuEntry::Heading(label) => Some((label.clone(), None, false)),
                 MenuEntry::Submenu { label, .. } => Some((label.clone(), None, true)),
+                MenuEntry::Action { label, .. } => Some((label.clone(), None, false)),
                 MenuEntry::Separator => None,
             })
             .collect();
@@ -552,7 +589,9 @@ impl PopupMenu {
                     .as_ref()
                     .map(|d| d.menu_label())
                     .unwrap_or_else(|| id.to_string()),
-                MenuEntry::Submenu { label, .. } | MenuEntry::Heading(label) => label.clone(),
+                MenuEntry::Submenu { label, .. }
+                | MenuEntry::Heading(label)
+                | MenuEntry::Action { label, .. } => label.clone(),
                 _ => unreachable!(),
             };
             let enabled = self.enabled(entry, window, cx);

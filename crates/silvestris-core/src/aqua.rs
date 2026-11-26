@@ -63,8 +63,12 @@ fn metrics() -> Metrics {
         toolbar_height: 32.0,
         // Activity Monitor icon-over-label toolbar: separator at row 70 (M: table.header_and_rows context).
         toolbar_labelled_height: 49.0,
-        // M: bottombar.column: separator + 23 rows. HIG p. 212-214 gives 22/32 for the bar body.
-        bottom_bar_height: 24.0,
+        // HIG pp. 365-366: regular is 4 px + a 22 px regular control + 6 px;
+        // small is 2 px + an 18 px small control + 2 px. The Finder Home capture
+        // (`bottombar.column`) measures a status-only strip of 24 including its
+        // separator, so the control-bearing standard bar is taller.
+        bottom_bar_height: 32.0,
+        bottom_bar_small_height: 22.0,
         // M: traffic.*.column / traffic.row: 14 px, left edge 8, top 4, pitch 21.
         traffic_diameter: 14.0,
         traffic_left: 8.0,

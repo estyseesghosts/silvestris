@@ -298,8 +298,10 @@ impl TextField {
     /// A rounded search field with an inline clear action and the same
     /// editing, IME and clipboard handling as a regular text field (HIG p. 325).
     pub fn set_search(&mut self, search: bool, cx: &mut Context<Self>) {
-        self.search = search;
-        cx.notify();
+        if self.search != search {
+            self.search = search;
+            cx.notify();
+        }
     }
 
     fn field_tokens(

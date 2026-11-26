@@ -97,6 +97,7 @@ pub struct Button {
     selected: bool,
     min_width: Option<f32>,
     icon: Option<Icon>,
+    show_label_with_icon: bool,
     tooltip: Option<SharedString>,
     destructive: bool,
     focus: Option<FocusHandle>,
@@ -117,6 +118,7 @@ impl Button {
             selected: false,
             min_width: None,
             icon: None,
+            show_label_with_icon: false,
             tooltip: None,
             destructive: false,
             focus: None,
@@ -174,6 +176,12 @@ impl Button {
     /// for accessibility. The icon receives the current state's ink colour.
     pub fn icon<E: IntoElement>(mut self, icon: impl Fn(gpui::Rgba) -> E + 'static) -> Self {
         self.icon = Some(Box::new(move |ink| icon(ink).into_any_element()));
+        self
+    }
+
+    /// Show the visible label beside an icon, for toolbar Icon & Label mode.
+    pub fn icon_and_label(mut self, show: bool) -> Self {
+        self.show_label_with_icon = show;
         self
     }
 
@@ -329,7 +337,11 @@ impl RenderOnce for Button {
             ),
             ButtonStyle::Textured => (
                 &theme.controls.textured,
-                m.textured_height,
+                match self.size {
+                    ControlSize::Regular => m.textured_height,
+                    ControlSize::Small => m.push_small_height,
+                    ControlSize::Mini => m.push_mini_height,
+                },
                 m.textured_radius,
             ),
             ButtonStyle::Gradient | ButtonStyle::Bevel => (
@@ -436,7 +448,9 @@ impl RenderOnce for Button {
         let ring_color = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
-        let icon_only = self.icon.is_some();
+        let has_icon = self.icon.is_some();
+        let icon_and_label = has_icon && self.show_label_with_icon;
+        let icon_only = has_icon && !self.show_label_with_icon;
         let help_style = self.style == ButtonStyle::Help;
         let padding = if icon_only || help_style {
             0.0
@@ -627,7 +641,25 @@ impl RenderOnce for Button {
                     bezel_canvas.into_any_element()
                 }
             })
-            .when_some(icon, |el, icon| el.child(div().relative().child(icon)))
+            .when_some(icon, |el, icon| {
+                el.child(
+                    div()
+                        .relative()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.0))
+                        .child(icon)
+                        .when(icon_and_label, |el| {
+                            el.child(
+                                div()
+                                    .relative()
+                                    .top(px(label_dy))
+                                    .text_color(hsla(ink))
+                                    .child(self.label.clone()),
+                            )
+                        }),
+                )
+            })
             .when(help, |el| {
                 el.child(
                     // M: the Dock pane's glyph is 24 of the ring's 42 rows
@@ -642,7 +674,7 @@ impl RenderOnce for Button {
                         .child("?"),
                 )
             })
-            .when(!icon_only && !help, |el| {
+            .when(!icon_only && !icon_and_label && !help, |el| {
                 el.child(
                     div()
                         .relative()

@@ -111,6 +111,7 @@ pub struct WindowFrame {
     toolbar: Option<AnyElement>,
     toolbar_height: f32,
     bottom_bar: Option<AnyElement>,
+    bottom_bar_height: Option<f32>,
     content: Option<AnyElement>,
     show_title: bool,
     fixed: bool,
@@ -125,6 +126,7 @@ impl WindowFrame {
             toolbar: None,
             toolbar_height: 0.0,
             bottom_bar: None,
+            bottom_bar_height: None,
             content: None,
             show_title: true,
             fixed: false,
@@ -156,8 +158,24 @@ impl WindowFrame {
         self
     }
 
-    /// Bottom bar (HIG "bottom-bar"; M: bottombar.column).
+    /// Mount a standard toolbar using the height selected by its display mode
+    /// and the active theme.
+    pub fn toolbar_component(self, toolbar: crate::toolbar::Toolbar, cx: &App) -> Self {
+        let height = toolbar.height(cx);
+        self.toolbar(toolbar, height)
+    }
+
+    /// Bottom bar (HIG "bottom-bar"; M: bottombar.column). Uses the theme's
+    /// regular bar height. Prefer [`Self::bottom_bar_component`] for a standard
+    /// [`crate::bottom_bar::BottomBar`].
     pub fn bottom_bar(mut self, bar: impl IntoElement) -> Self {
+        self.bottom_bar = Some(bar.into_any_element());
+        self
+    }
+
+    /// Mount a standard bottom bar at the height of its regular or small family.
+    pub fn bottom_bar_component(mut self, bar: crate::bottom_bar::BottomBar, cx: &App) -> Self {
+        self.bottom_bar_height = Some(bar.height(cx));
         self.bottom_bar = Some(bar.into_any_element());
         self
     }
@@ -529,7 +547,7 @@ impl RenderOnce for WindowFrame {
                         .relative()
                         .flex_none()
                         .w_full()
-                        .h(px(m.bottom_bar_height))
+                        .h(px(self.bottom_bar_height.unwrap_or(m.bottom_bar_height)))
                         .child(
                             canvas(
                                 |_, _, _| (),

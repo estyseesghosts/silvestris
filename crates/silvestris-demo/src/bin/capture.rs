@@ -17,6 +17,9 @@ use gpui::{
     Window,
 };
 use silvestris::binding::ListController;
+use silvestris::bottom_bar::{
+    BottomBar, BottomBarControlStyle, BottomBarItem, BottomBarSize, BottomBarStatus,
+};
 use silvestris::chrome::WindowFrame;
 use silvestris::command::CommandRegistry;
 use silvestris::controls::{
@@ -36,6 +39,7 @@ use silvestris::icons::{
     ConsumerArtwork, FileArtwork, FileIconState, Icon, TemplateImage, TemplateImageSlot,
 };
 use silvestris::menu::PopupMenu;
+use silvestris::toolbar::{Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle};
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
 
@@ -52,7 +56,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 53] = [
+const SAMPLES: [Sample; 60] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -318,6 +322,41 @@ const SAMPLES: [Sample; 53] = [
         width: 244.,
         height: 110.,
     },
+    Sample {
+        id: "toolbar-rectangular",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "toolbar-capsule",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "toolbar-disabled",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "toolbar-icon-only",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "toolbar-text-only",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "bottom-bar-regular",
+        width: 236.,
+        height: 96.,
+    },
+    Sample {
+        id: "bottom-bar-small",
+        width: 236.,
+        height: 96.,
+    },
 ];
 
 /// File panels are larger than a grid cell; they get their own page after the
@@ -476,6 +515,7 @@ struct CaptureView {
     browser: Entity<ColumnBrowser>,
     panels: Vec<Entity<FilePanel>>,
     menus: Vec<Entity<PopupMenu>>,
+    toolbar_commands: Entity<CommandRegistry>,
     // Finder content white under the Arrange By menu.
     content: silvestris::core::Rgba8,
     row_alternate: silvestris::core::Rgba8,
@@ -492,6 +532,26 @@ impl CaptureView {
     ) -> Self {
         let field = cx.new(|cx| TextField::new(window, cx));
         field.update(cx, |field, cx| field.set_text("Snow Leopard", cx));
+        let toolbar_commands = cx.new(|_| CommandRegistry::default());
+        for (id, label, enabled, checked) in [
+            ("golden.sidebar", "Sidebar", true, true),
+            ("golden.action", "Action", true, false),
+            ("golden.info", "Info", true, false),
+            ("golden.disabled", "Unavailable", false, false),
+            ("golden.add", "Add", true, false),
+            ("golden.remove", "Remove", true, false),
+        ] {
+            toolbar_commands.update(cx, |registry, cx| {
+                let descriptor = if checked {
+                    CommandDescriptor::toggle(id, label, checked)
+                } else {
+                    CommandDescriptor::action(id, label)
+                };
+                registry
+                    .register(descriptor.enabled(enabled), |_, _, _| {}, cx)
+                    .expect("unique capture command");
+            });
+        }
         let mut root = SourceNode::new("home", "Home");
         root.children = vec![
             SourceNode::new("desktop", "Desktop"),
@@ -721,6 +781,7 @@ impl CaptureView {
             browser,
             panels,
             menus,
+            toolbar_commands,
             content: cx.theme().colors.content,
             row_alternate: cx.theme().colors.row_alternate,
             page,
@@ -1094,6 +1155,137 @@ impl CaptureView {
                 FileArtwork::Application.file_element(32.0, FileIconState::normal())
             })
             .toolbar_element(window, cx),
+            "toolbar-rectangular" => Toolbar::new(
+                "golden-toolbar-rectangular",
+                "Document",
+                self.toolbar_commands.clone(),
+                vec![
+                    ToolbarItem::toggle("golden-toolbar-sidebar", "Sidebar", "golden.sidebar")
+                        .image(TemplateImage::Sidebar),
+                    ToolbarItem::command("golden-toolbar-action", "Action", "golden.action")
+                        .image(TemplateImage::Action),
+                    ToolbarItem::command("golden-toolbar-info", "Info", "golden.info")
+                        .image(TemplateImage::Info),
+                ],
+            )
+            .display_mode(ToolbarDisplayMode::IconAndLabel)
+            .into_any_element(),
+            "toolbar-capsule" => Toolbar::new(
+                "golden-toolbar-capsule",
+                "Document",
+                self.toolbar_commands.clone(),
+                vec![
+                    ToolbarItem::toggle(
+                        "golden-toolbar-sidebar-capsule",
+                        "Sidebar",
+                        "golden.sidebar",
+                    )
+                    .image(TemplateImage::Sidebar)
+                    .style(ToolbarItemStyle::Capsule),
+                    ToolbarItem::command(
+                        "golden-toolbar-action-capsule",
+                        "Action",
+                        "golden.action",
+                    )
+                    .image(TemplateImage::Action)
+                    .style(ToolbarItemStyle::Capsule),
+                ],
+            )
+            .display_mode(ToolbarDisplayMode::IconAndLabel)
+            .into_any_element(),
+            "toolbar-disabled" => Toolbar::new(
+                "golden-toolbar-disabled",
+                "Document",
+                self.toolbar_commands.clone(),
+                vec![ToolbarItem::command(
+                    "golden-toolbar-disabled-item",
+                    "Unavailable",
+                    "golden.disabled",
+                )
+                .image(TemplateImage::Info)],
+            )
+            .display_mode(ToolbarDisplayMode::IconAndLabel)
+            .into_any_element(),
+            "toolbar-icon-only" => Toolbar::new(
+                "golden-toolbar-icon-only",
+                "Document",
+                self.toolbar_commands.clone(),
+                vec![
+                    ToolbarItem::toggle("golden-icon-only-sidebar", "Sidebar", "golden.sidebar")
+                        .image(TemplateImage::Sidebar),
+                    ToolbarItem::command("golden-icon-only-action", "Action", "golden.action")
+                        .image(TemplateImage::Action),
+                    ToolbarItem::command("golden-icon-only-info", "Info", "golden.info")
+                        .image(TemplateImage::Info),
+                ],
+            )
+            .display_mode(ToolbarDisplayMode::IconOnly)
+            .into_any_element(),
+            "toolbar-text-only" => Toolbar::new(
+                "golden-toolbar-text-only",
+                "Document",
+                self.toolbar_commands.clone(),
+                vec![
+                    ToolbarItem::toggle("golden-text-only-sidebar", "Sidebar", "golden.sidebar")
+                        .image(TemplateImage::Sidebar),
+                    ToolbarItem::command("golden-text-only-action", "Action", "golden.action")
+                        .image(TemplateImage::Action),
+                    ToolbarItem::command("golden-text-only-info", "Info", "golden.info")
+                        .image(TemplateImage::Info),
+                ],
+            )
+            .display_mode(ToolbarDisplayMode::TextOnly)
+            .into_any_element(),
+            "bottom-bar-regular" => WindowFrame::new("Documents")
+                .bottom_bar_component(
+                    BottomBar::new(
+                        "golden-bottom-bar-regular",
+                        "Regular bottom bar",
+                        vec![
+                            BottomBarItem::status(BottomBarStatus::new(
+                                "golden-bottom-status-regular",
+                                "12 items, 3 selected",
+                            )),
+                            BottomBarItem::flexible_space("golden-bottom-gap-regular"),
+                            BottomBarItem::command("golden-bottom-add", "Add", "golden.add")
+                                .image(TemplateImage::Add)
+                                .style(BottomBarControlStyle::Gradient),
+                            BottomBarItem::command(
+                                "golden-bottom-remove",
+                                "Remove",
+                                "golden.remove",
+                            )
+                            .image(TemplateImage::Remove)
+                            .style(BottomBarControlStyle::Gradient),
+                        ],
+                    )
+                    .registry(self.toolbar_commands.clone()),
+                    cx,
+                )
+                .child(div().size_full())
+                .into_any_element(),
+            "bottom-bar-small" => WindowFrame::new("Documents")
+                .bottom_bar_component(
+                    BottomBar::new(
+                        "golden-bottom-bar-small",
+                        "Small bottom bar",
+                        vec![
+                            BottomBarItem::status(BottomBarStatus::new(
+                                "golden-bottom-status-small",
+                                "12 items",
+                            )),
+                            BottomBarItem::flexible_space("golden-bottom-gap-small"),
+                            BottomBarItem::command("golden-bottom-add-small", "Add", "golden.add")
+                                .image(TemplateImage::Add)
+                                .style(BottomBarControlStyle::Gradient),
+                        ],
+                    )
+                    .registry(self.toolbar_commands.clone())
+                    .size(BottomBarSize::Small),
+                    cx,
+                )
+                .child(div().size_full())
+                .into_any_element(),
             "open-dialog-columns" => WindowFrame::new("Open")
                 .role(WindowRole::OpenPanel)
                 .child(self.panels[0].clone())

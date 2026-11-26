@@ -3,6 +3,7 @@
 //! Call `init` once, then open windows with `chrome::window_options` and
 //! compose controls and the `shell`.
 
+pub mod bottom_bar;
 pub mod chrome;
 pub mod controls;
 
@@ -16,6 +17,7 @@ pub mod paint;
 pub mod sprites;
 pub mod text;
 pub mod text_client;
+pub mod toolbar;
 
 pub mod theme;
 
