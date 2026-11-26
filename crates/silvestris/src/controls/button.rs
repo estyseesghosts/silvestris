@@ -98,6 +98,7 @@ pub struct Button {
     min_width: Option<f32>,
     icon: Option<Icon>,
     tooltip: Option<SharedString>,
+    aria_label: Option<SharedString>,
     destructive: bool,
     focus: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
@@ -118,6 +119,7 @@ impl Button {
             min_width: None,
             icon: None,
             tooltip: None,
+            aria_label: None,
             destructive: false,
             focus: None,
             on_click: None,
@@ -179,6 +181,13 @@ impl Button {
 
     pub fn tooltip(mut self, text: impl Into<SharedString>) -> Self {
         self.tooltip = Some(text.into());
+        self
+    }
+
+    /// Accessible name when the visible label is only a glyph (for example the
+    /// composer's `+` Add control). Defaults to the visible label.
+    pub fn aria_label(mut self, text: impl Into<SharedString>) -> Self {
+        self.aria_label = Some(text.into());
         self
     }
 
@@ -459,7 +468,11 @@ impl RenderOnce for Button {
             .debug_selector(|| self.id.to_string())
             .id(self.id)
             .role(gpui::Role::Button)
-            .aria_label(self.label.clone())
+            .aria_label(
+                self.aria_label
+                    .clone()
+                    .unwrap_or_else(|| self.label.clone()),
+            )
             // Block an enclosing native titlebar's Drag hitbox (same contract
             // as chrome::traffic_lights); controls must remain clickable.
             .occlude()
