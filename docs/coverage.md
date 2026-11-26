@@ -104,7 +104,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | List view | `virtual_table` | provisional | four | — | #32 |
 | Outline view | none | missing | — | — | #33 |
 | Column view | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | functional | four | `column-browser` | #34 |
-| Icon view | `IconGrid`, `IconGridEvent` | measured | four | `open-dialog-icons`, `save-sheet-expanded-icons` | #35 |
+| Icon view | `IconGrid`, `IconGridEvent` | functional | four | `open-dialog-icons`, `save-sheet-expanded-icons` | #35 |
 | Split view | `Shell` divider only | provisional | four | — | #53 |
 | Tab view | `TabView`, `preferences::pane_tab_view` | measured | four | `tab-view` | #13 |
 | Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
