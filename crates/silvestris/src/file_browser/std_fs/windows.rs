@@ -12,7 +12,7 @@ use windows::Win32::UI::Shell::{
     FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT, FO_DELETE, KF_FLAG_DEFAULT, SHFILEOPSTRUCTW,
 };
 
-use crate::file_panel::provider::FileError;
+use crate::file_browser::provider::FileError;
 use crate::icons::Icon;
 
 use super::HostPlace;

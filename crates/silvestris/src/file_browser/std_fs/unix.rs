@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::file_panel::provider::FileError;
+use crate::file_browser::provider::FileError;
 use crate::icons::Icon;
 
 use super::HostPlace;

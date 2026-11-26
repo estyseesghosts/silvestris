@@ -140,6 +140,15 @@ new state from `on_resize`, and pass it back. Persist only divider IDs and
 positions. Do not turn it into a tiling tree or use it to replace Shell's
 sidebar/workspace/inspector policy. See [split-view.md](split-view.md).
 
+## File browser core
+
+`file_browser` owns the provider protocol, entry data, one `FileBrowserModel`
+for location/history/filter/view/sort, generation-cancelled async loading and
+navigation events. Open/Save/Choose panels consume it; a file-manager app can
+instantiate it directly. `file_panel::{model, provider}` are transitional
+re-exports and the panel keeps extension, sheet and modal policy. See
+[file-browser.md](file-browser.md).
+
 ## Commands
 
 One `Entity<CommandRegistry>` per application. Register one callback per stable

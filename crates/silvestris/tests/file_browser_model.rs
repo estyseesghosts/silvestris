@@ -1,5 +1,6 @@
-//! FileBrowserModel and FileProvider (#29/T6): listing, hidden and type
-//! policy, history, selection by id, view switching and cancellation.
+//! FileBrowserModel and FileProvider (#78): listing, hidden filtering,
+//! history, selection by id, view switching and cancellation through the
+//! neutral `file_browser` layer.
 
 use std::rc::Rc;
 use std::time::Duration;
@@ -8,7 +9,7 @@ use gpui::{
     div, prelude::*, App, Context, Entity, Render, Task, TestAppContext, VisualTestContext, Window,
 };
 use silvestris::controls::path_control::LocationId;
-use silvestris::file_panel::{
+use silvestris::file_browser::{
     FileAncestor, FileBrowserEvent, FileBrowserModel, FileEntry, FileError, FileListing, FilePlace,
     FileProvider, FileViewMode, MemoryProvider, PlaceSection,
 };
@@ -113,23 +114,20 @@ fn hidden_files_appear_only_when_enabled() {
 }
 
 #[test]
-fn allowed_types_match_directories_and_extensions() {
-    let mut app = TestAppContext::single();
-    let (model, mut cx) = open(&mut app);
-    cx.update(|_, cx| {
-        model.update(cx, |model, _| {
-            model.set_allowed_types(["txt".to_string()]);
-            model.set_allows_other_types(false);
-        });
-        let entries = model.read(cx).controller().read(cx).visible_items();
-        let by_name = |name: &str| *entries.iter().find(|entry| entry.name == name).unwrap();
-        assert!(model.read(cx).matches_types(by_name("Documents")));
-        assert!(model.read(cx).matches_types(by_name("report.txt")));
-        let png = FileEntry::document("png", "photo.png");
-        assert!(!model.read(cx).matches_types(&png));
-        model.update(cx, |model, _| model.set_allows_other_types(true));
-        assert!(model.read(cx).matches_types(&png));
-    });
+fn panel_extension_policy_matches_directories_and_extensions() {
+    let types = vec!["txt".to_string()];
+    let documents = FileEntry::folder("documents", "Documents");
+    let report = FileEntry::document("report", "report.txt");
+    let png = FileEntry::document("png", "photo.png");
+    assert!(silvestris::file_panel::matches_types(
+        &documents, &types, false
+    ));
+    assert!(silvestris::file_panel::matches_types(
+        &report, &types, false
+    ));
+    assert!(!silvestris::file_panel::matches_types(&png, &types, false));
+    assert!(silvestris::file_panel::matches_types(&png, &types, true));
+    assert!(silvestris::file_panel::matches_types(&png, &[], false));
 }
 
 #[test]

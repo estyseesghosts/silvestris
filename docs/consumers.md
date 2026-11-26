@@ -190,6 +190,20 @@ controlled: persist divider IDs and positions from `on_resize` and pass the
 state back. The consumer keeps pane content, collapse decisions and domain
 policy. `on_bounds` reports the measured pane rectangles.
 
+### File browser core
+
+| | |
+|---|---|
+| Modules | `silvestris::file_browser` (`model`, `provider`, optional `std_fs`) |
+| Types | `FileBrowserModel`, `FileProvider`, `FileEntry`, `FileViewMode`, `FileSort`, `FileBrowserEvent`, `MemoryProvider`, `StdFsProvider` |
+| Docs | [file-browser.md](file-browser.md) |
+
+The neutral browser core owns location/history/filter/view/sort and
+generation-cancelled loading. Open/Save/Choose panels consume it; a file-manager
+reference app instantiates it without opening a dialog. `file_panel::{model,
+provider}` remain transitional re-exports for the Chaus migration window, and
+the panel layer keeps extension, sheet and modal policy.
+
 ### Controls
 
 All controls are in `silvestris::controls`. Most are `RenderOnce` builders:

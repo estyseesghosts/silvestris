@@ -2,8 +2,10 @@
 
 `SavePanel` and `OpenPanel` (#29) are compositions, not bespoke dialogs. The
 panel owns policy; `FileBrowserModel` owns the location, history, selection and
-view mode; a `FileProvider` owns all file access. The panel never reads or
-writes a file. It returns the chosen host paths and location ids and the
+view mode; a `FileProvider` owns all file access. The model and provider now
+live in the neutral [file-browser core](file-browser.md) (#78) and remain
+re-exported through `file_panel` for existing consumers. The panel never reads
+or writes a file. It returns the chosen host paths and location ids and the
 consumer does the I/O.
 
 ```

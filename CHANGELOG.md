@@ -5,6 +5,21 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After a9a2879
+
+Neutral file-browser core (#78):
+
+- `file_browser` now owns `FileProvider`, `FileEntry`, `FileBrowserModel`,
+  `FileViewMode`, the shared `FileSort` policy, navigation events,
+  `MemoryProvider` and the optional `StdFsProvider` adapter. Open/Save/Choose
+  panels consume it.
+- `FileBrowserModel` no longer carries extension policy. The panel keeps
+  `allowed_types`/`allows_other_types` and exposes `file_panel::matches_types`;
+  Save/Open behavior is unchanged.
+- `file_panel::{model, provider}` re-export the new layer for the Chaus
+  migration window. `file_panel::StdFsProvider` remains available. The browser
+  core has no dependency on sheets, dialogs, buttons or modal state.
+
 ## After fab6328
 
 Standalone split view (#53):

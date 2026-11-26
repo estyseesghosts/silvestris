@@ -34,6 +34,7 @@ use crate::controls::{
 };
 use crate::convert::hsla;
 use crate::file_panel::chrome::{self, PanelToolbar};
+use crate::file_panel::matches_types;
 use crate::file_panel::model::{
     choosable, FileBrowserEvent, FileBrowserModel, FileSort, FileSortKey, FileViewMode,
 };
@@ -225,6 +226,8 @@ pub struct FilePanel {
     hide_extension: bool,
     format: usize,
     formats: Vec<FormatOption>,
+    allowed_types: Vec<String>,
+    allows_other_types: bool,
     extension_policy: ExtensionPolicy,
     state_store: Option<Rc<dyn PanelStateStore>>,
     frame_store: Option<Rc<dyn crate::window_role::FrameStore>>,
@@ -295,8 +298,6 @@ impl FilePanel {
         let model =
             cx.new(|cx| FileBrowserModel::new(provider.clone(), options.location.clone(), cx));
         model.update(cx, |model, cx| {
-            model.set_allowed_types(options.allowed_types.clone());
-            model.set_allows_other_types(options.allows_other_types);
             model.set_view(view, cx);
         });
         let sidebar = build_sidebar(&[], cx);
@@ -367,6 +368,8 @@ impl FilePanel {
             hide_extension,
             format: 0,
             formats,
+            allowed_types: options.allowed_types.clone(),
+            allows_other_types: options.allows_other_types,
             extension_policy: options.extension_policy.clone(),
             state_store: options.state_store.clone(),
             frame_store: options.frame_store.clone(),
@@ -1198,11 +1201,11 @@ impl FilePanel {
     /// The extension `Required` appends and accepts: the current Format's
     /// first extension, or the model's first allowed type when the consumer
     /// set only `allowed_types`.
-    fn required_extension(&self, cx: &App) -> Option<String> {
+    fn required_extension(&self) -> Option<String> {
         self.formats
             .get(self.format)
             .and_then(|format| format.extensions.first())
-            .or_else(|| self.model.read(cx).allowed_types().first())
+            .or_else(|| self.allowed_types.first())
             .map(|extension| extension.trim_start_matches('.').to_string())
     }
 
@@ -1222,7 +1225,7 @@ impl FilePanel {
             ExtensionPolicy::Required => {
                 if extension(&typed).is_some() {
                     typed
-                } else if let Some(first) = self.required_extension(cx) {
+                } else if let Some(first) = self.required_extension() {
                     format!("{typed}.{first}")
                 } else {
                     typed
@@ -1259,7 +1262,7 @@ impl FilePanel {
             return Some(FileError::new("That name is reserved."));
         }
         if let (ExtensionPolicy::Required, PanelMode::Save) = (&self.extension_policy, self.mode) {
-            if let Some(required) = self.required_extension(cx) {
+            if let Some(required) = self.required_extension() {
                 let has_required = name
                     .rsplit_once('.')
                     .filter(|(stem, _)| !stem.is_empty())
@@ -1370,7 +1373,7 @@ impl FilePanel {
             || (!self.allows_multiple && selected.len() > 1)
             || !selected.iter().all(|entry| {
                 choosable(entry, self.can_choose_files, self.can_choose_directories)
-                    && (entry.is_dir || self.model.read(cx).matches_types(entry))
+                    && matches_types(entry, &self.allowed_types, self.allows_other_types)
             })
         {
             if selected.len() == 1 && selected[0].is_dir && !selected[0].is_package {
@@ -1613,12 +1616,13 @@ impl FilePanel {
             return;
         }
         let controller = self.model.read(cx).controller();
-        let icon_model = self.model.clone();
+        let allowed = self.allowed_types.clone();
+        let allows_other = self.allows_other_types;
         let icons = cx.new(|cx| {
             IconGrid::new(
                 controller,
-                move |entry: &FileEntry, selected, _active, window, cx| {
-                    let dim = !icon_model.read(cx).matches_types(entry);
+                move |entry: &FileEntry, selected, _active, window, _cx| {
+                    let dim = !matches_types(entry, &allowed, allows_other);
                     entry.icon.file_element(
                         crate::controls::icon_grid::ICON_SIZE,
                         icons::FileIconState {
@@ -1686,8 +1690,7 @@ impl FilePanel {
             return;
         };
         self.format = index;
-        self.model
-            .update(cx, |model, _| model.set_allowed_types(format.extensions));
+        self.allowed_types = format.extensions;
         cx.notify();
     }
 
@@ -1825,9 +1828,11 @@ impl FilePanel {
         self.browser_entry(&id)
     }
 
-    fn choosable_now(&self, entry: &FileEntry, cx: &App) -> bool {
+    fn choosable_now(&self, entry: &FileEntry, _cx: &App) -> bool {
         choosable(entry, self.can_choose_files, self.can_choose_directories)
-            && (entry.is_dir || entry.is_package || self.model.read(cx).matches_types(entry))
+            && (entry.is_dir
+                || entry.is_package
+                || matches_types(entry, &self.allowed_types, self.allows_other_types))
     }
 
     fn finish_open(&mut self, targets: &[(LocationId, FileEntry)], cx: &mut Context<Self>) {
@@ -1947,7 +1952,7 @@ fn build_table(
         if allowed.is_empty() {
             return false;
         }
-        !entry.matches_types(&allowed)
+        !matches_types(entry, &allowed, allows_other)
     };
     let name_dims = Rc::new(dims);
     let columns = vec![
@@ -2749,7 +2754,11 @@ impl FilePanel {
                                     self.can_choose_files,
                                     self.can_choose_directories,
                                 ) || (entry.is_dir && !entry.is_package))
-                                    && (entry.is_dir || self.model.read(cx).matches_types(entry))
+                                    && matches_types(
+                                        entry,
+                                        &self.allowed_types,
+                                        self.allows_other_types,
+                                    )
                             })
                         }
                     }

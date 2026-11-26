@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::file_panel::provider::FileError;
+use crate::file_browser::provider::FileError;
 use crate::icons::Icon;
 
 use super::HostPlace;

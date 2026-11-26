@@ -10,6 +10,7 @@ pub mod controls;
 pub mod convert;
 pub mod document;
 pub mod drag;
+pub mod file_browser;
 pub mod file_panel;
 pub mod fonts;
 pub mod icons;

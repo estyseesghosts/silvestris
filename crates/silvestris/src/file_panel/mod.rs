@@ -14,8 +14,6 @@ pub mod panel;
 pub mod provider;
 pub mod save;
 pub mod state;
-#[cfg(feature = "std-fs")]
-pub mod std_fs;
 
 pub use crate::controls::path_control::LocationId;
 pub use model::{
@@ -36,4 +34,20 @@ pub use save::SavePanel;
 pub use state::{MemoryPanelStateStore, PanelState, PanelStateStore, PreferencePanelStates};
 
 #[cfg(feature = "std-fs")]
-pub use std_fs::StdFsProvider;
+pub use crate::file_browser::StdFsProvider;
+
+/// Panel-owned extension policy. The browser core deliberately knows nothing
+/// about allowed extensions; Open dims/disables non-matching files, and Save
+/// uses the list for its extension disposition.
+#[must_use]
+pub fn matches_types(entry: &FileEntry, types: &[String], allows_other: bool) -> bool {
+    if entry.is_dir || allows_other || types.is_empty() {
+        return true;
+    }
+    let extension = entry.extension();
+    types.iter().any(|allowed| {
+        allowed
+            .trim_start_matches('.')
+            .eq_ignore_ascii_case(&extension)
+    })
+}
