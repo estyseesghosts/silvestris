@@ -69,13 +69,13 @@ fn provider() -> MemoryProvider {
         silvestris::file_panel::FilePlace::new(
             "search:today",
             "Today",
-            Icon::Search,
+            Icon::SmartSearch,
             silvestris::file_panel::PlaceSection::SearchFor,
         ),
         silvestris::file_panel::FilePlace::new(
             "search:week",
             "Past Week",
-            Icon::Search,
+            Icon::SmartSearch,
             silvestris::file_panel::PlaceSection::SearchFor,
         ),
     ]);

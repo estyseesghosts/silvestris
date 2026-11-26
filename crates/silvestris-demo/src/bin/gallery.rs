@@ -799,7 +799,7 @@ impl Gallery {
 }
 
 impl Render for Gallery {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let commands = self.commands.clone();
         let chain = self.routing.clone();
@@ -1444,26 +1444,114 @@ impl Render for Gallery {
                     "fidelity-segments-icon",
                     "View",
                     vec![
-                        Segment::new("grid", "Grid").icon("grid").show_label(false),
-                        Segment::new("list", "List").icon("list").show_label(false),
+                        Segment::new("grid", "Grid")
+                            .icon(silvestris::icons::TemplateImage::IconView.role())
+                            .show_label(false),
+                        Segment::new("list", "List")
+                            .icon(silvestris::icons::TemplateImage::ListView.role())
+                            .show_label(false),
                         Segment::new("columns", "Columns")
-                            .icon("columns")
+                            .icon(silvestris::icons::TemplateImage::ColumnView.role())
                             .show_label(false)
                             .disabled(true),
                     ],
                 )
                 .selected("grid")
-                .icon_renderer(|role, ink| {
-                    div()
-                        .text_color(silvestris::convert::hsla(ink))
-                        .child(match role {
-                            "grid" => "\u{25a6}",
-                            "list" => "\u{2630}",
-                            _ => "\u{25a4}",
-                        })
-                        .into_any_element()
-                })
+                .icon_renderer(silvestris::icons::role_renderer(
+                    silvestris::icons::TemplateImageSlot::Segmented,
+                ))
                 .into_any_element(),
+            ))
+            .child(cell(
+                "Template image roles (19 px toolbar slot)",
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(4.))
+                    .children(
+                        [
+                            silvestris::icons::TemplateImage::Back,
+                            silvestris::icons::TemplateImage::Forward,
+                            silvestris::icons::TemplateImage::IconView,
+                            silvestris::icons::TemplateImage::ListView,
+                            silvestris::icons::TemplateImage::ColumnView,
+                            silvestris::icons::TemplateImage::Search,
+                            silvestris::icons::TemplateImage::Stop,
+                            silvestris::icons::TemplateImage::Refresh,
+                            silvestris::icons::TemplateImage::Add,
+                            silvestris::icons::TemplateImage::Remove,
+                            silvestris::icons::TemplateImage::Action,
+                            silvestris::icons::TemplateImage::Info,
+                            silvestris::icons::TemplateImage::Sidebar,
+                            silvestris::icons::TemplateImage::Inspector,
+                            silvestris::icons::TemplateImage::Eject,
+                        ]
+                        .into_iter()
+                        .map(|image| {
+                            image.element(
+                                silvestris::icons::TemplateImageSlot::Toolbar,
+                                theme.colors.text,
+                            )
+                        }),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Rectangular template on a textured button",
+                Button::new("fidelity-template-button", "Action")
+                    .style(ButtonStyle::Textured)
+                    .icon(
+                        silvestris::icons::TemplateImage::Action
+                            .button_icon_renderer(silvestris::icons::TemplateImageSlot::Toolbar),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "File artwork: active, inactive and disabled",
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(6.))
+                    .children(
+                        [
+                            silvestris::icons::FileIconState::normal(),
+                            silvestris::icons::FileIconState::selected(),
+                            silvestris::icons::FileIconState {
+                                inactive: true,
+                                ..silvestris::icons::FileIconState::normal()
+                            },
+                            silvestris::icons::FileIconState {
+                                disabled: true,
+                                ..silvestris::icons::FileIconState::normal()
+                            },
+                        ]
+                        .into_iter()
+                        .flat_map(|state| {
+                            [
+                                silvestris::icons::FileArtwork::Folder.file_element(16.0, state),
+                                silvestris::icons::FileArtwork::Folder.file_element(32.0, state),
+                            ]
+                        }),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Consumer pictorial artwork: 32 px toolbar/category slots",
+                {
+                    let artwork = silvestris::icons::ConsumerArtwork::new(
+                        "Example application artwork",
+                        |_, _| {
+                            silvestris::icons::FileArtwork::Application
+                                .file_element(32.0, silvestris::icons::FileIconState::normal())
+                        },
+                    );
+                    div()
+                        .flex()
+                        .gap(px(8.))
+                        .child(artwork.toolbar_element(window, cx))
+                        .child(artwork.category_element(window, cx))
+                        .into_any_element()
+                },
             ))
             .child(cell(
                 "Small",

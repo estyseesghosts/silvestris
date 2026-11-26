@@ -52,6 +52,12 @@ repeated here; they are listed in place next to the token.
 `estimated:` tokens come from post-10.6 captures the user supplied because no
 10.6 capture shows the state. They are fits, not measurements.
 
+- #48 template-image silhouettes for Stop, Refresh, Add, Remove, Action, Info,
+  Sidebar and Inspector are solid-colour placeholders, not measured 10.6 art.
+  They exist to exercise the typed roles and control-state ink; replace them
+  with approved original artwork before claiming fidelity. The host slots are
+  the 19 px rectangular toolbar maximum (HIG p. 153) and the existing 13 px
+  segmented-control slot.
 - Aqua Light pressed push button (`aqua_pressed` in aqua.rs): a per-channel
   linear map `pressed = a * default + b` fitted from the default to the
   pressed bevel in the post-10.6 capture "Screenshot 2026-11-19 020811.png",

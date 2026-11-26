@@ -32,7 +32,9 @@ use silvestris::file_panel::{
     FileEntry, FilePanel, FilePlace, FileViewMode, MemoryProvider, PanelMode, PanelOptions,
     PlaceSection,
 };
-use silvestris::icons::Icon;
+use silvestris::icons::{
+    ConsumerArtwork, FileArtwork, FileIconState, Icon, TemplateImage, TemplateImageSlot,
+};
 use silvestris::menu::PopupMenu;
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
@@ -50,7 +52,7 @@ struct Sample {
     height: f32,
 }
 
-const SAMPLES: [Sample; 50] = [
+const SAMPLES: [Sample; 53] = [
     Sample {
         id: "button-default",
         width: 120.,
@@ -298,6 +300,21 @@ const SAMPLES: [Sample; 50] = [
     },
     Sample {
         id: "column-browser",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "artwork-file-states",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "artwork-template-states",
+        width: 244.,
+        height: 110.,
+    },
+    Sample {
+        id: "artwork-consumer",
         width: 244.,
         height: 110.,
     },
@@ -710,7 +727,7 @@ impl CaptureView {
         }
     }
 
-    fn sample(&self, id: &str, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn sample(&self, id: &str, window: &mut Window, cx: &mut Context<Self>) -> gpui::AnyElement {
         let button = |text: &'static str| Button::new(format!("golden-button-{text}"), text);
         match id {
             "button-default" => button("Save")
@@ -842,25 +859,22 @@ impl CaptureView {
                 "golden-segmented-icon",
                 "View",
                 vec![
-                    Segment::new("grid", "Grid").icon("grid").show_label(false),
-                    Segment::new("list", "List").icon("list").show_label(false),
+                    Segment::new("grid", "Grid")
+                        .icon(TemplateImage::IconView.role())
+                        .show_label(false),
+                    Segment::new("list", "List")
+                        .icon(TemplateImage::ListView.role())
+                        .show_label(false),
                     Segment::new("columns", "Columns")
-                        .icon("columns")
+                        .icon(TemplateImage::ColumnView.role())
                         .show_label(false)
                         .disabled(true),
                 ],
             )
             .selected("grid")
-            .icon_renderer(|role, ink| {
-                div()
-                    .text_color(silvestris::convert::hsla(ink))
-                    .child(match role {
-                        "grid" => "\u{25a6}",
-                        "list" => "\u{2630}",
-                        _ => "\u{25a4}",
-                    })
-                    .into_any_element()
-            })
+            .icon_renderer(silvestris::icons::role_renderer(
+                TemplateImageSlot::Segmented,
+            ))
             .into_any_element(),
             "segmented-small" => SegmentedControl::new(
                 "golden-segmented-small",
@@ -975,6 +989,111 @@ impl CaptureView {
             }
             "table-view" => self.table.clone().into_any_element(),
             "column-browser" => self.browser.clone().into_any_element(),
+            "artwork-file-states" => div()
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .children([
+                    FileArtwork::Folder.file_element(16.0, FileIconState::normal()),
+                    FileArtwork::Folder.file_element(32.0, FileIconState::normal()),
+                    FileArtwork::Folder.file_element(16.0, FileIconState::selected()),
+                    FileArtwork::Folder.file_element(32.0, FileIconState::selected()),
+                    FileArtwork::Folder.file_element(
+                        16.0,
+                        FileIconState {
+                            inactive: true,
+                            ..FileIconState::normal()
+                        },
+                    ),
+                    FileArtwork::Folder.file_element(
+                        32.0,
+                        FileIconState {
+                            inactive: true,
+                            ..FileIconState::normal()
+                        },
+                    ),
+                    FileArtwork::Folder.file_element(
+                        16.0,
+                        FileIconState {
+                            disabled: true,
+                            ..FileIconState::normal()
+                        },
+                    ),
+                    FileArtwork::Folder.file_element(
+                        32.0,
+                        FileIconState {
+                            disabled: true,
+                            ..FileIconState::normal()
+                        },
+                    ),
+                ])
+                .into_any_element(),
+            "artwork-template-states" => {
+                let template_images = [
+                    TemplateImage::Back,
+                    TemplateImage::Forward,
+                    TemplateImage::IconView,
+                    TemplateImage::ListView,
+                    TemplateImage::ColumnView,
+                    TemplateImage::Search,
+                    TemplateImage::Stop,
+                    TemplateImage::Refresh,
+                    TemplateImage::Add,
+                    TemplateImage::Remove,
+                    TemplateImage::Action,
+                    TemplateImage::Info,
+                    TemplateImage::Sidebar,
+                    TemplateImage::Inspector,
+                    TemplateImage::Eject,
+                ];
+                let theme = cx.theme().clone();
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(px(8.))
+                    .child(
+                        div()
+                            .flex()
+                            .gap(px(8.))
+                            .child(
+                                Button::new("golden-template-action", "Action")
+                                    .style(ButtonStyle::Textured)
+                                    .icon(
+                                        TemplateImage::Action
+                                            .button_icon_renderer(TemplateImageSlot::Toolbar),
+                                    ),
+                            )
+                            .child(
+                                Button::new("golden-template-disabled", "Disabled")
+                                    .style(ButtonStyle::Textured)
+                                    .disabled(true)
+                                    .icon(
+                                        TemplateImage::Action
+                                            .button_icon_renderer(TemplateImageSlot::Toolbar),
+                                    ),
+                            ),
+                    )
+                    .children(
+                        [
+                            theme.colors.text,
+                            theme.colors.text_secondary,
+                            theme.colors.text_disabled,
+                        ]
+                        .into_iter()
+                        .map(|ink| {
+                            div().flex().flex_wrap().gap(px(4.)).children(
+                                template_images
+                                    .iter()
+                                    .map(|image| image.element(TemplateImageSlot::Toolbar, ink)),
+                            )
+                        }),
+                    )
+                    .into_any_element()
+            }
+            "artwork-consumer" => ConsumerArtwork::new("Example application artwork", |_, _| {
+                FileArtwork::Application.file_element(32.0, FileIconState::normal())
+            })
+            .toolbar_element(window, cx),
             "open-dialog-columns" => WindowFrame::new("Open")
                 .role(WindowRole::OpenPanel)
                 .child(self.panels[0].clone())
@@ -1095,7 +1214,7 @@ fn save_sheet_crop_sample(panel: &Entity<FilePanel>, cx: &mut App) -> impl IntoE
 }
 
 impl Render for CaptureView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let (width, height) = root_size(self.page);
         let mut root = div()
@@ -1111,7 +1230,7 @@ impl Render for CaptureView {
                     .top(px(y))
                     .w(px(w))
                     .h(px(h))
-                    .child(self.sample(id, cx)),
+                    .child(self.sample(id, window, cx)),
             );
         }
         for menu in &self.menus {

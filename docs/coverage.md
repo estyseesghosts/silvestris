@@ -145,7 +145,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Modal sessions | `modal::ModalSession`, `ModalScope`, `ModalResult`; `ConfirmationFocus` | functional | four | — | #21 |
 | Drag and drop | none | missing | — | — | #36 |
 | Undo and redo | `undo::UndoManager`, `TextHistory`, `undo::entry` | functional | four | — | #39 |
-| System images and icons | `sprites`; `icons::Icon` for file-panel vocabulary | functional | four | — | #48 |
+| System images and icons | `sprites`; `icons::FileArtwork`, `TemplateImage`, `ConsumerArtwork` | functional | four | `artwork-file-states`, `artwork-template-states`, `artwork-consumer` | #48 |
 | Cursors | GPUI cursor styles | provisional | four | — | #48 |
 
 ## Active, inactive and focus audit

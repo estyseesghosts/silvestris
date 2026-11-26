@@ -22,7 +22,7 @@ use super::super::controls::{
     path_control::{PathEntry, PathPopUp},
     ControlSize, Segment, SegmentMode, SegmentStyle, SegmentedControl,
 };
-use super::super::icons::{self, Icon};
+use super::super::icons::{self, Icon, TemplateImage, TemplateImageSlot};
 use crate::file_panel::FileViewMode;
 
 /// Outer width, including the title band (M: panel.outer).
@@ -200,11 +200,11 @@ impl gpui::RenderOnce for PanelToolbar {
             "History",
             vec![
                 Segment::new("back", "Back")
-                    .icon(Icon::Back.role())
+                    .icon(TemplateImage::Back.role())
                     .show_label(false)
                     .disabled(!self.can_go_back),
                 Segment::new("forward", "Forward")
-                    .icon(Icon::Forward.role())
+                    .icon(TemplateImage::Forward.role())
                     .show_label(false)
                     .disabled(!self.can_go_forward),
             ],
@@ -213,7 +213,7 @@ impl gpui::RenderOnce for PanelToolbar {
         .style(SegmentStyle::Textured)
         .size(ControlSize::Regular)
         .min_segment_width(21.0)
-        .icon_renderer(icons::role_renderer(13.0))
+        .icon_renderer(icons::role_renderer(TemplateImageSlot::Segmented))
         .on_select(move |id, window, cx| match id.as_str() {
             "back" => back(window, cx),
             "forward" => forward(window, cx),
@@ -224,13 +224,13 @@ impl gpui::RenderOnce for PanelToolbar {
             "View",
             vec![
                 Segment::new("icons", "Icons")
-                    .icon(Icon::IconView.role())
+                    .icon(TemplateImage::IconView.role())
                     .show_label(false),
                 Segment::new("list", "List")
-                    .icon(Icon::List.role())
+                    .icon(TemplateImage::ListView.role())
                     .show_label(false),
                 Segment::new("columns", "Columns")
-                    .icon(Icon::Columns.role())
+                    .icon(TemplateImage::ColumnView.role())
                     .show_label(false),
             ],
         )
@@ -239,7 +239,7 @@ impl gpui::RenderOnce for PanelToolbar {
         .style(SegmentStyle::Textured)
         .size(ControlSize::Regular)
         .min_segment_width(23.0)
-        .icon_renderer(icons::role_renderer(13.0))
+        .icon_renderer(icons::role_renderer(TemplateImageSlot::Segmented))
         .on_select(move |id, window, cx| {
             let mode = match id.as_str() {
                 "icons" => FileViewMode::Icons,
@@ -279,7 +279,7 @@ pub fn icon_element(icon: Icon, state: icons::FileIconState) -> AnyElement {
     icon.file_element(16.0, state)
 }
 
-/// Kept for callers that explicitly want a monochrome glyph.
-pub fn glyph_element(icon: Icon, color: Rgba8) -> AnyElement {
-    icon.element(16.0, color)
+/// Kept for callers that explicitly want a monochrome template glyph.
+pub fn glyph_element(image: TemplateImage, color: Rgba8) -> AnyElement {
+    image.element(TemplateImageSlot::Segmented, color)
 }

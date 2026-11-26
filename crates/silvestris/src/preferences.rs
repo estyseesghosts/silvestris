@@ -31,6 +31,7 @@ use gpui::{
 pub use crate::controls::TabView;
 use crate::controls::{Button, ButtonStyle, ControlSize, Segment, SegmentedControl};
 use crate::convert::hsla;
+use crate::icons::ConsumerArtwork;
 use crate::{paint, ActiveTheme};
 
 // --- Measured geometry (logical px) --------------------------------------
@@ -161,6 +162,15 @@ impl PreferencePane {
         icon: impl Fn(&mut Window, &mut App) -> E + 'static,
     ) -> Self {
         self.icon = Some(Rc::new(move |w, cx| icon(w, cx).into_any_element()));
+        self
+    }
+
+    /// Uses consumer-owned pictorial artwork in the standard 32×32 category
+    /// icon slot.
+    pub fn artwork(mut self, artwork: ConsumerArtwork) -> Self {
+        self.icon = Some(Rc::new(move |window, cx| {
+            artwork.category_element(window, cx)
+        }));
         self
     }
 }

@@ -38,6 +38,22 @@ Save-panel and icon-view fidelity pass (`docs/SAVEPANEL-3.txt`):
   `open-dialog-icons`, `save-sheet-expanded-icons` and
   `save-sheet-minimal-crop`.
 
+## After a2b5c35
+
+Typed artwork roles for #48:
+
+- `icons::FileArtwork` owns full-colour file/object artwork. `icons::Icon` is
+  retained as an alias for its file-panel vocabulary; previous toolbar variants
+  and `icon_row` moved to the typed `icons::TemplateImage` API.
+- `TemplateImage` and `TemplateImageSlot` separate monochrome system-image
+  roles from file artwork. The toolbar slot is fixed at 19 px and the
+  segmented-control slot at 13 px; `role_renderer` now accepts a slot instead
+  of an arbitrary glyph size.
+- `ConsumerArtwork` adapts consumer-owned render callbacks for 32 px toolbar
+  and preference-category slots. `PreferencePane::artwork` accepts it directly.
+- Template glyphs introduced in this range are placeholders, not final
+  historical artwork. See `docs/exceptions.md`.
+
 ## After 5d5c38f
 
 Open and Save panel interaction pass:

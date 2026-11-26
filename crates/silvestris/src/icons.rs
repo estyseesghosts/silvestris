@@ -1,30 +1,23 @@
-//! Semantic icon vocabulary for the file panels (#41, #48 subset).
+//! Typed artwork roles for file objects, template images and consumer artwork.
 //!
-//! Two families live here:
-//!
-//! - Full-colour, designed 16 px file icons for the sidebar, list and grid:
-//!   folder, document, application, home, desktop, documents, volume, network
-//!   volume, smart search. The artwork is original and drawn from vector
-//!   shapes; no Apple artwork is traced or recoloured. `docs/exceptions.md`
-//!   records the set as designed.
-//! - Monochrome toolbar glyphs (back, forward, icon/list/column view, search,
-//!   eject) painted in the caller's token colour so segmented controls and
-//!   buttons keep their state colours.
-//!
-//! Selected file icons keep their colours, as in 10.6; inactive windows and
-//! disabled rows desaturate through [`FileIconState`]. Toolbar glyphs still
-//! take their colour from the theme, never per-control SVG colours.
+//! File/object artwork stays full-colour and preserves its selected, inactive
+//! and disabled rendering. Template images are monochrome and receive control
+//! state ink from their host. Consumer artwork is supplied by the application
+//! as a renderer and is constrained to the documented 32 px pictorial family.
 
 use gpui::{
-    canvas, div, prelude::*, px, AnyElement, App, Bounds, PathBuilder, Pixels, Point, Window,
+    canvas, div, prelude::*, px, AnyElement, App, Bounds, PathBuilder, Pixels, Point, SharedString,
+    Window,
 };
 use silvestris_core::Rgba8;
+use std::rc::Rc;
 
 use crate::convert::hsla;
 
-/// The icons the Open and Save panels need.
+/// Full-colour artwork representing files and other objects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Icon {
+#[non_exhaustive]
+pub enum FileArtwork {
     Folder,
     Home,
     Desktop,
@@ -34,13 +27,111 @@ pub enum Icon {
     SmartSearch,
     Document,
     Application,
+}
+
+/// Compatibility name for the file-panel artwork vocabulary.
+pub type Icon = FileArtwork;
+
+/// Monochrome system-image roles. The renderer uses host-provided ink so a
+/// selected, inactive or disabled control is not baked into the artwork.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum TemplateImage {
     Back,
     Forward,
     IconView,
-    List,
-    Columns,
-    Eject,
+    ListView,
+    ColumnView,
     Search,
+    Stop,
+    Refresh,
+    Add,
+    Remove,
+    Action,
+    Info,
+    Sidebar,
+    Inspector,
+    Eject,
+}
+
+/// Fixed template-image slots supported by the Aqua toolbar hosts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TemplateImageSlot {
+    /// Rectangular toolbar image; HIG maximum is 19×19 px.
+    Toolbar,
+    /// Small image used inside a segmented control.
+    Segmented,
+}
+
+impl TemplateImageSlot {
+    /// Logical side length reserved by this host.
+    #[must_use]
+    pub const fn logical_size(self) -> f32 {
+        match self {
+            Self::Toolbar => 19.0,
+            Self::Segmented => 13.0,
+        }
+    }
+}
+
+type ArtworkRenderer = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
+
+/// Original pictorial artwork supplied by a consuming application.
+///
+/// This adapter deliberately accepts a renderer instead of a Silvestris
+/// application-specific icon name. Toolbar and preference-category hosts
+/// constrain the artwork to the documented 32×32 px family.
+#[derive(Clone)]
+pub struct ConsumerArtwork {
+    label: SharedString,
+    render: ArtworkRenderer,
+}
+
+impl ConsumerArtwork {
+    /// Registers an application-owned artwork renderer with an external label.
+    pub fn new<E: IntoElement>(
+        label: impl Into<SharedString>,
+        render: impl Fn(&mut Window, &mut App) -> E + 'static,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            render: Rc::new(move |window, cx| render(window, cx).into_any_element()),
+        }
+    }
+
+    /// Descriptive name for accessibility and gallery presentation.
+    #[must_use]
+    pub fn label(&self) -> &SharedString {
+        &self.label
+    }
+
+    /// Pictorial toolbar artwork in the standard 32×32 px slot.
+    pub fn toolbar_element(&self, window: &mut Window, cx: &mut App) -> AnyElement {
+        self.sized_element(32.0, window, cx)
+    }
+
+    /// Preference-category artwork in the standard 32×32 px slot.
+    pub fn category_element(&self, window: &mut Window, cx: &mut App) -> AnyElement {
+        self.sized_element(32.0, window, cx)
+    }
+
+    /// Renderer callback for views that collect artwork before rendering.
+    pub fn category_renderer(&self) -> impl Fn(&mut Window, &mut App) -> AnyElement + 'static {
+        let artwork = self.clone();
+        move |window, cx| artwork.category_element(window, cx)
+    }
+
+    fn sized_element(&self, size: f32, window: &mut Window, cx: &mut App) -> AnyElement {
+        div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .flex_none()
+            .size(px(size))
+            .child((self.render)(window, cx))
+            .into_any_element()
+    }
 }
 
 /// How a full-colour file icon is drawn in its row or cell.
@@ -85,121 +176,7 @@ impl FileIconState {
     }
 }
 
-impl Icon {
-    /// Paint a monochrome toolbar glyph into `bounds`.
-    pub fn paint(self, window: &mut Window, bounds: Bounds<Pixels>, color: Rgba8) {
-        let f = Frame {
-            b: bounds,
-            dim: 0.0,
-        };
-        match self {
-            Icon::Back => f.chevron(color, false, window),
-            Icon::Forward => f.chevron(color, true, window),
-            Icon::IconView => {
-                for (x, y) in [(0.10, 0.14), (0.54, 0.14), (0.10, 0.56), (0.54, 0.56)] {
-                    f.rect(x, y, 0.30, 0.30, 0.8, color, window);
-                }
-            }
-            Icon::List => {
-                for row in 0..3 {
-                    let y = 0.22 + row as f32 * 0.22;
-                    f.rect(0.10, y + 0.01, 0.09, 0.07, 0.5, color, window);
-                    f.rect(0.27, y + 0.02, 0.63, 0.05, 0.0, color, window);
-                }
-            }
-            Icon::Columns => {
-                f.rect(0.08, 0.16, 0.24, 0.68, 0.5, color, window);
-                f.rect(0.38, 0.16, 0.24, 0.68, 0.5, color, window);
-                f.rect(0.68, 0.16, 0.24, 0.68, 0.5, color, window);
-            }
-            Icon::Eject => {
-                f.poly(&[(0.50, 0.20), (0.84, 0.62), (0.16, 0.62)], color, window);
-                f.rect(0.16, 0.72, 0.68, 0.09, 0.5, color, window);
-            }
-            Icon::Search => {
-                f.ring(0.14, 0.12, 0.54, 0.54, 0.09, color, window);
-                f.poly(
-                    &[(0.58, 0.62), (0.88, 0.88), (0.81, 0.95), (0.52, 0.68)],
-                    color,
-                    window,
-                );
-            }
-            // Full-colour icons can still be asked for a monochrome glyph
-            // (documentation rows, toolbar previews); use the designed
-            // silhouette in the supplied colour.
-            _ => self.paint_flat(window, bounds, color),
-        }
-    }
-
-    fn paint_flat(self, window: &mut Window, bounds: Bounds<Pixels>, color: Rgba8) {
-        let f = Frame {
-            b: bounds,
-            dim: 0.0,
-        };
-        match self {
-            Icon::Folder => {
-                f.poly(
-                    &[(0.08, 0.24), (0.42, 0.24), (0.49, 0.32), (0.08, 0.32)],
-                    color,
-                    window,
-                );
-                f.rect(0.08, 0.30, 0.84, 0.53, 1.5, color, window);
-            }
-            Icon::Home => {
-                f.poly(
-                    &[
-                        (0.50, 0.10),
-                        (0.94, 0.46),
-                        (0.84, 0.46),
-                        (0.78, 0.86),
-                        (0.22, 0.86),
-                        (0.16, 0.46),
-                        (0.06, 0.46),
-                    ],
-                    color,
-                    window,
-                );
-            }
-            Icon::Desktop => {
-                f.rect(0.08, 0.16, 0.84, 0.54, 1.2, color, window);
-                f.rect(0.34, 0.74, 0.32, 0.07, 0.0, color, window);
-                f.rect(0.22, 0.83, 0.56, 0.05, 0.0, color, window);
-            }
-            Icon::Documents => {
-                f.rect(0.20, 0.14, 0.58, 0.70, 1.0, color, window);
-                f.rect(0.30, 0.24, 0.58, 0.70, 1.0, color, window);
-            }
-            Icon::Volume | Icon::Network => {
-                f.rect(0.08, 0.24, 0.84, 0.52, 2.0, color, window);
-            }
-            Icon::SmartSearch => {
-                f.poly(
-                    &[(0.08, 0.24), (0.42, 0.24), (0.49, 0.32), (0.08, 0.32)],
-                    color,
-                    window,
-                );
-                f.rect(0.08, 0.30, 0.84, 0.53, 1.5, color, window);
-            }
-            Icon::Document => {
-                f.poly(
-                    &[
-                        (0.24, 0.08),
-                        (0.63, 0.08),
-                        (0.78, 0.26),
-                        (0.78, 0.92),
-                        (0.24, 0.92),
-                    ],
-                    color,
-                    window,
-                );
-            }
-            Icon::Application => {
-                f.rect(0.10, 0.14, 0.80, 0.72, 1.8, color, window);
-            }
-            _ => {}
-        }
-    }
-
+impl FileArtwork {
     /// Paint a full-colour file icon into `bounds`.
     pub fn file_paint(self, window: &mut Window, bounds: Bounds<Pixels>, state: FileIconState) {
         let f = Frame {
@@ -207,16 +184,15 @@ impl Icon {
             dim: state.dim(),
         };
         match self {
-            Icon::Folder => f.folder(window),
-            Icon::Home => f.home(window),
-            Icon::Desktop => f.desktop(window),
-            Icon::Documents => f.documents(window),
-            Icon::Volume => f.volume(window),
-            Icon::Network => f.network(window),
-            Icon::SmartSearch => f.smart_search(window),
-            Icon::Document => f.document(window),
-            Icon::Application => f.application(window),
-            _ => self.paint(window, bounds, Rgba8::hex(0x4c4c4c)),
+            FileArtwork::Folder => f.folder(window),
+            FileArtwork::Home => f.home(window),
+            FileArtwork::Desktop => f.desktop(window),
+            FileArtwork::Documents => f.documents(window),
+            FileArtwork::Volume => f.volume(window),
+            FileArtwork::Network => f.network(window),
+            FileArtwork::SmartSearch => f.smart_search(window),
+            FileArtwork::Document => f.document(window),
+            FileArtwork::Application => f.application(window),
         }
     }
 
@@ -231,8 +207,164 @@ impl Icon {
         .into_any_element()
     }
 
-    /// A sized monochrome glyph.
-    pub fn element(self, size: f32, color: Rgba8) -> AnyElement {
+    /// The role string shared with `SourceNode::icon` and
+    /// the file-panel model.
+    #[must_use]
+    pub fn role(self) -> &'static str {
+        match self {
+            FileArtwork::Folder => "folder",
+            FileArtwork::Home => "home",
+            FileArtwork::Desktop => "desktop",
+            FileArtwork::Documents => "documents",
+            FileArtwork::Volume => "volume",
+            FileArtwork::Network => "network",
+            FileArtwork::SmartSearch => "smart-search",
+            FileArtwork::Document => "document",
+            FileArtwork::Application => "application",
+        }
+    }
+
+    /// Parse a file/object artwork role string.
+    pub fn from_role(role: &str) -> Option<Self> {
+        Some(match role {
+            "folder" => FileArtwork::Folder,
+            "home" => FileArtwork::Home,
+            "desktop" => FileArtwork::Desktop,
+            "documents" => FileArtwork::Documents,
+            "volume" => FileArtwork::Volume,
+            "network" | "network-volume" => FileArtwork::Network,
+            "smart-search" => FileArtwork::SmartSearch,
+            "document" => FileArtwork::Document,
+            "application" => FileArtwork::Application,
+            _ => return None,
+        })
+    }
+}
+
+impl TemplateImage {
+    /// Stable role string accepted by `SegmentedControl::icon`.
+    #[must_use]
+    pub fn role(self) -> &'static str {
+        match self {
+            Self::Back => "back",
+            Self::Forward => "forward",
+            Self::IconView => "icon",
+            Self::ListView => "list",
+            Self::ColumnView => "columns",
+            Self::Search => "search",
+            Self::Stop => "stop",
+            Self::Refresh => "refresh",
+            Self::Add => "add",
+            Self::Remove => "remove",
+            Self::Action => "action",
+            Self::Info => "info",
+            Self::Sidebar => "sidebar",
+            Self::Inspector => "inspector",
+            Self::Eject => "eject",
+        }
+    }
+
+    /// Resolves the stable role strings used by segmented controls.
+    pub fn from_role(role: &str) -> Option<Self> {
+        Some(match role {
+            "back" => Self::Back,
+            "forward" => Self::Forward,
+            "icon" | "icon-view" => Self::IconView,
+            "list" | "list-view" => Self::ListView,
+            "columns" | "column-browser" | "column-view" => Self::ColumnView,
+            "search" => Self::Search,
+            "stop" => Self::Stop,
+            "refresh" => Self::Refresh,
+            "add" => Self::Add,
+            "remove" => Self::Remove,
+            "action" => Self::Action,
+            "info" => Self::Info,
+            "sidebar" => Self::Sidebar,
+            "inspector" => Self::Inspector,
+            "eject" => Self::Eject,
+            _ => return None,
+        })
+    }
+
+    /// Paint this template glyph using the ink supplied by its control.
+    pub fn paint(self, window: &mut Window, bounds: Bounds<Pixels>, color: Rgba8) {
+        let frame = Frame {
+            b: bounds,
+            dim: 0.0,
+        };
+        match self {
+            Self::Back => frame.chevron(color, false, window),
+            Self::Forward => frame.chevron(color, true, window),
+            Self::IconView => {
+                for (x, y) in [(0.10, 0.14), (0.54, 0.14), (0.10, 0.56), (0.54, 0.56)] {
+                    frame.rect(x, y, 0.30, 0.30, 0.8, color, window);
+                }
+            }
+            Self::ListView => {
+                for row in 0..3 {
+                    let y = 0.22 + row as f32 * 0.22;
+                    frame.rect(0.10, y + 0.01, 0.09, 0.07, 0.5, color, window);
+                    frame.rect(0.27, y + 0.02, 0.63, 0.05, 0.0, color, window);
+                }
+            }
+            Self::ColumnView => {
+                for x in [0.08, 0.38, 0.68] {
+                    frame.rect(x, 0.16, 0.24, 0.68, 0.5, color, window);
+                }
+            }
+            Self::Search => {
+                frame.ring(0.14, 0.12, 0.54, 0.54, 0.09, color, window);
+                frame.poly(
+                    &[(0.58, 0.62), (0.88, 0.88), (0.81, 0.95), (0.52, 0.68)],
+                    color,
+                    window,
+                );
+            }
+            Self::Stop => frame.rect(0.20, 0.20, 0.60, 0.60, 0.0, color, window),
+            Self::Refresh => {
+                frame.ring(0.18, 0.18, 0.64, 0.64, 0.10, color, window);
+                frame.poly(&[(0.54, 0.08), (0.88, 0.22), (0.58, 0.38)], color, window);
+            }
+            Self::Add => {
+                frame.rect(0.42, 0.14, 0.16, 0.72, 0.0, color, window);
+                frame.rect(0.14, 0.42, 0.72, 0.16, 0.0, color, window);
+            }
+            Self::Remove => frame.rect(0.14, 0.42, 0.72, 0.16, 0.0, color, window),
+            Self::Action => {
+                for (x, y) in [
+                    (0.16, 0.16),
+                    (0.42, 0.16),
+                    (0.68, 0.16),
+                    (0.16, 0.68),
+                    (0.42, 0.68),
+                    (0.68, 0.68),
+                ] {
+                    frame.rect(x, y, 0.16, 0.16, 0.0, color, window);
+                }
+                frame.rect(0.42, 0.42, 0.16, 0.16, 0.0, color, window);
+            }
+            Self::Info => {
+                frame.rect(0.43, 0.12, 0.14, 0.14, 0.0, color, window);
+                frame.rect(0.43, 0.36, 0.14, 0.52, 0.0, color, window);
+            }
+            Self::Sidebar => {
+                frame.rect(0.12, 0.16, 0.26, 0.68, 0.0, color, window);
+                frame.rect(0.46, 0.16, 0.42, 0.68, 0.0, color, window);
+            }
+            Self::Inspector => {
+                frame.rect(0.12, 0.16, 0.42, 0.68, 0.0, color, window);
+                frame.rect(0.62, 0.16, 0.26, 0.68, 0.0, color, window);
+            }
+            Self::Eject => {
+                frame.poly(&[(0.50, 0.20), (0.84, 0.62), (0.16, 0.62)], color, window);
+                frame.rect(0.16, 0.72, 0.68, 0.09, 0.5, color, window);
+            }
+        }
+    }
+
+    /// Render in the fixed slot for a toolbar or segmented control.
+    pub fn element(self, slot: TemplateImageSlot, color: Rgba8) -> AnyElement {
+        let size = slot.logical_size();
         canvas(
             |_, _, _| (),
             move |bounds, _, window, _| self.paint(window, bounds, color),
@@ -242,57 +374,22 @@ impl Icon {
         .into_any_element()
     }
 
-    /// Element for a segmented-control or button icon renderer.
-    pub fn sized_for(self, size: f32) -> impl Fn(Rgba8) -> AnyElement + 'static {
-        move |color| self.element(size, color)
-    }
-
-    /// The role string shared with `SourceNode::icon` and
-    /// `SegmentedControl::icon`.
-    #[must_use]
-    pub fn role(self) -> &'static str {
-        match self {
-            Icon::Folder => "folder",
-            Icon::Home => "home",
-            Icon::Desktop => "desktop",
-            Icon::Documents => "documents",
-            Icon::Volume => "volume",
-            Icon::Network => "network",
-            Icon::SmartSearch => "smart-search",
-            Icon::Document => "document",
-            Icon::Application => "application",
-            Icon::Back => "back",
-            Icon::Forward => "forward",
-            Icon::IconView => "icon",
-            Icon::List => "list",
-            Icon::Columns => "columns",
-            Icon::Eject => "eject",
-            Icon::Search => "search",
+    /// Renderer callback for `Button::icon`, preserving the button's state ink.
+    pub fn button_icon_renderer(
+        self,
+        slot: TemplateImageSlot,
+    ) -> impl Fn(gpui::Rgba) -> AnyElement + 'static {
+        move |ink| {
+            self.element(
+                slot,
+                Rgba8 {
+                    r: (ink.r * 255.0).round().clamp(0.0, 255.0) as u8,
+                    g: (ink.g * 255.0).round().clamp(0.0, 255.0) as u8,
+                    b: (ink.b * 255.0).round().clamp(0.0, 255.0) as u8,
+                    a: (ink.a * 255.0).round().clamp(0.0, 255.0) as u8,
+                },
+            )
         }
-    }
-
-    /// Parse the role strings `SegmentedControl::icon` and `SourceNode::icon`
-    /// use.
-    pub fn from_role(role: &str) -> Option<Self> {
-        Some(match role {
-            "folder" => Icon::Folder,
-            "home" => Icon::Home,
-            "desktop" => Icon::Desktop,
-            "documents" => Icon::Documents,
-            "volume" => Icon::Volume,
-            "network" | "network-volume" => Icon::Network,
-            "smart-search" => Icon::SmartSearch,
-            "document" => Icon::Document,
-            "application" => Icon::Application,
-            "back" => Icon::Back,
-            "forward" => Icon::Forward,
-            "icon" | "icon-view" => Icon::IconView,
-            "list" => Icon::List,
-            "columns" | "column-browser" => Icon::Columns,
-            "eject" => Icon::Eject,
-            "search" => Icon::Search,
-            _ => return None,
-        })
     }
 }
 
@@ -576,36 +673,40 @@ impl Frame {
     }
 }
 
-/// A row of semantic icons, useful in documentation and the gallery.
-pub fn icon_row(icons: &[Icon], color: Rgba8, size: f32) -> AnyElement {
+/// A row of template images, useful in documentation and the gallery.
+pub fn template_image_row(
+    images: &[TemplateImage],
+    color: Rgba8,
+    slot: TemplateImageSlot,
+) -> AnyElement {
     div()
         .flex()
         .items_center()
         .gap(px(4.))
-        .children(icons.iter().map(|icon| icon.element(size, color)))
+        .children(images.iter().map(|image| image.element(slot, color)))
         .into_any_element()
 }
 
 /// A row of full-colour file icons.
-pub fn file_icon_row(icons: &[Icon], size: f32) -> AnyElement {
+pub fn file_icon_row(artwork: &[FileArtwork], size: f32) -> AnyElement {
     div()
         .flex()
         .items_center()
         .gap(px(4.))
         .children(
-            icons
+            artwork
                 .iter()
                 .map(|icon| icon.file_element(size, FileIconState::normal())),
         )
         .into_any_element()
 }
 
-/// Convenience for a role-based monochrome icon renderer used by
+/// Convenience for resolving typed template-image roles in
 /// `SegmentedControl`.
-pub fn role_renderer(size: f32) -> impl Fn(&str, Rgba8) -> AnyElement + 'static {
-    move |role, color| match Icon::from_role(role) {
-        Some(icon) => icon.element(size, color),
-        None => div().size(px(size)).into_any_element(),
+pub fn role_renderer(slot: TemplateImageSlot) -> impl Fn(&str, Rgba8) -> AnyElement + 'static {
+    move |role, color| match TemplateImage::from_role(role) {
+        Some(image) => image.element(slot, color),
+        None => div().size(px(slot.logical_size())).into_any_element(),
     }
 }
 
