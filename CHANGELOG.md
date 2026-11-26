@@ -5,6 +5,23 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After c8e2ecb
+
+Preferences window coordinator (#14):
+
+- `preferences::{PreferencesController, PreferencesSizing, PreferencesFit,
+  PreferencesResize}` adds the missing window behavior: pane navigation and
+  history, title projection, post-layout natural measurement, display-clamped
+  fixed-window targets, cancellation/re-targeting of an outstanding resize,
+  focus return and stored pane selection. `fit_pane` is the pure sizing rule.
+- `preferences::{measure_content, pane_viewport, pane_body_natural}` help a
+  host measure the pane and scroll only the pane body when the display cannot
+  fit it. One-pane consumers can still use a `WindowRole::Preferences` window
+  and `Form` without an overview or categories.
+- Pane resizes use a linear 160 ms transition (`PANE_RESIZE`). No 10.6 capture
+  records the transition, so it is an estimate documented in
+  `docs/exceptions.md`.
+
 ## After 8beaf4d
 
 Standard toolbar and bottom-bar composition (#26, #75):

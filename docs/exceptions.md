@@ -52,6 +52,10 @@ repeated here; they are listed in place next to the token.
 `estimated:` tokens come from post-10.6 captures the user supplied because no
 10.6 capture shows the state. They are fits, not measurements.
 
+- Preferences pane-change resize uses a linear 160 ms transition
+  (`preferences::PANE_RESIZE`). No 10.6 corpus capture records a preferences
+  window transition, so the duration and easing are an estimate, not a
+  measurement. It is deliberately linear rather than a spring.
 - Bottom-bar heights are derived from HIG pp. 365-366 rather than a bar
   capture: regular is 4 px + a 22 px regular control + 6 px = 32; small is
   2 px + an 18 px small control + 2 px = 22. The Finder Home capture

@@ -9,6 +9,15 @@ Preferences capture in hig-09/images.
 - `PreferencesNavigator`: current pane plus back/forward history. Show All is
   an entry like a pane. `title()` gives the window title, the selected pane's
   name per HIG p. 244. `retain()` drops panes that disappear.
+- `PreferencesController`: owns the window-level behavior around the widgets.
+  It projects the current pane title, stores and restores the last selection,
+  measures natural pane content after layout, clamps the fixed window target to
+  the display's usable region, and re-targets an outstanding resize instead of
+  letting an older target win. `fit_pane` is the pure sizing rule;
+  `PreferencesResize` is the cancellable linear transition. When the content is
+  taller than the display, `pane_scrolls()` is true and
+  `pane_viewport(content, true)` scrolls only the pane. `measure_content` and
+  `pane_body_natural` are the measurement helpers.
 - `PreferencesToolbar`: momentary back/forward segments, Show All, and a
   right-hand slot (System Preferences puts Spotlight search there). It is a
   fixed row: preferences toolbars are not customizable (HIG p. 244).
@@ -39,9 +48,10 @@ over the button, keyboard open/choose/dismiss; `PopupStyle::Rounded` and
 `controls::Stepper` (HIG p. 301; sizes are estimates). `TextFieldEvent::EndedEditing` lets a
 form commit a field's value when focus leaves it as well as on Return.
 
-Not implemented: per-pane window height animation, search with spotlight
-highlighting of matching icons, and a captured reference for the stepper and
-dark-mode panes.
+Not implemented: search with spotlight highlighting of matching icons, and a
+captured reference for the stepper and dark-mode panes. Pane resizing uses a
+linear 160 ms estimate because no 10.6 transition is captured (see
+[exceptions.md](exceptions.md)).
 
 
 ## Preference storage

@@ -2,8 +2,8 @@
 //! / Geist Dark while no text field is focused.
 
 use gpui::{
-    actions, canvas, div, point, prelude::*, px, size, App, Bounds, Context, Entity, KeyBinding,
-    Window,
+    actions, canvas, div, point, prelude::*, px, size, AnyElement, App, Bounds, Context, Entity,
+    KeyBinding, Window,
 };
 use silvestris::binding::{Binding, ListController};
 use silvestris::bottom_bar::{
@@ -25,6 +25,10 @@ use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuMod
 use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
 use silvestris::menu::PopupMenu;
 use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
+use silvestris::preferences::{
+    measure_content, pane_body_natural, pane_viewport, Form, FormRow, Navigation, PreferencePane,
+    PreferencesController, PreferencesSizing, PreferencesToolbar,
+};
 use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
@@ -65,6 +69,153 @@ impl gpui::Render for RoleWindow {
                 .text_color(silvestris::convert::hsla(theme.colors.text))
                 .child(label),
         )
+    }
+}
+
+/// A minimal coordinator-hosted preferences window. General and Advanced are
+/// short panes; Privacy is taller than the display so only its body scrolls.
+struct PreferencesDemo {
+    controller: PreferencesController,
+}
+
+impl PreferencesDemo {
+    fn new(cx: &mut Context<Self>) -> Self {
+        let focus = cx.focus_handle();
+        Self {
+            controller: PreferencesController::new(
+                "Gallery Preferences",
+                vec![
+                    PreferencePane::new("general", "General"),
+                    PreferencePane::new("advanced", "Advanced"),
+                    PreferencePane::new("privacy", "Privacy"),
+                ],
+                PreferencesSizing::new(668.0, 22.0 + 32.0),
+            )
+            .focus_return(focus),
+        }
+    }
+
+    fn navigate(&mut self, navigation: Navigation, window: &mut Window, cx: &mut Context<Self>) {
+        let changed = match navigation {
+            Navigation::Back => self.controller.go_back(window, cx),
+            Navigation::Forward => self.controller.go_forward(window, cx),
+            Navigation::ShowAll => self.controller.show_all(window, cx),
+        };
+        if changed {
+            cx.notify();
+        }
+    }
+}
+
+fn demo_form(rows: usize, height: bool) -> Form {
+    let mut form = Form::new(120.0);
+    for index in 0..rows {
+        form = form.row(FormRow::new(
+            format!("Option {index}"),
+            Checkbox::new(format!("demo-option-{index}"), "Enabled")
+                .checked(height && index % 2 == 0)
+                .on_change(|_, _, _| {}),
+        ));
+    }
+    form
+}
+
+impl Render for PreferencesDemo {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let this = cx.entity();
+        let weak = this.downgrade();
+        let on_navigate = {
+            let weak = weak.clone();
+            move |navigation: Navigation, window: &mut Window, cx: &mut App| {
+                if let Some(this) = weak.upgrade() {
+                    this.update(cx, |demo, cx| demo.navigate(navigation, window, cx));
+                }
+            }
+        };
+        let toolbar = PreferencesToolbar::new(self.controller.navigator()).on_navigate(on_navigate);
+        let current = self.controller.current().cloned();
+        let body: AnyElement = match current.as_ref().map(|id| id.as_ref()) {
+            Some("advanced") => demo_form(8, false).into_any_element(),
+            Some("privacy") => demo_form(28, true).into_any_element(),
+            _ => demo_form(4, true).into_any_element(),
+        };
+        let scrolls = self.controller.pane_scrolls();
+        let measured = {
+            let weak = weak.clone();
+            move |size: gpui::Size<gpui::Pixels>, window: &mut Window, cx: &mut App| {
+                if let Some(this) = weak.upgrade() {
+                    window.defer(cx, move |window, cx| {
+                        this.update(cx, |demo, cx| {
+                            demo.controller.measure(size, window, cx);
+                            cx.notify();
+                        });
+                    });
+                }
+            }
+        };
+        // Advance an in-flight resize after layout, once per frame.
+        let tick = weak.clone();
+        window.defer(cx, move |window, cx| {
+            if let Some(this) = tick.upgrade() {
+                this.update(cx, |demo, cx| {
+                    let more = demo.controller.tick(window);
+                    if more {
+                        cx.notify();
+                    }
+                });
+            }
+        });
+        WindowFrame::new(self.controller.title())
+            .role(WindowRole::Preferences)
+            .fixed_size()
+            .toolbar(toolbar, theme.metrics.toolbar_height)
+            .child(
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .pt(px(12.0))
+                    .when_some(
+                        self.controller.current().is_some().then_some(()),
+                        |el, ()| {
+                            el.child(div().flex_1().min_h_0().child(pane_viewport(
+                                measure_content(pane_body_natural().child(body), measured),
+                                scrolls,
+                            )))
+                        },
+                    )
+                    .when(self.controller.current().is_none(), |el| {
+                        let open = weak.clone();
+                        el.child(
+                            div()
+                                .flex_1()
+                                .p(px(24.0))
+                                .flex()
+                                .flex_col()
+                                .gap(px(12.0))
+                                .text_size(px(theme.type_.size_regular))
+                                .child("Choose a pane; the window resizes to its content.")
+                                .child(
+                                    Button::new("demo-open-general", "General")
+                                        .size(ControlSize::Small)
+                                        .on_click(move |_, window, cx| {
+                                            if let Some(this) = open.upgrade() {
+                                                this.update(cx, |demo, cx| {
+                                                    if demo.controller.select(
+                                                        Some("general".into()),
+                                                        window,
+                                                        cx,
+                                                    ) {
+                                                        cx.notify();
+                                                    }
+                                                });
+                                            }
+                                        }),
+                                ),
+                        )
+                    }),
+            )
     }
 }
 
@@ -1086,6 +1237,21 @@ impl Render for Gallery {
                     .expect("open role window");
                 }))
             }))
+            .child(
+                Button::new("role-preferences-demo", "Coordinator")
+                    .size(ControlSize::Small)
+                    .on_click(cx.listener(|_, _, _, cx| {
+                        let bounds = Bounds::centered(None, size(px(668.), px(360.)), cx);
+                        open_role(
+                            WindowRole::Preferences,
+                            "Gallery Preferences",
+                            bounds,
+                            cx,
+                            |_, cx| cx.new(PreferencesDemo::new),
+                        )
+                        .expect("open preferences demo");
+                    })),
+            )
             .child(
                 div()
                     .text_size(small_text)

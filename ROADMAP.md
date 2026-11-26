@@ -209,7 +209,7 @@ states describe implementation maturity, not issue closure:
 
 | Issue | Current state | Evidence and remaining scope |
 |---|---|---|
-| #14 | Provisional | `PreferencesNavigator`, `PreferencesToolbar`, `PreferencesOverview`, and `Form` exist; `fit_content` is a measurement hook, not a window coordinator. Animation, usable-display sizing, scroll fallback, focus return and persistence are not provided here. |
+| #14 | Functional but incomplete | `PreferencesController` owns navigation history, pane-title projection, natural-content measurement, display-clamped resize targets, cancellable linear resize, focus return and stored pane selection. `pane_viewport` scrolls only the pane when the display is too small, and the one-pane form path needs no overview. Remaining: consumer adoption (Lotus fit_size removal) and a measured 10.6 transition; the 160 ms estimate is in `docs/exceptions.md`. |
 | #26 | Functional but incomplete | `toolbar::{Toolbar, ToolbarItem}` supplies command-backed items, segmented controls, pop-downs, search, spaces/groups, display modes and measured-width overflow. Scenario/gallery coverage is present; accepted goldens and full state validation remain. Customization/reordering stays staged after #36. |
 | #33 | Missing | No hierarchical table/outline control or System Profiler gallery sample exists. |
 | #34 | Functional but incomplete | `ColumnBrowser` supports provider-fed columns, async child responses, preview, resize handles, keyboard navigation and is used by Open/Save panels. It does not satisfy the shared file-view host and DnD requirements in this plan. Keep #34 open. |
@@ -223,8 +223,9 @@ states describe implementation maturity, not issue closure:
 | #56 | Missing | No System Preferences acceptance application with scripted scenarios exists. |
 | #75 | Functional but incomplete | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus}` supplies status values (with optional activation), fixed/flexible spaces, regular/small rectangular controls and source-list gradient controls through the command registry. Goldens and scenario tests cover truncation, disabled commands and both bar families. Consumer migration and measured 10.6 state captures remain. |
 
-`docs/coverage.md` remains the component-level source of truth: Toolbar, Bottom
-Bar, Outline View and Drag and Drop are missing; Split View and Preferences/Form
-are provisional; Column/Icon views are functional. Functional Column/Icon
-implementations do not close their issues while promised behaviors remain.
+`docs/coverage.md` remains the component-level source of truth: Outline View and
+Drag and Drop are missing; Toolbar and Bottom Bar are functional but
+incomplete; Split View and Forms are provisional; Preferences and Column/Icon
+views are functional. Functional implementations do not close their issues
+while promised behaviors remain.
 - [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.

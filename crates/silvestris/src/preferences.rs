@@ -17,15 +17,23 @@
 //! `WindowFrame::fixed_size()`. The title should be the selected pane's name
 //! (HIG p. 244); [`PreferencesNavigator::title`] provides it.
 //!
+//! [`PreferencesController`] owns the window-level behavior around those
+//! pieces: pane navigation and history, title projection, natural-content
+//! measurement after layout, legal resize targets inside the display's usable
+//! region, resize animation cancellation, focus return and persistence of the
+//! last selected pane. It does not require an overview or categories; a
+//! one-pane consumer can use a `WindowRole::Preferences` form directly.
+//!
 //! Geometry cites reference/measurements.json: prefs.overview.geometry,
 //! prefs.overview.bands, prefs.pane.geometry, groupbox.top, groupbox.left.
 //! Values not in a capture are marked "estimate".
 
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, prelude::*, px, AnyElement, App, ElementId, FocusHandle, FontWeight, Pixels,
-    SharedString, Window,
+    canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, FontWeight, Pixels,
+    SharedString, Size, Window,
 };
 
 pub use crate::controls::TabView;
@@ -215,6 +223,396 @@ pub fn fit_content(
         .absolute()
         .inset_0(),
     )
+}
+
+// --- Window coordinator -------------------------------------------------------
+
+/// Estimated duration of a pane-change resize. The 10.6 corpus has no
+/// preference-window transition capture, so this is an estimate recorded in
+/// `docs/exceptions.md`, not a measurement. It is linear interpolation, not a
+/// spring.
+pub const PANE_RESIZE: Duration = Duration::from_millis(160);
+
+/// Fixed geometry used to fit a preferences pane.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PreferencesSizing {
+    /// Fixed window width (System Preferences' measured 668 px by default).
+    pub width: f32,
+    /// Title bar plus fixed preferences toolbar, measured by the host from the
+    /// active theme. The coordinator never invents a toolbar height.
+    pub chrome_height: f32,
+    /// Space kept between the window and the display's usable edges.
+    pub display_margin: f32,
+    /// Smallest legal window height, so a tiny pane does not collapse the
+    /// title bar and toolbar.
+    pub min_height: f32,
+}
+
+impl PreferencesSizing {
+    pub fn new(width: f32, chrome_height: f32) -> Self {
+        Self {
+            width,
+            chrome_height,
+            display_margin: 20.0,
+            min_height: 120.0,
+        }
+    }
+}
+
+/// A legal window target and whether the pane content must scroll.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PreferencesFit {
+    pub window: Size<Pixels>,
+    /// True when the natural content is taller than the display allows.
+    pub scrolls: bool,
+}
+
+/// Fit a pane's natural content height into the display's usable region.
+///
+/// The natural height is the measured pane body plus the host's measured
+/// chrome. If it exceeds the display, the window takes the maximum legal
+/// height and only the pane content scrolls; the window itself stays fixed.
+pub fn fit_pane(
+    content_height: f32,
+    sizing: PreferencesSizing,
+    usable: Size<Pixels>,
+) -> PreferencesFit {
+    let usable_width = usable.width.as_f32();
+    let usable_height = usable.height.as_f32();
+    let width = sizing
+        .width
+        .min((usable_width - 2.0 * sizing.display_margin).max(0.0));
+    let max_height = (usable_height - 2.0 * sizing.display_margin).max(0.0);
+    let natural = (sizing.chrome_height + content_height).max(0.0);
+    let scrolls = natural > max_height;
+    let height = natural
+        .min(max_height)
+        .max(sizing.min_height.min(max_height));
+    PreferencesFit {
+        window: size(px(width), px(height)),
+        scrolls,
+    }
+}
+
+/// One linear resize from `from` to `to`. A retarget measures the current
+/// position and starts again, so an outstanding A→B animation cannot win over
+/// a later A→C request.
+#[derive(Clone, Copy, Debug)]
+pub struct PreferencesResize {
+    from: Size<Pixels>,
+    to: Size<Pixels>,
+    started: Instant,
+    duration: Duration,
+}
+
+impl PreferencesResize {
+    pub fn new(from: Size<Pixels>, to: Size<Pixels>, started: Instant, duration: Duration) -> Self {
+        Self {
+            from,
+            to,
+            started,
+            duration,
+        }
+    }
+
+    /// The interpolated window size at `now`.
+    pub fn at(&self, now: Instant) -> Size<Pixels> {
+        let elapsed = now.saturating_duration_since(self.started).as_secs_f32();
+        let total = self.duration.as_secs_f32();
+        let t = if total <= f32::EPSILON {
+            1.0
+        } else {
+            (elapsed / total).clamp(0.0, 1.0)
+        };
+        let mix = |a: Pixels, b: Pixels| a + (b - a) * t;
+        size(
+            mix(self.from.width, self.to.width),
+            mix(self.from.height, self.to.height),
+        )
+    }
+
+    pub fn is_done(&self, now: Instant) -> bool {
+        now.saturating_duration_since(self.started) >= self.duration
+    }
+
+    pub fn target(&self) -> Size<Pixels> {
+        self.to
+    }
+
+    /// Restart from the current interpolated position toward `target`.
+    pub fn retarget(&mut self, target: Size<Pixels>, now: Instant) {
+        self.from = self.at(now);
+        self.to = target;
+        self.started = now;
+    }
+}
+
+type LoadPane = Rc<dyn Fn(&App) -> Option<SharedString>>;
+type SavePane = Rc<dyn Fn(Option<&SharedString>, &mut App)>;
+
+/// Owns the behavior around a preferences window's pane widgets.
+///
+/// The host owns the window, toolbar and pane rendering; the controller owns
+/// which pane is current, its title, the measured target size, cancellation of
+/// an outstanding resize, focus return and the stored selection. It works with
+/// or without an overview: pass the panes that exist and render whatever the
+/// current id selects.
+pub struct PreferencesController {
+    navigator: PreferencesNavigator,
+    panes: Vec<PreferencePane>,
+    overview_title: SharedString,
+    sizing: PreferencesSizing,
+    duration: Duration,
+    resize: Option<PreferencesResize>,
+    target: Option<Size<Pixels>>,
+    scrolls: bool,
+    focus_return: Option<FocusHandle>,
+    load: Option<LoadPane>,
+    save: Option<SavePane>,
+}
+
+impl PreferencesController {
+    pub fn new(
+        overview_title: impl Into<SharedString>,
+        panes: Vec<PreferencePane>,
+        sizing: PreferencesSizing,
+    ) -> Self {
+        Self {
+            navigator: PreferencesNavigator::default(),
+            panes,
+            overview_title: overview_title.into(),
+            sizing,
+            duration: PANE_RESIZE,
+            resize: None,
+            target: None,
+            scrolls: false,
+            focus_return: None,
+            load: None,
+            save: None,
+        }
+    }
+
+    /// Restore a previously stored selection. Unknown panes fall back to the
+    /// overview. Call once while building the window.
+    pub fn with_persistence(
+        mut self,
+        load: impl Fn(&App) -> Option<SharedString> + 'static,
+        save: impl Fn(Option<&SharedString>, &mut App) + 'static,
+    ) -> Self {
+        self.load = Some(Rc::new(load));
+        self.save = Some(Rc::new(save));
+        self
+    }
+
+    /// Apply the stored selection without adding history.
+    pub fn restore(&mut self, cx: &App) -> bool {
+        let Some(load) = &self.load else {
+            return false;
+        };
+        let Some(saved) = load(cx) else {
+            return false;
+        };
+        if self.panes.iter().any(|pane| pane.id == saved) {
+            self.navigator = PreferencesNavigator::new(Some(saved));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Focus target that receives focus after a pane change. A pane-switch
+    /// rebuilds content, so the host supplies the control that should regain
+    /// focus (its search field or first control).
+    pub fn focus_return(mut self, focus: FocusHandle) -> Self {
+        self.focus_return = Some(focus);
+        self
+    }
+
+    /// Override the estimated resize duration (animation tests use this).
+    pub fn duration(mut self, duration: Duration) -> Self {
+        self.duration = duration;
+        self
+    }
+
+    #[must_use]
+    pub fn navigator(&self) -> &PreferencesNavigator {
+        &self.navigator
+    }
+
+    #[must_use]
+    pub fn pane_scrolls(&self) -> bool {
+        self.scrolls
+    }
+
+    #[must_use]
+    pub fn current(&self) -> Option<&SharedString> {
+        self.navigator.current()
+    }
+
+    #[must_use]
+    pub fn title(&self) -> SharedString {
+        self.navigator
+            .current()
+            .and_then(|id| self.panes.iter().find(|pane| pane.id == *id))
+            .map(|pane| pane.label.clone())
+            .unwrap_or_else(|| self.overview_title.clone())
+    }
+
+    /// Select a pane (`Some`) or the overview (`None`). Updates the window
+    /// title, stores the selection and returns focus to the supplied target.
+    pub fn select(&mut self, to: Option<SharedString>, window: &mut Window, cx: &mut App) -> bool {
+        if !self.navigator.go(to) {
+            return false;
+        }
+        self.projected(window, cx);
+        true
+    }
+
+    pub fn show_all(&mut self, window: &mut Window, cx: &mut App) -> bool {
+        self.select(None, window, cx)
+    }
+
+    pub fn go_back(&mut self, window: &mut Window, cx: &mut App) -> bool {
+        if !self.navigator.go_back() {
+            return false;
+        }
+        self.projected(window, cx);
+        true
+    }
+
+    pub fn go_forward(&mut self, window: &mut Window, cx: &mut App) -> bool {
+        if !self.navigator.go_forward() {
+            return false;
+        }
+        self.projected(window, cx);
+        true
+    }
+
+    fn projected(&mut self, window: &mut Window, cx: &mut App) {
+        window.set_window_title(self.title().as_ref());
+        if let Some(focus) = &self.focus_return {
+            window.focus(focus, cx);
+        }
+        if let Some(save) = &self.save {
+            save(self.navigator.current(), cx);
+        }
+    }
+
+    /// Drop panes that no longer exist, falling back to the overview if the
+    /// current pane disappeared. The caller repaints.
+    pub fn retain(
+        &mut self,
+        exists: impl Fn(&SharedString) -> bool,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> bool {
+        let before = self.navigator.current().cloned();
+        self.navigator.retain(exists);
+        if self.navigator.current().cloned() != before {
+            self.projected(window, cx);
+            return true;
+        }
+        false
+    }
+
+    /// Measure the pane content after layout. `content` is the pane body's
+    /// natural size; the host's `sizing.chrome_height` supplies the title bar
+    /// and fixed toolbar. The target is clamped to the display's usable region.
+    /// A same-target frame does not restart an outstanding animation.
+    pub fn measure(&mut self, content: Size<Pixels>, window: &mut Window, cx: &mut App) {
+        let usable = window
+            .display(cx)
+            .map(|display| display.visible_bounds().size)
+            .unwrap_or_else(|| window.viewport_size());
+        let fit = fit_pane(content.height.as_f32(), self.sizing, usable);
+        self.scrolls = fit.scrolls;
+        let current = window.viewport_size();
+        if fit.window == current {
+            self.resize = None;
+            self.target = Some(fit.window);
+            return;
+        }
+        if self.target == Some(fit.window) {
+            return;
+        }
+        self.target = Some(fit.window);
+        let now = Instant::now();
+        if cx.reduce_motion() {
+            self.resize = None;
+            window.resize(fit.window);
+        } else {
+            self.resize = Some(PreferencesResize::new(
+                current,
+                fit.window,
+                now,
+                self.duration,
+            ));
+            window.request_animation_frame();
+        }
+    }
+
+    /// Advance the resize. Call from the host's render while it returns true.
+    /// Returns whether another frame is needed.
+    pub fn tick(&mut self, window: &mut Window) -> bool {
+        let Some(resize) = self.resize else {
+            return false;
+        };
+        let now = Instant::now();
+        let done = resize.is_done(now);
+        let next = resize.at(now);
+        window.resize(next);
+        if done {
+            self.resize = None;
+            self.target = Some(next);
+            false
+        } else {
+            window.request_animation_frame();
+            true
+        }
+    }
+}
+
+/// Wrap pane content so its natural size is reported after layout. Pass the
+/// reported size to [`PreferencesController::measure`].
+pub fn measure_content(
+    content: impl IntoElement,
+    on_size: impl Fn(Size<Pixels>, &mut Window, &mut App) + 'static,
+) -> impl IntoElement {
+    div().flex_none().w_full().relative().child(content).child(
+        canvas(
+            move |bounds, window, cx| on_size(bounds.size, window, cx),
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .inset_0(),
+    )
+}
+
+/// The pane viewport. Only the pane content scrolls when the display cannot
+/// fit its natural height; the fixed preferences window itself does not grow
+/// past the usable region.
+pub fn pane_viewport(content: impl IntoElement, scrolls: bool) -> impl IntoElement {
+    div()
+        .id("preferences-pane-viewport")
+        .w_full()
+        .flex_1()
+        .min_h_0()
+        .flex()
+        .flex_col()
+        .when(scrolls, |el| el.overflow_y_scroll())
+        .child(content)
+}
+
+/// A natural-height pane body for measurement. [`pane_body`] keeps filling the
+/// window; use this variant inside [`measure_content`] so the body reports its
+/// required height rather than the viewport height.
+pub fn pane_body_natural() -> gpui::Div {
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .px(px(PANE_MARGIN))
+        .pb(px(PANE_MARGIN))
 }
 
 // --- Toolbar -----------------------------------------------------------------
@@ -582,6 +980,7 @@ impl RenderOnce for Form {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::{Context, Render, TestAppContext};
 
     fn id(s: &str) -> Option<SharedString> {
         Some(SharedString::from(s.to_owned()))
@@ -621,5 +1020,139 @@ mod tests {
         assert_eq!(nav.current(), id("a").as_ref());
         nav.retain(|_| false);
         assert_eq!(nav.current(), None);
+    }
+
+    fn sizing() -> PreferencesSizing {
+        PreferencesSizing {
+            width: 668.0,
+            chrome_height: 54.0,
+            display_margin: 20.0,
+            min_height: 120.0,
+        }
+    }
+
+    #[test]
+    fn fit_pane_grows_to_the_natural_content() {
+        let fit = fit_pane(240.0, sizing(), size(px(1440.), px(900.)));
+        assert_eq!(fit.window.width.as_f32(), 668.0);
+        assert_eq!(fit.window.height.as_f32(), 294.0);
+        assert!(!fit.scrolls);
+    }
+
+    #[test]
+    fn fit_pane_clamps_to_the_display_and_marks_the_pane_scrollable() {
+        let fit = fit_pane(2000.0, sizing(), size(px(800.), px(600.)));
+        assert_eq!(fit.window.height.as_f32(), 560.0);
+        assert!(fit.scrolls);
+        let narrow = fit_pane(200.0, sizing(), size(px(640.), px(600.)));
+        assert_eq!(narrow.window.width.as_f32(), 600.0);
+    }
+
+    #[test]
+    fn retargeting_starts_from_the_current_position_not_the_old_target() {
+        let start = Instant::now();
+        let mut resize = PreferencesResize::new(
+            size(px(100.), px(100.)),
+            size(px(200.), px(200.)),
+            start,
+            Duration::from_millis(100),
+        );
+        let halfway = start + Duration::from_millis(50);
+        assert_eq!(resize.at(halfway).width.as_f32(), 150.0);
+        resize.retarget(size(px(300.), px(300.)), halfway);
+        let later = halfway + Duration::from_millis(50);
+        assert_eq!(resize.at(later).width.as_f32(), 225.0);
+        assert!(!resize.is_done(later));
+        assert!(resize.is_done(halfway + Duration::from_millis(100)));
+    }
+
+    #[test]
+    fn controller_projects_the_pane_title_and_retains_only_existing_panes() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+        });
+        let (_view, cx) = app.add_window_view(|_, _| Empty);
+        let focus = cx.update(|_, cx| cx.focus_handle());
+        let mut controller = PreferencesController::new(
+            "Preferences",
+            vec![
+                PreferencePane::new("general", "General"),
+                PreferencePane::new("audio", "Sound"),
+            ],
+            sizing(),
+        )
+        .focus_return(focus.clone());
+        cx.update(|window, cx| {
+            assert!(controller.select(id("audio"), window, cx));
+            assert_eq!(controller.title().as_ref(), "Sound");
+            assert!(focus.is_focused(window));
+        });
+        assert!(cx.update(|window, cx| controller.retain(
+            |pane| pane.as_ref() == "general",
+            window,
+            cx
+        )));
+        assert_eq!(controller.title().as_ref(), "Preferences");
+    }
+
+    #[test]
+    fn controller_restores_and_saves_the_last_pane() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+        });
+        let saved = std::rc::Rc::new(std::cell::RefCell::new(Some(SharedString::from("audio"))));
+        let read = saved.clone();
+        let written = saved.clone();
+        let mut controller = PreferencesController::new(
+            "Preferences",
+            vec![
+                PreferencePane::new("general", "General"),
+                PreferencePane::new("audio", "Sound"),
+            ],
+            sizing(),
+        )
+        .with_persistence(
+            move |_| read.borrow().clone(),
+            move |selection, _| *written.borrow_mut() = selection.cloned(),
+        );
+        app.update(|cx| assert!(controller.restore(cx)));
+        assert_eq!(controller.title().as_ref(), "Sound");
+        let (_view, cx) = app.add_window_view(|_, _| Empty);
+        cx.update(|window, cx| {
+            assert!(controller.select(id("general"), window, cx));
+        });
+        assert_eq!(saved.borrow().as_ref().map(|s| s.as_ref()), Some("general"));
+    }
+
+    #[test]
+    fn measure_resizes_to_the_natural_pane_or_scrolls_when_the_display_is_too_small() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            cx.set_reduce_motion(true);
+        });
+        let (_view, cx) = app.add_window_view(|_, _| Empty);
+        cx.simulate_resize(size(px(668.), px(200.)));
+        let mut controller = PreferencesController::new(
+            "Preferences",
+            vec![PreferencePane::new("general", "General")],
+            sizing(),
+        );
+        cx.update(|window, cx| {
+            controller.measure(size(px(500.), px(120.)), window, cx);
+            assert!(!controller.pane_scrolls());
+            controller.measure(size(px(500.), px(2000.)), window, cx);
+            assert!(controller.pane_scrolls());
+        });
+    }
+
+    struct Empty;
+
+    impl Render for Empty {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+        }
     }
 }

@@ -13,7 +13,8 @@ source-list styles. 175% exists for the device-pixel snapping rule (#12); see
 About window plus the edited document, so the role-driven title-bar buttons are
 gated too (#20). The toolbar samples cover rectangular and capsule items,
 disabled state, Icon Only and Text Only; the bottom-bar samples cover the
-regular and small families.
+regular and small families. Two preferences pages show the fitted pane and the
+pane that exceeds the fixed window.
 
 Committed:
 

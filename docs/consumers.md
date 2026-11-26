@@ -288,7 +288,7 @@ quit with a review of unsaved documents. You own the file format and IO.
 | | |
 |---|---|
 | Modules | `silvestris::prefs`, `silvestris::core::prefs`, `silvestris::preferences` |
-| Types | `Preferences`, `Store`, `Storage`, `FileStorage`, `Versioned`, `Migration`, `PreferencesNavigator`, `PreferencePane`, `PreferenceCategory`, `PreferencesToolbar`, `PreferencesOverview`, `Form`, `FormRow` |
+| Types | `Preferences`, `Store`, `Storage`, `FileStorage`, `Versioned`, `Migration`, `PreferencesController`, `PreferencesSizing`, `PreferencesFit`, `PreferencesResize`, `PreferencesNavigator`, `PreferencePane`, `PreferenceCategory`, `PreferencesToolbar`, `PreferencesOverview`, `Form`, `FormRow` |
 | Docs | [preferences.md](preferences.md) |
 
 `Preferences` is an observable, versioned preference document with

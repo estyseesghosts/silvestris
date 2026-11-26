@@ -181,6 +181,37 @@ Use `PreferencesNavigator` for pane selection and history,
 category bands, and `TabView` plus `Form` for pane content. The application owns
 the pane list, the values and persistence.
 
+`PreferencesController` owns the window-level behavior: it projects the current
+pane's title, restores and stores the last selection, retargets a pane resize
+instead of letting an older one finish, and reports whether only the pane body
+must scroll. Fit the pane after layout:
+
+```rust
+let mut controller = PreferencesController::new("Preferences", panes, sizing)
+    .with_persistence(
+        |cx| store.read(cx).last_pane.clone(),
+        |pane, cx| store.update(cx, |store, cx| store.set_last_pane(pane, cx)),
+    );
+controller.restore(cx);
+// Measure the natural-height pane body, not a size_full() one.
+let body = measure_content(pane_body_natural().child(form), move |size, window, cx| {
+    controller.measure(size, window, cx);
+});
+// In render, advance an in-flight resize:
+controller.tick(window);
+```
+
+The window stays fixed beside the pane: it takes the measured natural height,
+clamped by the display's usable region. When the pane is taller than that
+region, `pane_viewport(content, controller.pane_scrolls())` scrolls only the
+pane. `pane_body_natural()` is the measuring variant of `pane_body()`. Focus
+returns to the handle passed to `PreferencesController::focus_return` after a
+pane change.
+
+A simple one-pane consumer does not need an overview or categories: pass one
+`PreferencePane`, render a `Form` in a `WindowRole::Preferences` window, and
+keep `PreferencesToolbar` out if it has no pane history.
+
 `TabView::on_overflow` reports how much wider and taller the pane needs; resize
 the window to that. `Form` handles right-aligned labels and label-less rows.
 `TextFieldEvent::EndedEditing` lets a form commit when focus leaves a field.

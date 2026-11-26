@@ -41,7 +41,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Source list, sidebar | `SourceList`, `SourceListEvent`, `SourceListStyle`, `Sidebar` | measured | four | `source-list`, `source-list-secondary` | #3, #4 |
 | Source-list row accessories | `RowAccessory`, `RowStatus` | measured | four | `source-list-secondary` | #4 |
 | Find window | none | missing | — | — | #77 |
-| Preferences window | `PreferencesNavigator`, `PreferencesToolbar`, `PreferencesOverview`, `PreferencePane`, `PreferenceCategory` | provisional | four | — | #14 |
+| Preferences window | `PreferencesController`, `PreferencesSizing`, `PreferencesFit`, `PreferencesResize`, `PreferencesNavigator`, `PreferencesToolbar`, `PreferencesOverview`, `PreferencePane`, `PreferenceCategory`, `fit_pane`, `measure_content`, `pane_viewport`, `pane_body_natural` | functional | four | `preferences-general`, `preferences-scroll` | #14 |
 
 ## Menu bar
 

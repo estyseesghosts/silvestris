@@ -39,6 +39,9 @@ use silvestris::icons::{
     ConsumerArtwork, FileArtwork, FileIconState, Icon, TemplateImage, TemplateImageSlot,
 };
 use silvestris::menu::PopupMenu;
+use silvestris::preferences::{
+    pane_body, pane_viewport, Form, FormRow, PreferencesNavigator, PreferencesToolbar,
+};
 use silvestris::toolbar::{Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle};
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
@@ -427,6 +430,22 @@ const MENU_SAMPLES: [Sample; 2] = [
     },
 ];
 
+/// Preferences windows are wider than the control grid, so each gets its own
+/// page after the panels. Appending pages keeps every existing sample's
+/// position.
+const PREFERENCE_SAMPLES: [Sample; 2] = [
+    Sample {
+        id: "preferences-general",
+        width: 668.,
+        height: 294.,
+    },
+    Sample {
+        id: "preferences-scroll",
+        width: 668.,
+        height: 560.,
+    },
+];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -441,6 +460,18 @@ fn on_panel_page(page: usize) -> bool {
 
 fn panel_index(page: usize) -> usize {
     page - panel_page_start()
+}
+
+fn preference_page_start() -> usize {
+    panel_page_start() + PANEL_SAMPLES.len()
+}
+
+fn on_preference_page(page: usize) -> bool {
+    (preference_page_start()..preference_page_start() + PREFERENCE_SAMPLES.len()).contains(&page)
+}
+
+fn preference_index(page: usize) -> usize {
+    page - preference_page_start()
 }
 
 fn rows(page: usize) -> usize {
@@ -470,6 +501,10 @@ fn root_size(page: usize) -> (f32, f32) {
         let sample = &PANEL_SAMPLES[panel_index(page)];
         return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
+    if on_preference_page(page) {
+        let sample = &PREFERENCE_SAMPLES[preference_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
+    }
     (
         PAD + COLUMNS as f32 * (CELL_WIDTH + GAP) - GAP + PAD,
         PAD + rows(page) as f32 * (CELL_HEIGHT + GAP) - GAP + PAD,
@@ -490,6 +525,10 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
     }
     if on_panel_page(page) {
         let sample = &PANEL_SAMPLES[panel_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
+    }
+    if on_preference_page(page) {
+        let sample = &PREFERENCE_SAMPLES[preference_index(page)];
         return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
     let samples = page_samples(page);
@@ -1311,6 +1350,8 @@ impl CaptureView {
             "save-sheet-minimal-crop" => {
                 save_sheet_crop_sample(&self.panels[7], cx).into_any_element()
             }
+            "preferences-general" => preferences_sample("General", 4, false, cx).into_any_element(),
+            "preferences-scroll" => preferences_sample("Privacy", 30, true, cx).into_any_element(),
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -1403,6 +1444,33 @@ fn save_sheet_crop_sample(panel: &Entity<FilePanel>, cx: &mut App) -> impl IntoE
             )
             .child(panel.clone()),
         )
+}
+
+fn preferences_sample(
+    title: &'static str,
+    rows: usize,
+    scrolls: bool,
+    cx: &mut App,
+) -> impl IntoElement {
+    let theme = cx.theme().clone();
+    let nav = PreferencesNavigator::new(Some(title.into()));
+    let mut form = Form::new(120.0);
+    for index in 0..rows {
+        form = form.row(FormRow::new(
+            format!("Option {index}"),
+            Checkbox::new(format!("preferences-option-{index}"), "Enabled")
+                .checked(index % 2 == 0)
+                .on_change(|_, _, _| {}),
+        ));
+    }
+    WindowFrame::new(title)
+        .role(WindowRole::Preferences)
+        .fixed_size()
+        .toolbar(PreferencesToolbar::new(&nav), theme.metrics.toolbar_height)
+        .child(pane_viewport(
+            pane_body().child(div().pt(px(34.0)).child(form)),
+            scrolls,
+        ))
 }
 
 impl Render for CaptureView {
