@@ -91,10 +91,34 @@ and a GPU.
    state. Avoid animation, focus and caret.
 2. Run `render.ps1` and inspect the PNG.
 3. Accept it with a reason, then update `docs/coverage.md` with the golden id.
+   When a change is scoped to one control and this host is known to drift on
+   others, accept only that control:
+
+   ```powershell
+   python tools/metrology/accept_control.py disclosure-button target/goldens \
+     "why this control changed"
+   ```
+
+   That regenerates just those manifest and reason entries, so pre-existing
+   host drift on unrelated goldens is not silently frozen.
 4. Add a crop to `reference/crops.json` if a 10.6 reference exists, with the
    rectangle in capture pixels and a sha256 of the source file. Verify the crop
    at high zoom before committing it. Otherwise record the gap in
    `docs/exceptions.md`; do not use a 10.7 or later capture.
+
+## Panel review captures
+
+The file-panel samples (`open-dialog-columns`, `open-dialog-list`,
+`open-dialog-icons`, `save-sheet-minimal`, `save-sheet-minimal-crop`,
+`save-sheet-expanded`, `save-sheet-expanded-icons`, `save-sheet-grow`) live on
+their own capture pages after the control grid and the menus. They are rendered
+and reviewed against the 10.6 references recorded in
+[file-panel-comparison.md](file-panel-comparison.md), but they are not in the
+committed golden set: the panels are still being corrected against newly
+supplied 10.6 captures, so gating them now would freeze the wrong geometry.
+`save-sheet-minimal-crop` is the minimal sheet alone with no document behind it,
+so dead vertical space is visible in review. Panel geometry is instead asserted
+in `tests/save_panel.rs` and `tests/open_panel.rs`.
 
 ## Scope
 

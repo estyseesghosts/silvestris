@@ -305,7 +305,7 @@ const SAMPLES: [Sample; 50] = [
 
 /// File panels are larger than a grid cell; they get their own page after the
 /// menus so neither the grid nor the menu samples move.
-const PANEL_SAMPLES: [Sample; 5] = [
+const PANEL_SAMPLES: [Sample; 8] = [
     Sample {
         id: "open-dialog-columns",
         width: 527.,
@@ -332,6 +332,26 @@ const PANEL_SAMPLES: [Sample; 5] = [
         id: "save-sheet-grow",
         width: 560.,
         height: 480.,
+    },
+    Sample {
+        // The Open panel in icon view: folders, documents, a deliberately
+        // long filename, one selected item and one dimmed item.
+        id: "open-dialog-icons",
+        width: 527.,
+        height: 398.,
+    },
+    Sample {
+        // Expanded Save in icon view: the chooser's icon grid.
+        id: "save-sheet-expanded-icons",
+        width: 760.,
+        height: 560.,
+    },
+    Sample {
+        // The minimal Save sheet alone, cropped to its own card so any dead
+        // vertical space is obvious in review.
+        id: "save-sheet-minimal-crop",
+        width: 560.,
+        height: 200.,
     },
 ];
 
@@ -599,6 +619,27 @@ impl CaptureView {
                     "Untitled.txt",
                     false,
                 ),
+                (
+                    PanelMode::Open,
+                    true,
+                    FileViewMode::Icons,
+                    "Untitled.txt",
+                    false,
+                ),
+                (
+                    PanelMode::Save,
+                    true,
+                    FileViewMode::Icons,
+                    "Untitled.txt",
+                    false,
+                ),
+                (
+                    PanelMode::Save,
+                    false,
+                    FileViewMode::Columns,
+                    "Untitled.txt",
+                    false,
+                ),
             ];
             specs
                 .into_iter()
@@ -624,6 +665,12 @@ impl CaptureView {
                         model.update(cx, |model, cx| model.set_view(view, cx));
                         if index == 0 {
                             panel.select_entry(&SharedString::from("photo"), cx);
+                        }
+                        if index == 5 {
+                            // One selected item in the Open icon grid, on the
+                            // first row so its label pill is in frame; the
+                            // dimmed PDF sits beside it on the next row.
+                            panel.select_entry(&SharedString::from("desktop"), cx);
                         }
                         cx.notify();
                     });
@@ -936,13 +983,23 @@ impl CaptureView {
                 .role(WindowRole::OpenPanel)
                 .child(self.panels[1].clone())
                 .into_any_element(),
+            "open-dialog-icons" => WindowFrame::new("Open")
+                .role(WindowRole::OpenPanel)
+                .child(self.panels[5].clone())
+                .into_any_element(),
             "save-sheet-minimal" => {
                 save_sheet_sample(&self.panels[2], false, cx).into_any_element()
             }
             "save-sheet-expanded" => {
                 save_sheet_sample(&self.panels[3], true, cx).into_any_element()
             }
+            "save-sheet-expanded-icons" => {
+                save_sheet_sample(&self.panels[6], true, cx).into_any_element()
+            }
             "save-sheet-grow" => save_sheet_sample(&self.panels[4], true, cx).into_any_element(),
+            "save-sheet-minimal-crop" => {
+                save_sheet_crop_sample(&self.panels[7], cx).into_any_element()
+            }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -1019,6 +1076,24 @@ fn save_sheet_sample(panel: &Entity<FilePanel>, _expanded: bool, cx: &mut App) -
         )
 }
 
+/// The minimal Save sheet alone, cropped to its own card: no document behind
+/// it, so dead vertical space inside the sheet is obvious in review.
+fn save_sheet_crop_sample(panel: &Entity<FilePanel>, cx: &mut App) -> impl IntoElement {
+    let height = panel.read(cx).preferred_height();
+    div()
+        .debug_selector(|| "save-sheet-crop".into())
+        .flex()
+        .justify_center()
+        .child(
+            silvestris::sheet::card_shell(
+                silvestris::file_panel::chrome::PANEL_WIDTH,
+                Some(height),
+                cx,
+            )
+            .child(panel.clone()),
+        )
+}
+
 impl Render for CaptureView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
@@ -1066,6 +1141,11 @@ fn capture_file_provider() -> MemoryProvider {
             FileEntry::document("photo", "Photo.png")
                 .size(2_097_152)
                 .modified(1_735_430_400),
+            // Deliberately long so the icon view's label wrapping and its
+            // selection pill can be reviewed.
+            FileEntry::document("long", "A Deliberately Long Filename That Has To Wrap.txt")
+                .size(5_120)
+                .modified(1_735_344_000),
         ],
     );
     provider.add_location(

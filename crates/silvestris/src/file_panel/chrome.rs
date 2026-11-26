@@ -9,8 +9,8 @@
 //! - history pair 43 px, view selector 69 px with three 22-23 px segments,
 //!   path pop-up 219 px, search field 108 px; controls 22 rows.
 //!
-//! The collapsed Save height is still an estimate until 10.6 Save-sheet
-//! captures exist; it is logged in `docs/exceptions.md`.
+//! The Save sheet rows and their heights are measured from the 10.6 captures
+//! (`M: panel.save.*`); the constants below state each one.
 
 use std::rc::Rc;
 
@@ -34,9 +34,6 @@ pub const TITLEBAR_HEIGHT: f32 = 22.0;
 /// Content height: outer minus the title band. The panel fills this in an
 /// Open window and the sheet uses it as its content height.
 pub const PANEL_CONTENT_HEIGHT: f32 = PANEL_HEIGHT - TITLEBAR_HEIGHT;
-/// Minimal Save height. Estimate: no 10.6 Save-sheet capture exists
-/// (`docs/exceptions.md`). This is the sheet's content height.
-pub const COLLAPSED_HEIGHT: f32 = 160.0;
 /// Optional message line above Save As, measured from the NSSavePanel
 /// references (`docs/file-panel-comparison.md`).
 pub const MESSAGE_HEIGHT: f32 = 30.0;
@@ -57,6 +54,114 @@ pub const HISTORY_WIDTH: f32 = 43.0;
 pub const VIEW_WIDTH: f32 = 69.0;
 /// Path pop-up width (M: panel.geometry).
 pub const PATH_WIDTH: f32 = 219.0;
+
+// Save sheet (M: panel.save.*). Measured from the three 10.6 captures in
+// `hig-09/vm-screenshots/sl-archive/dialogs/` (`dialogs--save-sheet--*`), which
+// are 1x window captures of a 1440 x 900 desktop.
+//
+// The collapsed sheet is 431 x 185 (x 385-815, y 88-274) and the expanded sheet
+// 541 x 399 (x 330-870, y 88-488). The Save As field keeps the same absolute
+// screen x in both states; the wider sheet only adds a centred gutter, so the
+// label column, the field, the disclosure and the Where pop-up never move
+// between states.
+
+/// The Save sheet keeps the Open window's 527 px outer width. 10.6 Save sheets
+/// are narrower (431 collapsed, 541 expanded) because AppKit sizes them to
+/// their content; Silvestris presents them in the same modal card as Open, so
+/// the rows below are laid out in one fixed inner column centred in that card.
+/// `docs/file-panel-comparison.md` records the difference.
+pub const SAVE_SHEET_WIDTH: f32 = PANEL_WIDTH;
+/// The shared label/field column. 10.6: the collapsed sheet's 431 px minus
+/// both 20 px insets.
+pub const SAVE_COLUMN_WIDTH: f32 = 391.0;
+/// Sheet side inset for the name, Where and bottom rows (10.6: the sheet starts
+/// at x 330 and the bottom row at 350).
+pub const SAVE_INSET: f32 = 20.0;
+/// Sheet content top to the Save As field (10.6: sheet 88, field element 104).
+pub const SAVE_TOP_PAD: f32 = 16.0;
+/// Right-aligned label column, colon included. 10.6: `Save As:` 419-467 and
+/// `Where:` 427-467 in a sheet at 385, so both end 82 px in; 20 px inset plus
+/// this column.
+pub const SAVE_LABEL_WIDTH: f32 = 63.0;
+/// Gap between a label's colon and its control (10.6: colon 467, field element
+/// 474; HIG p. 322-325 asks for 8 px, the capture shows 6-7).
+pub const SAVE_LABEL_GAP: f32 = 6.0;
+/// One regular control row (M: field_height). 10.6: 104-125.
+pub const SAVE_NAME_HEIGHT: f32 = 22.0;
+/// Save As field width. 10.6: element 474-725, its focus ring 472-727.
+pub const SAVE_NAME_WIDTH: f32 = 252.0;
+/// Gap between the Save As field and its disclosure button. 10.6: field ring
+/// ends at 727, the button bezel starts at 733.
+pub const SAVE_DISCLOSURE_GAP: f32 = 6.0;
+/// Gap between the field row and the Where row (10.6: element ends 125, Where
+/// element starts 141).
+pub const SAVE_ROW_GAP: f32 = 15.0;
+/// Where pop-up width. 10.6: element 474-725, the same left edge as the field
+/// and the same right edge as the disclosure button.
+pub const SAVE_WHERE_WIDTH: f32 = 252.0;
+/// Gap between the Where row and the Format group box (10.6: element ends 162,
+/// box border 174).
+pub const SAVE_FORMAT_TOP_GAP: f32 = 11.0;
+/// File Format group box height, border included (10.6: 174-227 collapsed and
+/// 381-434 expanded, 54 px in both).
+pub const SAVE_FORMAT_BOX_HEIGHT: f32 = 54.0;
+/// Horizontal inset of the Format group box (10.6: box 400-801 in a sheet at
+/// 385-815, so 15 px each side).
+pub const SAVE_BOX_INSET: f32 = 15.0;
+/// Format label column inside the box, right-aligned on the colon (10.6: ink
+/// 422-490 inside a box starting at 401).
+pub const SAVE_FORMAT_LABEL_WIDTH: f32 = 70.0;
+/// Gap between the Format label and its pop-up (10.6: colon 490, pop-up 504).
+pub const SAVE_FORMAT_GAP: f32 = 14.0;
+/// Format pop-up width (10.6: bezel 504-781).
+pub const SAVE_FORMAT_WIDTH: f32 = 278.0;
+/// Gap from the Hide extension checkbox to New Folder (10.6: ink ends 461,
+/// New Folder bezel 481).
+pub const SAVE_NEW_FOLDER_GAP: f32 = 20.0;
+/// Gap between Cancel and Save (HIG, Push Buttons p. 265: at least 12 px;
+/// 10.6: Cancel ends 762, Save starts 775).
+pub const SAVE_BUTTON_GAP: f32 = 12.0;
+/// Gap between the Format box and the bottom row (10.6: box 227, buttons at
+/// 241).
+pub const SAVE_BOTTOM_GAP: f32 = 13.0;
+/// Sheet bottom pad under the buttons (10.6: buttons end 262, content ends
+/// 273).
+pub const SAVE_BOTTOM_PAD: f32 = 11.0;
+/// Save-specific bottom row, border box: its top gap, one regular button, its
+/// bottom pad (10.6: 227 to 273).
+pub const SAVE_BOTTOM_ROW_HEIGHT: f32 = SAVE_BOTTOM_GAP + SAVE_NAME_HEIGHT + SAVE_BOTTOM_PAD;
+/// Gap between the field row and the chooser in expanded Save (10.6: field
+/// element ends 125, toolbar separator 141).
+pub const SAVE_NAME_TO_CHOOSER: f32 = 16.0;
+/// Browser height inside the chooser (10.6: 185-370).
+pub const SAVE_BROWSER_HEIGHT: f32 = 186.0;
+/// Grip band below the buttons in expanded Save, where the resize corner
+/// lives (10.6: buttons end 468, content ends 487, 13 px of pad against 12 in
+/// the minimal sheet); the minimal sheet has no grip.
+pub const SAVE_GRIP_PAD: f32 = 6.0;
+
+/// Save As row: top pad plus the field.
+pub const SAVE_NAME_ROW_HEIGHT: f32 = SAVE_TOP_PAD + SAVE_NAME_HEIGHT;
+/// Where row: the gap above plus the pop-up.
+pub const SAVE_WHERE_ROW_HEIGHT: f32 = SAVE_ROW_GAP + SAVE_NAME_HEIGHT;
+/// The explorer block: toolbar plus browser (10.6: 142-370).
+pub const SAVE_EXPLORER_HEIGHT: f32 = TOOLBAR_HEIGHT + SAVE_BROWSER_HEIGHT;
+/// The Format row: the gap above the box plus the box itself.
+pub const SAVE_FORMAT_ROW_HEIGHT: f32 = SAVE_FORMAT_TOP_GAP + SAVE_FORMAT_BOX_HEIGHT;
+/// The folding chooser: its top gap, the explorer, and nothing else. It grows
+/// from 0 while the Where row shrinks to 0 (10.6: field row 126 to the browser
+/// bottom 370).
+pub const SAVE_CHOOSER_HEIGHT: f32 = SAVE_NAME_TO_CHOOSER + SAVE_EXPLORER_HEIGHT;
+/// Minimal Save: Save As, Where, Format and the buttons, all measured rows.
+pub const SAVE_COLLAPSED_HEIGHT: f32 =
+    SAVE_NAME_ROW_HEIGHT + SAVE_WHERE_ROW_HEIGHT + SAVE_FORMAT_ROW_HEIGHT + SAVE_BOTTOM_ROW_HEIGHT;
+/// Expanded Save: Save As, the chooser (which replaces the Where row), Format,
+/// the buttons and the grip band.
+pub const SAVE_EXPANDED_HEIGHT: f32 = SAVE_NAME_ROW_HEIGHT
+    + SAVE_CHOOSER_HEIGHT
+    + SAVE_FORMAT_ROW_HEIGHT
+    + SAVE_BOTTOM_ROW_HEIGHT
+    + SAVE_GRIP_PAD;
 
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 type ViewAction = Rc<dyn Fn(FileViewMode, &mut Window, &mut App)>;

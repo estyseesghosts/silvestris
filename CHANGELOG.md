@@ -5,6 +5,39 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After f1c2a01
+
+Save-panel and icon-view fidelity pass (`docs/SAVEPANEL-3.txt`):
+
+- `DisclosureStyle::Button` now reads as the dialog pop-down control: it points
+  down when collapsed and up when expanded (HIG pp. 331-332). The hierarchy
+  `DisclosureStyle::Triangle` is unchanged (right collapsed, down expanded).
+  The button has its own measured 21 x 20 px bezel and 7 x 5 px glyph; the
+  triangle keeps its 13 px hit box and 4.5 x 6 px glyph. Any consumer relying on
+  the button pointing right when collapsed must update.
+- The Save rows are one alignment grid: a shared right-aligned label column,
+  one control column, a fixed 252 px name field instead of a flexible one, and
+  the disclosure a fixed gap after it. The Save As geometry is identical in the
+  minimal and expanded states; expanding no longer moves the field.
+- Minimal Save is content-sized. `chrome::COLLAPSED_HEIGHT` (160 px, an
+  estimate) is replaced by `SAVE_COLLAPSED_HEIGHT` and `SAVE_EXPANDED_HEIGHT`,
+  both derived from measured rows, and the transition interpolates those two
+  constants. A collapsed panel no longer keeps a hidden browser or toolbar in
+  the tree.
+- Expanded Save's bottom row is Hide extension, New Folder, flexible space,
+  Cancel, Save (HIG pp. 247-248) with the HIG 12 px Cancel-to-Save gap; the File
+  Format box is its own row above it. Hide extension appears only where the
+  extension policy permits it.
+- `IconGrid` keeps the whole cell clickable but paints the selection as a small
+  pill behind the filename only; selected icons keep their colours. The grid is
+  measured from the 10.6 icon-view captures: `ICON_SIZE` is 48 px,
+  `CELL_HEIGHT` 109 px and `CELL_WIDTH` 172 px (a whole number of columns across
+  the panel browser), with a small leading/top gutter. `paint::selection_pill`
+  is the new painter. The public constants changed value, not type.
+- `sheet::card_shell` is unchanged. Panel captures gained
+  `open-dialog-icons`, `save-sheet-expanded-icons` and
+  `save-sheet-minimal-crop`.
+
 ## After 5d5c38f
 
 Open and Save panel interaction pass:

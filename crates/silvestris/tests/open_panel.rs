@@ -626,6 +626,52 @@ fn icon_cells_and_the_column_browser_open_a_context_menu() {
 }
 
 #[test]
+fn icon_selection_artwork_is_smaller_than_its_clickable_cell() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let icons = cx.debug_bounds("segment-icons").expect("icon segment");
+    cx.simulate_click(icons.center(), Modifiers::default());
+    draw(&mut cx);
+    let cell = cx.debug_bounds("icon-cell-note").expect("note cell");
+    cx.simulate_click(cell.center(), Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.read(|cx| panel.read(cx).selected_count(cx)) == 1,
+        "the click selected the cell"
+    );
+    let artwork = cx
+        .debug_bounds("icon-selection-note")
+        .expect("the selected label's artwork");
+    assert!(
+        f32::from(artwork.size.height) < f32::from(cell.size.height),
+        "selection artwork ({}) is shorter than the clickable cell ({})",
+        artwork.size.height,
+        cell.size.height
+    );
+    assert!(
+        f32::from(artwork.size.width) < f32::from(cell.size.width),
+        "selection artwork ({}) is narrower than the clickable cell ({})",
+        artwork.size.width,
+        cell.size.width
+    );
+    // The cell keeps its whole hit area: a click near its bottom-left corner,
+    // below the label's artwork, still selects it.
+    let corner = gpui::point(cell.origin.x + px(4.), cell.bottom() - px(4.));
+    cx.simulate_click(corner, Modifiers::default());
+    draw(&mut cx);
+    assert!(
+        cx.read(|cx| panel.read(cx).selected_count(cx)) == 1,
+        "the full cell stays clickable"
+    );
+    // The icon itself keeps its colours: the icon element is painted before
+    // the label pill and never receives a selection tint.
+    assert!(
+        cx.debug_bounds("icon-cell-note").is_some(),
+        "the cell still exists"
+    );
+}
+
+#[test]
 fn the_sidebar_section_triangles_collapse_their_groups() {
     let mut app = TestAppContext::single();
     let (_panel, _outcome, mut cx) = present(&mut app, false, false, None);

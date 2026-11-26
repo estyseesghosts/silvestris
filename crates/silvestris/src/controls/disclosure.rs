@@ -1,10 +1,17 @@
-//! Disclosure triangle and disclosure button (HIG pp. 329-331;
+//! Disclosure triangle and disclosure button (HIG pp. 329-332;
 //! M: disclosure.collapsed).
 //!
 //! Consumer owns expansion and label; activation requests expansion only.
 //! Enter/Space use GPUI's keyboard click path; Left/Right collapse/expand.
 //! The 13 px hit box is kept distinct from the measured 4.5 x 6 px glyph.
 //! Rotation animates unless the app requests reduced motion.
+//!
+//! The two styles read the same state differently. A disclosure *triangle*
+//! follows the hierarchy: right when collapsed, down when expanded. A
+//! disclosure *button* is a pop-down control beside a list-based control:
+//! it points down when collapsed and up when expanded (HIG pp. 331-332,
+//! "Closed by default (pointing down); clicking expands the window and
+//! points it up"). Both animate between their own two silhouettes.
 
 use std::{cell::Cell, rc::Rc, time::Duration};
 
@@ -78,33 +85,96 @@ impl Disclosure {
     }
 }
 
+/// The two silhouettes a disclosure rotates between, in quarter turns from the
+/// measured right-pointing triangle: `0.0` points right, `1.0` points down,
+/// `-1.0` points up.
+///
+/// A triangle is the hierarchy control: it is drawn right-pointing when
+/// collapsed and turns a quarter turn to point down when expanded. A button is
+/// the dialog pop-down control beside the field it affects (HIG pp. 331-332):
+/// it is drawn pointing down when collapsed and turns half a turn to point up,
+/// passing through the right-pointing state so one silhouette turns rather than
+/// two shapes swapping.
+const fn rotation(style: DisclosureStyle, expanded: bool) -> f32 {
+    match (style, expanded) {
+        (DisclosureStyle::Triangle, false) => 0.0,
+        (DisclosureStyle::Triangle, true) => 1.0,
+        (DisclosureStyle::Button, false) => 1.0,
+        (DisclosureStyle::Button, true) => -1.0,
+    }
+}
+
+/// Hit box and drawn glyph per style, at 1x.
+///
+/// `axis` is measured along the direction the triangle points; `spread` is
+/// measured across it. The hierarchy triangle keeps the measured 13 px hit box
+/// and 4.5 x 6 px glyph (M: disclosure.collapsed). The Save-sheet disclosure
+/// button is its own bezelled control: 10.6 draws a 21 x 20 px bezel with a
+/// 7 wide x 5 tall solid triangle inside it, pointing down when collapsed and
+/// up when expanded (`dialogs--save-sheet--collapsed.png`, `--expanded.png`).
+#[derive(Clone, Copy)]
+struct Glyph {
+    hit_width: f32,
+    hit_height: f32,
+    axis: f32,
+    spread: f32,
+    /// Apex distance from the centre along the pointing axis, as a fraction of
+    /// `axis`. The measured hierarchy triangle sits forward of centre (its base
+    /// is -0.36, its apex 0.64); the button glyph is symmetric.
+    apex: f32,
+}
+
+impl Glyph {
+    fn for_style(style: DisclosureStyle, theme: &silvestris_core::Theme) -> Self {
+        match style {
+            DisclosureStyle::Triangle => Self {
+                hit_width: theme.metrics.disclosure_size,
+                hit_height: theme.metrics.disclosure_size,
+                axis: theme.metrics.disclosure_width,
+                spread: theme.metrics.disclosure_height,
+                apex: 0.64,
+            },
+            // M: panel.save.disclosure: 21 x 20 px bezel, 7 wide x 5 tall
+            // glyph; the pointing axis is the 5 px one.
+            DisclosureStyle::Button => Self {
+                hit_width: 21.0,
+                hit_height: 20.0,
+                axis: 5.0,
+                spread: 7.0,
+                apex: 0.5,
+            },
+        }
+    }
+}
+
 fn triangle_points(
     bounds: gpui::Bounds<gpui::Pixels>,
     angle: f32,
-    width: f32,
-    height: f32,
+    axis: f32,
+    spread: f32,
+    apex: f32,
 ) -> Vec<gpui::Point<gpui::Pixels>> {
-    // Collapsed points right; expanded points down. Linear interpolation turns
-    // the measured right-pointing silhouette into the measured down one.
+    // `angle` is a rotation in quarter turns: 0 points right, 1 points down,
+    // -1 points up. Rotating the measured vertices keeps a proper triangle at
+    // every intermediate angle, so an up glyph is the same glyph turned, not a
+    // mirrored one.
     let cx = bounds.left() + bounds.size.width / 2.0;
     let cy = bounds.top() + bounds.size.height / 2.0;
-    let w = px(width);
-    let h = px(height);
-    let start = [
-        point(cx - w * 0.36, cy - h / 2.0),
-        point(cx - w * 0.36, cy + h / 2.0),
-        point(cx + w * 0.64, cy),
-    ];
-    let end = [
-        point(cx - h / 2.0, cy - w * 0.36),
-        point(cx + h / 2.0, cy - w * 0.36),
-        point(cx, cy + w * 0.64),
-    ];
-    start
-        .iter()
-        .zip(end.iter())
-        .map(|(a, b)| point(a.x + (b.x - a.x) * angle, a.y + (b.y - a.y) * angle))
-        .collect()
+    let (sin, cos) = (angle * std::f32::consts::FRAC_PI_2).sin_cos();
+    let forward = axis * apex;
+    let back = -axis * (1.0 - apex);
+    let half_spread = spread / 2.0;
+    let at = |along: f32, across: f32| {
+        point(
+            cx + px(cos * along - sin * across),
+            cy + px(sin * along + cos * across),
+        )
+    };
+    vec![
+        at(forward, 0.0),
+        at(back, half_spread),
+        at(back, -half_spread),
+    ]
 }
 
 impl RenderOnce for Disclosure {
@@ -146,18 +216,15 @@ impl RenderOnce for Disclosure {
         let press_paint = pressed.clone();
         let down = styles_for(style, &theme);
         let down_for_paint = down;
-        let angle = Rc::new(Cell::new(if expanded { 1.0 } else { 0.0 }));
+        let target = rotation(style, expanded);
+        let angle = Rc::new(Cell::new(target));
         let paint_angle = angle.clone();
-        let width = if style == DisclosureStyle::Button {
-            theme.metrics.disclosure_width * 0.8
-        } else {
-            theme.metrics.disclosure_width
-        };
-        let height = if style == DisclosureStyle::Button {
-            theme.metrics.disclosure_height * 0.8
-        } else {
-            theme.metrics.disclosure_height
-        };
+        let glyph_metrics = Glyph::for_style(style, &theme);
+        let axis = glyph_metrics.axis;
+        let spread = glyph_metrics.spread;
+        let hit_width = glyph_metrics.hit_width;
+        let hit_height = glyph_metrics.hit_height;
+        let apex = glyph_metrics.apex;
         let animated = enabled && !cx.reduce_motion();
         let glyph = canvas(
             |_, _, _| (),
@@ -174,7 +241,7 @@ impl RenderOnce for Disclosure {
                     };
                     paint::bevel(window, bounds, 4.0, &bevel);
                 }
-                let points = triangle_points(bounds, angle, width, height);
+                let points = triangle_points(bounds, angle, axis, spread, apex);
                 let mut path = PathBuilder::fill();
                 path.move_to(points[0]);
                 path.line_to(points[1]);
@@ -207,7 +274,8 @@ impl RenderOnce for Disclosure {
             .aria_expanded(expanded)
             .relative()
             .flex_none()
-            .size(px(theme.metrics.disclosure_size))
+            .w(px(hit_width))
+            .h(px(hit_height))
             .when(enabled, |el| {
                 el.track_focus(&focus)
                     .on_mouse_down(MouseButton::Left, move |_, window, cx| {
@@ -245,7 +313,6 @@ impl RenderOnce for Disclosure {
                 })
             })
             .child(if animated {
-                let target = if expanded { 1.0 } else { 0.0 };
                 let start = angle.get();
                 let paint_angle = angle.clone();
                 glyph
@@ -259,7 +326,7 @@ impl RenderOnce for Disclosure {
                     )
                     .into_any_element()
             } else {
-                angle.set(if expanded { 1.0 } else { 0.0 });
+                angle.set(target);
                 glyph.into_any_element()
             });
         element
@@ -273,5 +340,84 @@ fn styles_for(
     match style {
         DisclosureStyle::Triangle => theme.controls.push,
         DisclosureStyle::Button => theme.controls.push,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use silvestris_core::{ThemeId, ThemePreference};
+
+    fn aqua() -> silvestris_core::Theme {
+        let app = gpui::TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx);
+        });
+        app.update(|cx| cx.theme().as_ref().clone())
+    }
+
+    #[test]
+    fn a_triangle_points_right_when_collapsed_and_down_when_expanded() {
+        assert_eq!(rotation(DisclosureStyle::Triangle, false), 0.0);
+        assert_eq!(rotation(DisclosureStyle::Triangle, true), 1.0);
+    }
+
+    #[test]
+    fn a_button_points_down_when_collapsed_and_up_when_expanded() {
+        assert_eq!(rotation(DisclosureStyle::Button, false), 1.0);
+        assert_eq!(rotation(DisclosureStyle::Button, true), -1.0);
+    }
+
+    #[test]
+    fn the_two_styles_never_share_a_collapsed_silhouette() {
+        assert_ne!(
+            rotation(DisclosureStyle::Triangle, false),
+            rotation(DisclosureStyle::Button, false),
+            "a global rotation would make source-list triangles point down"
+        );
+    }
+
+    #[test]
+    fn the_button_glyph_is_the_measured_7_by_5_triangle_in_a_21_by_20_bezel() {
+        let theme = aqua();
+        let button = Glyph::for_style(DisclosureStyle::Button, &theme);
+        assert_eq!((button.hit_width, button.hit_height), (21.0, 20.0));
+        assert_eq!((button.spread, button.axis), (7.0, 5.0));
+
+        let triangle = Glyph::for_style(DisclosureStyle::Triangle, &theme);
+        assert_eq!(triangle.hit_width, theme.metrics.disclosure_size);
+        assert_eq!(triangle.hit_height, theme.metrics.disclosure_size);
+        assert_eq!(triangle.axis, theme.metrics.disclosure_width);
+        assert_eq!(triangle.spread, theme.metrics.disclosure_height);
+    }
+
+    #[test]
+    fn the_triangle_keeps_its_silhouette_at_every_quarter_turn() {
+        let bounds = gpui::Bounds::new(gpui::point(px(0.), px(0.)), gpui::size(px(13.), px(13.)));
+        for angle in [0.0, 1.0, -1.0, 2.0] {
+            let points = triangle_points(bounds, angle, 4.5, 6.0, 0.64);
+            assert_eq!(points.len(), 3, "a quarter turn is still a triangle");
+        }
+        // Right-pointing: the apex is the rightmost vertex.
+        let right = triangle_points(bounds, 0.0, 4.5, 6.0, 0.64);
+        let apex = right
+            .iter()
+            .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+            .unwrap();
+        assert!(apex.x > bounds.center().x);
+        // Down-pointing: the apex is the lowest vertex.
+        let down = triangle_points(bounds, 1.0, 4.5, 6.0, 0.64);
+        let apex = down
+            .iter()
+            .max_by(|a, b| a.y.partial_cmp(&b.y).unwrap())
+            .unwrap();
+        assert!(apex.y > bounds.center().y);
+        // Up-pointing: the apex is the highest vertex.
+        let up = triangle_points(bounds, -1.0, 4.5, 6.0, 0.64);
+        let apex = up
+            .iter()
+            .min_by(|a, b| a.y.partial_cmp(&b.y).unwrap())
+            .unwrap();
+        assert!(apex.y < bounds.center().y);
     }
 }

@@ -30,7 +30,7 @@ use crate::controls::table_view::{SortDirection, TableColumn, TableEvent, TableV
 use crate::controls::text_field::{TextField, TextFieldEvent};
 use crate::controls::{
     Alert, AlertButton, AlertResult, AlertRole, Button, CheckState, Checkbox, ControlSize,
-    Disclosure, DisclosureStyle,
+    Disclosure, DisclosureStyle, GroupBox,
 };
 use crate::convert::hsla;
 use crate::file_panel::chrome::{self, PanelToolbar};
@@ -1620,7 +1620,7 @@ impl FilePanel {
                 move |entry: &FileEntry, selected, _active, window, cx| {
                     let dim = !icon_model.read(cx).matches_types(entry);
                     entry.icon.file_element(
-                        32.0,
+                        crate::controls::icon_grid::ICON_SIZE,
                         icons::FileIconState {
                             selected,
                             inactive: !window.is_window_active(),
@@ -2275,9 +2275,9 @@ impl Render for FilePanel {
             )
             .child(div().flex_1().min_w_0().h_full().child(browser_area));
 
-        // One Save panel, two states. The chooser block and the Where row
-        // trade height under a single 220 ms ease; the sheet/card is
-        // content-sized so it zooms open and closed as one surface.
+        // One Save panel, two states. The Where row and the chooser trade
+        // height under a single 220 ms ease; every other row is shared, so the
+        // Save As column never moves between states.
         let save = self.mode == PanelMode::Save;
         let serial = self.expand_serial;
         let animate = self.expand_animated && save;
@@ -2316,68 +2316,68 @@ impl Render for FilePanel {
                 );
             }
             panel = panel.child(self.name_row(window, cx));
-            let where_row = div().child(self.where_row(cx));
-            let where_row: AnyElement = if animate {
-                where_row
-                    .with_animation(
-                        gpui::ElementId::Name(format!("save-where-{serial}").into()),
-                        Animation::new(duration).with_easing(easing),
-                        move |el, t| {
-                            let p = progress(t);
-                            el.h(px(30.0 * (1.0 - p)))
-                                .opacity(1.0 - p)
-                                .overflow_hidden()
-                        },
-                    )
-                    .into_any_element()
-            } else {
-                where_row
-                    .h(px(30.0 * (1.0 - target)))
-                    .opacity(1.0 - target)
+            if animate || !expanded {
+                let where_row = div()
+                    .debug_selector(|| "save-where-row-slot".into())
+                    .flex_none()
+                    .w_full()
                     .overflow_hidden()
-                    .into_any_element()
-            };
-            panel = panel.child(where_row);
+                    .child(self.where_row(cx));
+                let where_row: AnyElement = if animate {
+                    where_row
+                        .with_animation(
+                            gpui::ElementId::Name(format!("save-where-{serial}").into()),
+                            Animation::new(duration).with_easing(easing),
+                            move |el, t| {
+                                let p = progress(t);
+                                el.h(px(chrome::SAVE_WHERE_ROW_HEIGHT * (1.0 - p)))
+                                    .opacity(1.0 - p)
+                            },
+                        )
+                        .into_any_element()
+                } else {
+                    where_row.into_any_element()
+                };
+                panel = panel.child(where_row);
+            }
         }
-        let mut chooser = div()
-            .debug_selector(|| "panel-chooser".into())
-            .flex_none()
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .when(save, |el| el.border_t_1())
-            .border_color(hsla(theme.colors.divider))
-            .child(toolbar)
-            .child(browser_area);
-        if save {
-            chooser = chooser.child(self.format_row(cx));
-        }
-        if save {
-            let chooser: AnyElement = if animate {
-                chooser
-                    .with_animation(
-                        gpui::ElementId::Name(format!("save-chooser-{serial}").into()),
-                        Animation::new(duration).with_easing(easing),
-                        move |el, t| {
-                            let p = progress(t);
-                            el.h(px(292.0 * p)).opacity(p)
-                        },
-                    )
-                    .into_any_element()
+        // The chooser only exists while it is opening, open, or closing; a
+        // collapsed panel does not keep a hidden browser in the tree.
+        if !save || animate || expanded {
+            let chooser = div()
+                .debug_selector(|| "panel-chooser".into())
+                .flex_none()
+                .flex()
+                .flex_col()
+                .overflow_hidden()
+                .when(save, |el| el.border_t_1())
+                .border_color(hsla(theme.colors.divider))
+                .child(toolbar)
+                .child(browser_area);
+            if save {
+                let chooser: AnyElement = if animate {
+                    chooser
+                        .with_animation(
+                            gpui::ElementId::Name(format!("save-chooser-{serial}").into()),
+                            Animation::new(duration).with_easing(easing),
+                            move |el, t| {
+                                let p = progress(t);
+                                el.h(px(chrome::SAVE_CHOOSER_HEIGHT * p)).opacity(p)
+                            },
+                        )
+                        .into_any_element()
+                } else {
+                    chooser
+                        .h(px(chrome::SAVE_CHOOSER_HEIGHT))
+                        .into_any_element()
+                };
+                panel = panel.child(chooser);
             } else {
-                chooser
-                    .h(px(292.0 * target))
-                    .opacity(target)
-                    .into_any_element()
-            };
-            panel = panel.child(chooser);
-        } else {
-            panel = panel.child(chooser.flex_1());
+                panel = panel.child(chooser.flex_1());
+            }
         }
         if save {
-            // Minimal Save keeps its accessory space above the button row, as
-            // 10.6 does, instead of leaving a gap below the buttons.
-            panel = panel.child(div().flex_1().min_h(px(0.)));
+            panel = panel.child(self.format_row(cx));
         }
         if let Some(accessory) = &self.accessory {
             panel = panel.child(
@@ -2406,6 +2406,11 @@ impl Render for FilePanel {
             panel = panel.child(deferred(menu.clone()).priority(1));
         }
         if save {
+            // The root height is the measured row stack, interpolated between
+            // the two states, so static rendering and the animation share one
+            // layout.
+            let collapsed = chrome::SAVE_COLLAPSED_HEIGHT;
+            let grown = chrome::SAVE_EXPANDED_HEIGHT - collapsed;
             if animate {
                 panel
                     .with_animation(
@@ -2413,13 +2418,13 @@ impl Render for FilePanel {
                         Animation::new(duration).with_easing(easing),
                         move |el, t| {
                             let p = progress(t);
-                            el.h(px(160.0 + 216.0 * p + extra))
+                            el.h(px(collapsed + grown * p + extra))
                         },
                     )
                     .into_any_element()
             } else {
                 panel
-                    .h(px(160.0 + 216.0 * target + extra))
+                    .h(px(collapsed + grown * target + extra))
                     .into_any_element()
             }
         } else {
@@ -2429,48 +2434,67 @@ impl Render for FilePanel {
 }
 
 impl FilePanel {
+    /// One label in the shared label column, right-aligned on its colon.
+    fn save_label(&self, id: &'static str, text: &'static str) -> AnyElement {
+        div()
+            .debug_selector(move || id.into())
+            .flex_none()
+            .w(px(chrome::SAVE_LABEL_WIDTH))
+            .flex()
+            .justify_end()
+            .text_size(px(12.))
+            .child(text)
+            .into_any_element()
+    }
+
     fn name_row(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let field = self.name_field.clone();
-        let mut row = div()
-            .debug_selector(|| "save-name-row".into())
-            .flex_none()
+        let mut controls = div()
+            .w(px(chrome::SAVE_COLUMN_WIDTH))
             .flex()
             .items_center()
-            .gap(px(8.))
-            .px(px(12.))
-            .py(px(8.))
-            .child(div().flex_none().text_size(px(12.)).child("Save As:"));
-        if let Some(field) = field {
-            row = row.child(
+            .h(px(chrome::SAVE_NAME_HEIGHT))
+            .child(self.save_label("save-name-label", "Save As:"))
+            .child(
                 div()
-                    .flex_1()
+                    .flex_none()
+                    .w(px(chrome::SAVE_NAME_WIDTH))
+                    .ml(px(chrome::SAVE_LABEL_GAP))
                     .min_w_0()
                     .text_size(px(12.))
-                    .child(field.clone()),
+                    .children(field.clone()),
             );
-        }
         if self.mode == PanelMode::Save {
             let expanded = self.expanded;
             let this = cx.entity();
-            row = row.child(
-                Disclosure::new("save-disclosure", "Show file browser")
-                    .style(DisclosureStyle::Button)
-                    .expanded(expanded)
-                    .on_toggle(move |next, _, cx| {
-                        let next = *next;
-                        this.update(cx, |panel, cx| {
-                            panel.expanded = next;
-                            panel.expand_serial = panel.expand_serial.wrapping_add(1);
-                            panel.expand_animated = true;
-                            panel.save_panel_state(cx);
-                            panel.refresh_stops(cx);
-                            cx.notify();
-                        });
-                    }),
+            controls = controls.child(
+                div().flex_none().ml(px(chrome::SAVE_DISCLOSURE_GAP)).child(
+                    Disclosure::new("save-disclosure", "Show file browser")
+                        .style(DisclosureStyle::Button)
+                        .expanded(expanded)
+                        .on_toggle(move |next, _, cx| {
+                            let next = *next;
+                            this.update(cx, |panel, cx| {
+                                panel.expanded = next;
+                                panel.expand_serial = panel.expand_serial.wrapping_add(1);
+                                panel.expand_animated = true;
+                                panel.save_panel_state(cx);
+                                panel.refresh_stops(cx);
+                                cx.notify();
+                            });
+                        }),
+                ),
             );
         }
         let _ = window;
-        row.into_any_element()
+        div()
+            .debug_selector(|| "save-name-row".into())
+            .flex_none()
+            .flex()
+            .justify_center()
+            .pt(px(chrome::SAVE_TOP_PAD))
+            .child(controls)
+            .into_any_element()
     }
 
     /// The minimal Save dialog's Where pop-up (HIG p. 247): volumes, sidebar
@@ -2489,61 +2513,76 @@ impl FilePanel {
             .debug_selector(|| "save-where-row".into())
             .flex_none()
             .flex()
-            .items_center()
-            .gap(px(8.))
-            .px(px(12.))
-            .pb(px(8.))
-            .child(div().flex_none().text_size(px(12.)).child("Where:"))
+            .justify_center()
+            .pt(px(chrome::SAVE_ROW_GAP))
             .child(
-                div().w(px(280.)).child(
-                    PathPopUp::new("save-where", current)
-                        .ancestors(ancestors)
-                        .recent(recent)
-                        .on_navigate(move |id, _, cx| {
-                            let id = id.clone();
-                            this.update(cx, |panel, cx| panel.navigate(id, false, cx));
-                        }),
-                ),
+                div()
+                    .w(px(chrome::SAVE_COLUMN_WIDTH))
+                    .flex()
+                    .items_center()
+                    .h(px(chrome::SAVE_NAME_HEIGHT))
+                    .child(self.save_label("save-where-label", "Where:"))
+                    .child(
+                        div()
+                            .flex_none()
+                            .w(px(chrome::SAVE_WHERE_WIDTH))
+                            .ml(px(chrome::SAVE_LABEL_GAP))
+                            .child(
+                                PathPopUp::new("save-where", current)
+                                    .width(chrome::SAVE_WHERE_WIDTH)
+                                    .ancestors(ancestors)
+                                    .recent(recent)
+                                    .on_navigate(move |id, _, cx| {
+                                        let id = id.clone();
+                                        this.update(cx, |panel, cx| panel.navigate(id, false, cx));
+                                    }),
+                            ),
+                    ),
             )
             .into_any_element()
     }
 
-    /// Expanded Save: the Format slot and Hide extension (HIG p. 248).
+    /// The File Format row: a group box holding only the label and its pop-up
+    /// (HIG p. 248). Hide extension belongs to the bottom row.
     fn format_row(&self, cx: &mut Context<Self>) -> AnyElement {
         let labels: Vec<SharedString> = self.formats.iter().map(|f| f.label.clone()).collect();
         let this = cx.entity();
         let popup = PopUpButton::new("save-format", "Format", labels)
             .selected(Some(self.format))
             .size(ControlSize::Regular)
-            .min_width(140.0)
+            .width(chrome::SAVE_FORMAT_WIDTH)
             .on_choose(move |index, _, cx| {
                 let index = *index;
                 this.update(cx, |panel, cx| panel.choose_format(index, cx));
             });
-        let hide = self.hide_extension;
-        let this = cx.entity();
         div()
             .debug_selector(|| "save-format-row".into())
             .flex_none()
             .flex()
-            .items_center()
-            .gap(px(8.))
-            .px(px(12.))
-            .py(px(6.))
-            .child(div().flex_none().text_size(px(12.)).child("Format:"))
-            .child(popup)
-            .child(div().flex_1())
+            .justify_center()
+            .pt(px(chrome::SAVE_FORMAT_TOP_GAP))
             .child(
-                Checkbox::new("hide-extension", "Hide extension")
-                    .size(ControlSize::Small)
-                    .checked(hide)
-                    .on_change(move |state, _, cx| {
-                        this.update(cx, |panel, cx| {
-                            panel.hide_extension = *state == CheckState::On;
-                            panel.save_panel_state(cx);
-                            cx.notify();
-                        });
-                    }),
+                div().w(px(chrome::SAVE_COLUMN_WIDTH)).child(
+                    GroupBox::new("save-format-box")
+                        .padding(chrome::SAVE_BOX_INSET)
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(chrome::SAVE_FORMAT_GAP))
+                                .h(px(chrome::SAVE_NAME_HEIGHT))
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .w(px(chrome::SAVE_FORMAT_LABEL_WIDTH))
+                                        .flex()
+                                        .justify_end()
+                                        .text_size(px(12.))
+                                        .child("File Format:"),
+                                )
+                                .child(popup),
+                        ),
+                ),
             )
             .into_any_element()
     }
@@ -2761,6 +2800,65 @@ impl FilePanel {
             .or_else(|| loading.then(|| "Loading\u{2026}".to_string()));
         let has_status = status.is_some();
         let _ = window;
+        if self.mode == PanelMode::Save {
+            // Expanded Save's bottom row: Hide extension, New Folder, flexible
+            // space, Cancel, Save (HIG pp. 247-248). The checkbox appears only
+            // where the extension policy lets the user hide it.
+            let hide = self.hide_extension;
+            let this = cx.entity();
+            let show_hide = matches!(
+                self.extension_policy,
+                ExtensionPolicy::Any | ExtensionPolicy::Required
+            );
+            return div()
+                .debug_selector(|| "panel-buttons".into())
+                .flex_none()
+                .flex()
+                .items_center()
+                .h(px(chrome::SAVE_BOTTOM_ROW_HEIGHT))
+                .pt(px(chrome::SAVE_BOTTOM_GAP))
+                .pb(px(chrome::SAVE_BOTTOM_PAD))
+                .px(px(chrome::SAVE_INSET))
+                .when(self.expanded && show_hide, |el| {
+                    el.child(
+                        Checkbox::new("hide-extension", "Hide extension")
+                            .size(ControlSize::Regular)
+                            .checked(hide)
+                            .on_change(move |state, _, cx| {
+                                this.update(cx, |panel, cx| {
+                                    panel.hide_extension = *state == CheckState::On;
+                                    panel.save_panel_state(cx);
+                                    cx.notify();
+                                });
+                            }),
+                    )
+                })
+                .when(show_new_folder, |el| {
+                    el.child(
+                        div()
+                            .flex_none()
+                            .ml(px(chrome::SAVE_NEW_FOLDER_GAP))
+                            .child(new_folder),
+                    )
+                })
+                .when_some(status, |el, status| {
+                    el.child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .pl(px(12.))
+                            .truncate()
+                            .text_size(px(11.))
+                            .text_color(hsla(cx.theme().colors.text_secondary))
+                            .child(status),
+                    )
+                })
+                .when(!has_status, |el| el.child(div().flex_1()))
+                .child(cancel)
+                .child(div().flex_none().w(px(chrome::SAVE_BUTTON_GAP)))
+                .child(accept)
+                .into_any_element();
+        }
         div()
             .debug_selector(|| "panel-buttons".into())
             .flex_none()
@@ -2829,7 +2927,7 @@ pub fn begin_sheet(
         let content_panel = panel.clone();
         sheet::Sheet::new(
             title.to_string(),
-            chrome::PANEL_WIDTH,
+            chrome::SAVE_SHEET_WIDTH,
             session.clone(),
             move |_: &mut Window, _: &mut App| content_panel.clone().into_any_element(),
             cx,
@@ -2926,10 +3024,10 @@ impl FilePanel {
     /// or the sheet's content. Includes an optional message and accessory.
     #[must_use]
     pub fn preferred_height(&self) -> f32 {
-        let base = if self.mode == PanelMode::Save && !self.expanded {
-            chrome::COLLAPSED_HEIGHT
-        } else {
-            chrome::PANEL_CONTENT_HEIGHT
+        let base = match (self.mode, self.expanded) {
+            (PanelMode::Save, false) => chrome::SAVE_COLLAPSED_HEIGHT,
+            (PanelMode::Save, true) => chrome::SAVE_EXPANDED_HEIGHT,
+            (PanelMode::Open, _) => chrome::PANEL_CONTENT_HEIGHT,
         };
         let accessory = if self.accessory.is_some() {
             chrome::ACCESSORY_HEIGHT

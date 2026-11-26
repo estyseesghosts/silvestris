@@ -356,11 +356,11 @@ fn new_folder_in_columns_mode_selects_and_renames_the_row() {
 fn the_disclosure_hides_and_shows_the_browser() {
     let mut app = TestAppContext::single();
     let (panel, _outcome, _provider, mut cx) = present(&mut app, "fresh.txt", false, false, false);
-    let chooser = cx.debug_bounds("panel-chooser").expect("chooser block");
+    // Minimal Save does not keep a hidden browser or toolbar in the tree at
+    // opacity zero (docs/SAVEPANEL-3.txt, Task 3).
     assert!(
-        f32::from(chooser.size.height) < 2.0,
-        "the chooser is folded away in minimal Save (HIG p. 247), got {}",
-        chooser.size.height
+        cx.debug_bounds("panel-chooser").is_none(),
+        "minimal Save folds the chooser out of the tree entirely"
     );
     assert!(
         cx.debug_bounds("save-where-row").is_some(),
@@ -370,7 +370,7 @@ fn the_disclosure_hides_and_shows_the_browser() {
     let accept_bottom = cx.debug_bounds("panel-accept").expect("accept").bottom();
     assert!(
         panel_bottom - accept_bottom < px(30.),
-        "the accessory gap sits above the buttons, not below them: {} px",
+        "the buttons sit on the sheet's bottom pad, not above a reserved gap: {} px",
         panel_bottom - accept_bottom
     );
     assert!(
@@ -738,6 +738,187 @@ fn typing_in_the_name_field_does_not_type_select_the_browser() {
         cx.read(|cx| panel.read(cx).selected_count(cx)),
         1,
         "the browser keeps its selection while the name field takes the keys"
+    );
+}
+
+#[test]
+fn the_minimal_save_grid_aligns_labels_field_disclosure_and_where() {
+    use silvestris::file_panel::chrome;
+
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, _provider, mut cx) =
+        present(&mut app, "report.txt", false, false, false);
+    let name_row = cx.debug_bounds("save-name-row").expect("name row");
+    let where_row = cx.debug_bounds("save-where-row").expect("where row");
+    let disclosure = cx.debug_bounds("save-disclosure").expect("disclosure");
+    let where_popup = cx.debug_bounds("save-where").expect("where pop-up");
+
+    // One alignment grid: Where starts on the field's x, and the disclosure
+    // sits one fixed gap after the field.
+    assert!(
+        (f32::from(where_popup.origin.x) + chrome::SAVE_NAME_WIDTH + chrome::SAVE_DISCLOSURE_GAP
+            - f32::from(disclosure.origin.x))
+        .abs()
+            <= 1.0,
+        "the disclosure sits one fixed gap after the field"
+    );
+    assert!(
+        (f32::from(where_popup.size.width) - chrome::SAVE_WHERE_WIDTH).abs() <= 1.0,
+        "Where is the measured 252 px, got {}",
+        where_popup.size.width
+    );
+    assert!(
+        (f32::from(disclosure.size.width) - 21.0).abs() <= 1.0,
+        "the disclosure button is a 21 px bezel, got {}",
+        disclosure.size.width
+    );
+    assert!(
+        f32::from(name_row.size.height) >= chrome::SAVE_NAME_ROW_HEIGHT - 0.5,
+        "the name row holds its measured height"
+    );
+    assert!(
+        f32::from(where_row.size.height) > 0.0,
+        "the Where row is present"
+    );
+    // Save As and Where share the label column, so the two labels' right
+    // edges differ by less than a pixel.
+    let name_label = cx.debug_bounds("save-name-label").expect("Save As label");
+    let where_label = cx.debug_bounds("save-where-label").expect("Where label");
+    assert!(
+        (f32::from(name_label.origin.x) + f32::from(name_label.size.width)
+            - f32::from(where_label.origin.x)
+            - f32::from(where_label.size.width))
+        .abs()
+            <= 0.5,
+        "both labels are right-aligned on one column"
+    );
+    // The Where pop-up shares the field's left edge.
+    let field_left = f32::from(where_popup.origin.x);
+    let label_right = f32::from(name_label.origin.x) + f32::from(name_label.size.width);
+    assert!(
+        (field_left - label_right - chrome::SAVE_LABEL_GAP).abs() <= 1.0,
+        "the label-to-control gap is the measured 6 px"
+    );
+}
+
+#[test]
+fn expanding_the_save_panel_does_not_move_the_name_column() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, _provider, mut cx) = present(&mut app, "report.txt", false, false, false);
+    let collapsed = cx.debug_bounds("save-disclosure").expect("disclosure");
+    cx.simulate_click(collapsed.center(), Modifiers::default());
+    assert!(cx.read(|cx| panel.read(cx).expanded()));
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(260));
+    draw(&mut cx);
+    let expanded = cx.debug_bounds("save-disclosure").expect("disclosure");
+    assert!(
+        (f32::from(expanded.origin.x) - f32::from(collapsed.origin.x)).abs() <= 0.5,
+        "the field and disclosure keep their x: {} -> {}",
+        collapsed.origin.x,
+        expanded.origin.x
+    );
+    assert!(
+        (f32::from(expanded.origin.y) - f32::from(collapsed.origin.y)).abs() <= 0.5,
+        "the name row keeps its y"
+    );
+}
+
+#[test]
+fn the_expanded_save_bottom_row_orders_hide_new_folder_cancel_save() {
+    use silvestris::file_panel::chrome;
+
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, _provider, mut cx) = present(&mut app, "report.txt", false, true, false);
+    let hide = cx.debug_bounds("hide-extension").expect("Hide extension");
+    let new_folder = cx.debug_bounds("panel-new-folder").expect("New Folder");
+    let cancel = cx.debug_bounds("panel-cancel").expect("Cancel");
+    let save = cx.debug_bounds("panel-accept").expect("Save");
+    let format = cx.debug_bounds("save-format-row").expect("Format row");
+
+    assert!(
+        f32::from(format.origin.y) + f32::from(format.size.height) <= f32::from(cancel.origin.y),
+        "the Format row sits above the bottom row"
+    );
+    assert!(
+        f32::from(hide.origin.x) < f32::from(new_folder.origin.x),
+        "Hide extension leads"
+    );
+    assert!(
+        f32::from(new_folder.origin.x) < f32::from(cancel.origin.x),
+        "New Folder follows Hide extension"
+    );
+    assert!(
+        f32::from(cancel.origin.x) + f32::from(cancel.size.width) <= f32::from(save.origin.x),
+        "Cancel is left of Save"
+    );
+    let gap =
+        f32::from(save.origin.x) - (f32::from(cancel.origin.x) + f32::from(cancel.size.width));
+    assert!(
+        gap >= 12.0,
+        "Cancel to Save is at least the HIG 12 px, got {gap}"
+    );
+    // The bottom row uses the sheet's 20 px inset, not the 12 px Open padding.
+    let sheet = cx.debug_bounds("silvestris-sheet").expect("sheet");
+    let inset = f32::from(hide.origin.x) - f32::from(sheet.origin.x);
+    assert!(
+        (inset - chrome::SAVE_INSET).abs() <= 2.0,
+        "the bottom row keeps the 20 px sheet inset, got {inset}"
+    );
+    // New Folder is content-driven, not squeezed to Cancel's width.
+    assert!(
+        (f32::from(new_folder.size.width) - f32::from(cancel.size.width)).abs() > 0.5,
+        "New Folder is not forced to Cancel's width"
+    );
+}
+
+#[test]
+fn the_minimal_save_sheet_is_content_sized_with_no_reserved_dead_space() {
+    use silvestris::file_panel::chrome;
+
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, _provider, mut cx) =
+        present(&mut app, "report.txt", false, false, false);
+    let card = cx.debug_bounds("silvestris-sheet").expect("sheet");
+    // 10.6's minimal sheet is 185 px tall; the derived rows land within a pixel.
+    assert!(
+        (f32::from(card.size.height) - 186.0).abs() <= 2.0,
+        "the minimal card is content-sized (10.6: 185), got {}",
+        card.size.height
+    );
+    let panel_bounds = cx.debug_bounds("file-panel").expect("panel");
+    assert!(
+        (f32::from(panel_bounds.size.height) - chrome::SAVE_COLLAPSED_HEIGHT).abs() <= 1.0,
+        "the panel fills exactly its measured rows: {} vs {}",
+        panel_bounds.size.height,
+        chrome::SAVE_COLLAPSED_HEIGHT
+    );
+    // No hidden browser or toolbar consumes space in minimal mode.
+    assert!(
+        cx.debug_bounds("panel-browser-area").is_none()
+            && cx.debug_bounds("panel-toolbar").is_none(),
+        "minimal Save draws no browser or toolbar"
+    );
+}
+
+#[test]
+fn the_expanded_save_sheet_matches_the_measured_399_px() {
+    use silvestris::file_panel::chrome;
+
+    let mut app = TestAppContext::single();
+    let (_panel, _outcome, _provider, mut cx) = present(&mut app, "report.txt", false, true, false);
+    let panel_bounds = cx.debug_bounds("file-panel").expect("panel");
+    assert!(
+        (f32::from(panel_bounds.size.height) - chrome::SAVE_EXPANDED_HEIGHT).abs() <= 1.0,
+        "the expanded panel fills its measured rows: {} vs {}",
+        panel_bounds.size.height,
+        chrome::SAVE_EXPANDED_HEIGHT
+    );
+    // 10.6's expanded sheet is 399 px; the derived rows land on it.
+    assert!(
+        (chrome::SAVE_EXPANDED_HEIGHT - 399.0).abs() <= 2.0,
+        "the derived expanded height matches the capture, got {}",
+        chrome::SAVE_EXPANDED_HEIGHT
     );
 }
 

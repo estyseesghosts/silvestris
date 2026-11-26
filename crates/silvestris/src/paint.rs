@@ -394,6 +394,22 @@ pub fn selection(window: &mut Window, bounds: Bounds<Pixels>, s: &Selection) {
     }
 }
 
+/// Icon-view selection: the filename block only, as a small rounded capsule
+/// rather than a table row (M: finder--view-icon--documents, where the selected
+/// label is a 96 x 32 px pill hugging a two-line filename).
+pub fn selection_pill(window: &mut Window, bounds: Bounds<Pixels>, s: &Selection) {
+    if bounds.size.width <= px(0.) || bounds.size.height <= px(0.) {
+        return;
+    }
+    let radius = px(4.).min(bounds.size.height / 2.0);
+    fill_rounded(
+        window,
+        snap_bounds(window, bounds),
+        radius,
+        gpui::solid_background(hsla(s.fill.from)),
+    );
+}
+
 /// A horizontal line one device row high.
 pub fn hline(window: &mut Window, x: Pixels, y: Pixels, width: Pixels, color: Rgba8) {
     let h = hairline(window);

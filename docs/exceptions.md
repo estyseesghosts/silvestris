@@ -256,14 +256,37 @@ submenu placement, the arrow and the label inset.
   (three 22-23 px segments), path pop-up 219, search 108, controls 22 rows and
   regular buttons 21 rows. `file_panel/chrome.rs` states whether each constant
   is the outer or content height.
-- The minimal Save content height (160 px) is an estimate: no 10.6 Save-sheet
-  capture with both window edges exists. The Save sheet is a document sheet
-  (HIG p. 247) but no corpus capture shows it; its 0.22 black shadow, 12 px
-  blur, 5 px downward offset, 200 ms emerge and 160 ms retract are estimates.
-  The minimal/expanded transition is one panel whose chooser unfolds in 220 ms
-  with an ease-in-out curve; the height is content-driven. Do not claim
-  measured fidelity for Save until the user supplies the 10.6 captures
-  requested in NSSAVEPANEL-2 S0.
+- The minimal Save content height is derived, not estimated: it is the measured
+  Save-As row, Where row, Format box and button row from the genuine 10.6
+  captures in `hig-09/vm-screenshots/sl-archive/dialogs/`
+  (`dialogs--save-sheet--collapsed.png`, `--expanded.png`, `--icon-view.png`).
+  `file_panel/chrome.rs` states each measured row and derives
+  `SAVE_COLLAPSED_HEIGHT` and `SAVE_EXPANDED_HEIGHT` from them, and the
+  transition interpolates between exactly those two constants.
+- The Save sheet's outer width is the exception: 10.6 sizes it to its content
+  (431 px collapsed, 541 px expanded), while Silvestris presents Save in the
+  same 527 px modal card as Open. The Save rows are laid out in one fixed inner
+  column centred in that card, so the Save As column never moves between
+  states. Do not claim the 431/541 px widths.
+- The Save sheet's 0.22 black shadow, 12 px blur, 5 px downward offset, 200 ms
+  emerge and 160 ms retract remain estimates; no capture isolates the shadow.
+  The minimal/expanded transition is one panel whose 220 ms ease unfolds the
+  chooser while the Where row folds away.
+- The panel icon grid is measured from the icon-view Save capture: 48 px
+  artwork, 109 px vertical pitch, ~184 px horizontal pitch in the panel's
+  browser and a 96 x 32 px selected-name pill. `CELL_WIDTH` is 172 px because
+  Silvestris keeps a whole number of cells across the browser; that is 12 px
+  narrower than the measured pitch and still gives two columns. The Finder
+  reference puts the same artwork on a 137 px pitch in a full window. Finder's
+  icon-size slider is not reproduced.
+- The file-panel icons are original full-colour 16 px artwork designed for this
+  project, drawn at 48 px in icon view; they are not traced or recoloured Apple
+  artwork. The inactive/disabled variants desaturate rather than switching to a
+  second drawing. The icon set is a design choice, not a corpus measurement.
+- Icon-view selection is the filename block only: a rounded pill behind the
+  label, not a table row over the whole cell. The full `CELL_WIDTH x
+  CELL_HEIGHT` area stays clickable through an overlay, and the artwork keeps
+  its colours when selected (M: `finder--view-icon--documents.png`).
 - The NSSavePanel layout references (`docs/file-panel-comparison.md`) supply
   row order but not a known scale. The 30 px message line and 88 px accessory
   box are estimates from those crops. The Open preview column and selection
@@ -294,12 +317,9 @@ submenu placement, the arrow and the label inset.
   grip (two 1 px lines 3 px apart, 7 px tall, 5 px above the bottom) are
   measured.
 - The file-panel icons are original full-colour 16 px artwork designed for this
-  project, with a designed 32 px grid rendering; they are not traced or
-  recoloured Apple artwork. The inactive/disabled variants desaturate rather
-  than switching to a second drawing. The icon set is a design choice, not a
-  corpus measurement.
-- The icon cell (88 x 76) and its 32 px icon are designed: no corpus capture
-  shows the Open panel in icon view.
+  project, drawn at 48 px in icon view; they are not traced or recoloured Apple
+  artwork. The inactive/disabled variants desaturate rather than switching to a
+  second drawing. The icon set is a design choice, not a corpus measurement.
 - The Save panel's inline rename commits through `FileProvider::rename`; the
   folder name suggestion "untitled folder" follows 10.6, but the numeric
   suffix pattern is our own.

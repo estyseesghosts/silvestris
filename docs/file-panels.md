@@ -262,18 +262,28 @@ segment is not acceptable.
 ## Save details
 
 - The minimal state (HIG p. 247) is the Save As field, Where pop-up,
-  disclosure, Cancel and Save. It has no toolbar, sidebar, browser or New
-  Folder. Application content goes between Where and the buttons.
-- The disclosure is the bevel button at the trailing edge of the Save As
-  field, as in the NSSavePanel references. `SavePanel::message` draws an
-  application line centred above that row. An `accessory` is an inset,
-  bordered box above the button row and is present in both states.
-- The expanded state adds the toolbar, sidebar, browser, Format slot, Hide
-  extension and New Folder (p. 248). It is the same panel, not a second view:
-  the chooser unfolds from the Where row in one 220 ms eased transition, and
-  folds back into it. The sheet/card is content-sized, so it grows and shrinks
-  with the panel. The expanded state and Hide extension persist through
-  `PanelStateStore`.
+  disclosure, File Format box, Cancel and Save. It has no toolbar, sidebar,
+  browser or New Folder. Application content goes between Where and the
+  buttons.
+- `Save As:` and `Where:` share one right-aligned label column; the field and
+  the Where pop-up start on the same x and the field keeps a fixed, measured
+  width instead of stretching. The disclosure is the bevel button one small gap
+  after the field, as in the NSSavePanel references; it points down when the
+  browser is hidden and up when it is shown. `SavePanel::message` draws an
+  application line centred above that row. An `accessory` is an inset, bordered
+  box above the button row and is present in both states.
+- The expanded state adds the toolbar, sidebar, browser and the bottom row,
+  in that order: browser, then the File Format box, then Hide extension, New
+  Folder, flexible space, Cancel and Save (pp. 247-248). It is the same panel,
+  not a second view: the chooser unfolds from the Where row in one 220 ms eased
+  transition, and folds back into it. The sheet/card is content-sized, so it
+  grows and shrinks with the panel. The expanded state and Hide extension
+  persist through `PanelStateStore`. Every row height is derived from the
+  measured 10.6 rows in `file_panel/chrome.rs`, so the transition interpolates
+  the same geometry the static render uses.
+- Icon view keeps the whole cell clickable but paints the selection as a small
+  pill behind the filename only, and the file artwork keeps its colours when
+  selected. Long names wrap inside the cell's label width.
 - `extension_policy` decides what happens to the typed extension. `Any` is
   the default: the name is saved as typed and `allowed_types` only filters the
   browser. `Fixed("txt")` replaces or appends that extension. `Required`

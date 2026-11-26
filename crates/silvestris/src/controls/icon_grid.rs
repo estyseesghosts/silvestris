@@ -26,12 +26,23 @@ use crate::binding::{ItemId, ListController};
 use crate::convert::hsla;
 use crate::{paint, ActiveTheme};
 
-/// Measured panel icon cell: four columns fit the 367 px browser at 1x.
-pub const CELL_WIDTH: f32 = 88.0;
-/// Icon, two label lines and the selection inset.
-pub const CELL_HEIGHT: f32 = 76.0;
-/// Full-colour file icon in an icon-view cell.
-pub const ICON_SIZE: f32 = 32.0;
+/// Icon-view cell pitch, measured from the 10.6 icon-view Save sheet
+/// (`dialogs--save-sheet--icon-view.png`): icons start 184 px apart in a 349 px
+/// browser, so two columns overlap the edges rather than sitting on a strict
+/// grid. Silvestris keeps a whole number of cells across the browser, so the
+/// pitch is narrowed to 172 px — still two columns in the same browser, within
+/// 12 px of the measured pitch. The Finder reference uses the same artwork on a
+/// 137 px pitch in a full window.
+pub const CELL_WIDTH: f32 = 172.0;
+/// Icon, two label lines and their spacing: the panel reference puts the next
+/// row's artwork 109 px below the previous row's.
+pub const CELL_HEIGHT: f32 = 109.0;
+/// Full-colour file icon in an icon-view cell. 10.6 artwork is 48 px tall in
+/// both the Finder and the panel icon view.
+pub const ICON_SIZE: f32 = 48.0;
+/// Leading and top gutter before the first logical cell, as the panel shows
+/// (its first icon column starts 59 px into the browser).
+pub const GRID_GUTTER: f32 = 8.0;
 
 type IconFn<T> = Rc<dyn Fn(&T, bool, bool, &mut Window, &mut App) -> AnyElement>;
 type LabelFn<T> = Rc<dyn Fn(&T) -> SharedString>;
@@ -392,6 +403,44 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                         let view = view.clone();
                         let click_view = view.clone();
                         let menu_view = view.clone();
+                        // The click target is the whole cell, but the selection
+                        // artwork hugs the filename text block (Finder icon
+                        // view, M: panel.icon.selection). The cell keeps its
+                        // full CELL_WIDTH x CELL_HEIGHT hit area through the
+                        // absolute overlay below.
+                        let editing_this = match &editing {
+                            Some((editing_id, field)) if *editing_id == id => Some(field.clone()),
+                            _ => None,
+                        };
+                        let label_block = div()
+                            .debug_selector({
+                                let id = id.clone();
+                                move || format!("icon-selection-{id}")
+                            })
+                            .relative()
+                            .flex_none()
+                            .max_w(px(CELL_WIDTH - 8.0))
+                            .px(px(3.))
+                            .py(px(1.))
+                            .when(is_selected && editing_this.is_none(), |el| {
+                                el.child(
+                                    canvas(
+                                        |_, _, _| (),
+                                        move |bounds, _, window, _| {
+                                            paint::selection_pill(window, bounds, &selection);
+                                        },
+                                    )
+                                    .absolute()
+                                    .inset_0(),
+                                )
+                            })
+                            .child(match &editing_this {
+                                Some(field) => div()
+                                    .w(px(CELL_WIDTH - 14.0))
+                                    .child(field.clone())
+                                    .into_any_element(),
+                                None => div().text_center().child(label).into_any_element(),
+                            });
                         cells.push(
                             div()
                                 .id(SharedString::from(format!("icon-cell-{id}")))
@@ -411,32 +460,8 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                                 .gap(px(3.))
                                 .text_size(px(list_theme.type_.size_small))
                                 .text_color(hsla(text))
-                                .child(
-                                    canvas(
-                                        |_, _, _| (),
-                                        move |bounds, _, window, _| {
-                                            if is_selected {
-                                                paint::selection(window, bounds, &selection);
-                                            }
-                                        },
-                                    )
-                                    .absolute()
-                                    .inset_0(),
-                                )
                                 .child(icon_element)
-                                .child(match &editing {
-                                    Some((editing_id, field)) if *editing_id == id => div()
-                                        .w_full()
-                                        .px(px(4.))
-                                        .child(field.clone())
-                                        .into_any_element(),
-                                    _ => div()
-                                        .w_full()
-                                        .px(px(4.))
-                                        .text_center()
-                                        .child(label)
-                                        .into_any_element(),
-                                })
+                                .child(label_block)
                                 .child(
                                     div()
                                         .id(SharedString::from(format!("icon-hit-{id}")))
@@ -529,7 +554,15 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
             .child(
                 ScrollView::new("icon-grid-scroll", &self.scroll)
                     .axes(ScrollAxes::Vertical)
-                    .child(list),
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .size_full()
+                            .pt(px(GRID_GUTTER))
+                            .pl(px(GRID_GUTTER))
+                            .child(list),
+                    ),
             )
     }
 }
