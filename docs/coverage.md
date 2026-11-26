@@ -119,7 +119,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Toolbar | `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode, ToolbarItemStyle}` | provisional | four | `toolbar-rectangular`, `toolbar-capsule`, `toolbar-disabled`, `toolbar-icon-only`, `toolbar-text-only` | #26 |
 | Bottom bar | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus, BottomBarSize, BottomBarControlStyle}` | provisional | four | `bottom-bar-regular`, `bottom-bar-small` | #75 |
 | Shell layout | `Shell`, `ShellContent` | functional | four | — | #13 |
-| Forms | `Form`, `FormRow` | provisional | four | — | #54 |
+| Forms | `Form`, `FormRow`, `FormRowState` | functional | four | `preferences-general` | #54 |
 
 ## Dialogs and sheets
 

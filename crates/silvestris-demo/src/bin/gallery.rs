@@ -110,13 +110,24 @@ impl PreferencesDemo {
 fn demo_form(rows: usize, height: bool) -> Form {
     let mut form = Form::new(120.0);
     for index in 0..rows {
-        form = form.row(FormRow::new(
-            format!("Option {index}"),
-            Checkbox::new(format!("demo-option-{index}"), "Enabled")
-                .checked(height && index % 2 == 0)
-                .on_change(|_, _, _| {}),
-        ));
+        form = form.row(
+            FormRow::new(
+                format!("Option {index}"),
+                Checkbox::new(format!("demo-option-{index}"), "Enabled")
+                    .checked(height && index % 2 == 0)
+                    .on_change(|_, _, _| {}),
+            )
+            .dependent_on(Binding::<bool>::new(|_| true, |_, _| {})),
+        );
     }
+    form = form.row(
+        FormRow::new(
+            "Font",
+            Checkbox::new("demo-font", "Monospaced").checked(true),
+        )
+        .id("demo-font-row")
+        .error("Unknown font family"),
+    );
     form
 }
 

@@ -214,6 +214,11 @@ keep `PreferencesToolbar` out if it has no pane history.
 
 `TabView::on_overflow` reports how much wider and taller the pane needs; resize
 the window to that. `Form` handles right-aligned labels and label-less rows.
+`FormRow` states distinguish normal, disabled/dependent, informational note,
+warning and validation error; warnings and errors share one message slot below
+the control so the control does not move sideways. Use
+`FormRow::dependent_on(Binding<bool>)` for a row enabled by another setting, and
+keep the last valid model value when a `TextBinding` parse fails.
 `TextFieldEvent::EndedEditing` lets a form commit when focus leaves a field.
 
 The preferences store with schema versions and migration is #62. Until then,

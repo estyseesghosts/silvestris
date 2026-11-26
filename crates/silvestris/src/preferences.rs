@@ -27,7 +27,6 @@
 //! Geometry cites reference/measurements.json: prefs.overview.geometry,
 //! prefs.overview.bands, prefs.pane.geometry, groupbox.top, groupbox.left.
 //! Values not in a capture are marked "estimate".
-
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -36,6 +35,7 @@ use gpui::{
     SharedString, Size, Window,
 };
 
+use crate::binding::Binding;
 pub use crate::controls::TabView;
 use crate::controls::{Button, ButtonStyle, ControlSize, Segment, SegmentedControl};
 use crate::convert::hsla;
@@ -875,10 +875,29 @@ pub struct Form {
     label_width: f32,
     rows: Vec<FormRow>,
 }
+/// Explicit row state for a form row (HIG pp. 240-241 validation moments;
+/// pp. 347-350 preferences layout).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FormRowState {
+    #[default]
+    Normal,
+    /// The row depends on another setting and is not currently usable.
+    Disabled,
+    /// An informational note below the control.
+    Note,
+    /// A non-blocking warning below the control.
+    Warning,
+    /// A validation error below the control.
+    Error,
+}
+
 pub struct FormRow {
     label: Option<SharedString>,
     control: AnyElement,
     note: Option<SharedString>,
+    state: FormRowState,
+    dependent: Option<Binding<bool>>,
+    disabled: bool,
     id: Option<ElementId>,
 }
 impl FormRow {
@@ -888,6 +907,9 @@ impl FormRow {
             label: Some(label.into()),
             control: control.into_any_element(),
             note: None,
+            state: FormRowState::Normal,
+            dependent: None,
+            disabled: false,
             id: None,
         }
     }
@@ -897,17 +919,60 @@ impl FormRow {
             label: None,
             control: control.into_any_element(),
             note: None,
+            state: FormRowState::Normal,
+            dependent: None,
+            disabled: false,
             id: None,
         }
     }
-    /// Small explanatory text under the control.
+    /// Small explanatory text under the control. Keeps a warning or error if
+    /// one has already been set.
     pub fn note(mut self, note: impl Into<SharedString>) -> Self {
         self.note = Some(note.into());
+        if self.state == FormRowState::Normal {
+            self.state = FormRowState::Note;
+        }
+        self
+    }
+    /// A non-blocking warning in the standard message slot.
+    pub fn warning(mut self, message: impl Into<SharedString>) -> Self {
+        self.note = Some(message.into());
+        self.state = FormRowState::Warning;
+        self
+    }
+    /// A validation error in the standard message slot. The row keeps its
+    /// control and value; only the message and state change.
+    pub fn error(mut self, message: impl Into<SharedString>) -> Self {
+        self.note = Some(message.into());
+        self.state = FormRowState::Error;
+        self
+    }
+    /// Disable the row explicitly. The consumer still passes a disabled
+    /// control when the control owns interactive semantics.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        if disabled && matches!(self.state, FormRowState::Normal | FormRowState::Note) {
+            self.state = FormRowState::Disabled;
+        }
+        self
+    }
+    /// Follow a model value without rebuilding the form: the row is disabled
+    /// whenever the binding is false.
+    pub fn dependent_on(mut self, enabled: Binding<bool>) -> Self {
+        self.dependent = Some(enabled);
         self
     }
     pub fn id(mut self, id: impl Into<ElementId>) -> Self {
         self.id = Some(id.into());
         self
+    }
+
+    fn is_enabled(&self, cx: &App) -> bool {
+        !self.disabled
+            && self
+                .dependent
+                .as_ref()
+                .is_none_or(|binding| binding.value(cx))
     }
 }
 impl Form {
@@ -930,19 +995,44 @@ impl RenderOnce for Form {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let secondary = hsla(theme.colors.text_secondary);
+        let warning = hsla(theme.colors.warning);
+        let error = hsla(theme.colors.error);
+        let on_color = hsla(theme.colors.text_on_accent);
         let row_height = theme.metrics.push_small_height;
         let small = theme.type_.size_small;
         let label_width = self.label_width;
         div().flex().flex_col().gap(px(CONTROL_GAP)).children(
             self.rows.into_iter().enumerate().map(move |(index, row)| {
+                let enabled = row.is_enabled(cx);
                 let id = row.id.unwrap_or(ElementId::Integer(index as u64));
                 let selector = id.to_string();
+                let message_color = match row.state {
+                    FormRowState::Warning => warning,
+                    FormRowState::Error => error,
+                    _ => secondary,
+                };
+                let marked = matches!(row.state, FormRowState::Warning | FormRowState::Error);
+                let marker = marked.then(|| {
+                    div()
+                        .size(px(12.0))
+                        .flex_none()
+                        .rounded_full()
+                        .bg(message_color)
+                        .text_color(on_color)
+                        .text_size(px(9.0))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child("!")
+                });
+                let message_selector = format!("{selector}-message");
                 div()
                     .debug_selector(move || selector.clone())
                     .id(id)
                     .flex()
                     .items_start()
                     .gap(px(CONTROL_GAP))
+                    .when(!enabled, |el| el.opacity(0.55))
                     .child(
                         div()
                             .flex_none()
@@ -969,7 +1059,15 @@ impl RenderOnce for Form {
                                     .child(row.control),
                             )
                             .children(row.note.map(|note| {
-                                div().text_size(px(small)).text_color(secondary).child(note)
+                                div()
+                                    .debug_selector(move || message_selector.clone())
+                                    .flex()
+                                    .items_start()
+                                    .gap(px(4.0))
+                                    .text_size(px(small))
+                                    .text_color(message_color)
+                                    .children(marker)
+                                    .child(div().min_w_0().child(note))
                             })),
                     )
             }),
@@ -980,6 +1078,7 @@ impl RenderOnce for Form {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::controls::Checkbox;
     use gpui::{Context, Render, TestAppContext};
 
     fn id(s: &str) -> Option<SharedString> {
@@ -1154,5 +1253,66 @@ mod tests {
         fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
             div()
         }
+    }
+
+    struct FormHost {
+        dependent: Binding<bool>,
+    }
+
+    impl Render for FormHost {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            Form::new(90.0)
+                .row(
+                    FormRow::new(
+                        "Font",
+                        Checkbox::new("font-control", "Monospaced").checked(true),
+                    )
+                    .id("font")
+                    .error("Unknown font family"),
+                )
+                .row(
+                    FormRow::new(
+                        "Spacing",
+                        Checkbox::new("spacing-control", "Automatic").checked(false),
+                    )
+                    .id("spacing")
+                    .note("Applies to new documents"),
+                )
+                .row(
+                    FormRow::control(
+                        Checkbox::new("dependent-control", "Use custom size").checked(true),
+                    )
+                    .id("dependent")
+                    .dependent_on(self.dependent.clone()),
+                )
+        }
+    }
+
+    #[test]
+    fn form_rows_expose_notes_and_errors_in_one_message_slot() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+        });
+        let dependent = {
+            let state = std::rc::Rc::new(std::cell::Cell::new(false));
+            let read = state.clone();
+            let write = state;
+            Binding::new(move |_| read.get(), move |value, _| write.set(value))
+        };
+        let (_view, cx) = app.add_window_view(move |_, _| FormHost { dependent });
+        cx.simulate_resize(size(px(500.), px(400.)));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            window.draw(cx).clear(cx);
+        });
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("font-control").is_some());
+        assert!(cx.debug_bounds("font-message").is_some());
+        assert!(cx.debug_bounds("spacing-message").is_some());
+        assert!(cx.debug_bounds("dependent-control").is_some());
+        let control = cx.debug_bounds("font-control").expect("control");
+        let message = cx.debug_bounds("font-message").expect("message");
+        assert!(message.origin.x <= control.origin.x + px(1.0));
     }
 }

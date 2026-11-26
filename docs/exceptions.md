@@ -52,6 +52,11 @@ repeated here; they are listed in place next to the token.
 `estimated:` tokens come from post-10.6 captures the user supplied because no
 10.6 capture shows the state. They are fits, not measurements.
 
+- Form validation marks use a 12 px coloured circle with a white exclamation
+  mark and a 4 px gap to the message. The HIG defines the three validation
+  moments and requires a clear state but gives no mark geometry; this is an
+  estimate. The message sits in the control column so the control does not move
+  horizontally.
 - Preferences pane-change resize uses a linear 160 ms transition
   (`preferences::PANE_RESIZE`). No 10.6 corpus capture records a preferences
   window transition, so the duration and easing are an estimate, not a

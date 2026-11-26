@@ -437,7 +437,7 @@ const PREFERENCE_SAMPLES: [Sample; 2] = [
     Sample {
         id: "preferences-general",
         width: 668.,
-        height: 294.,
+        height: 380.,
     },
     Sample {
         id: "preferences-scroll",
@@ -1462,6 +1462,25 @@ fn preferences_sample(
                 .checked(index % 2 == 0)
                 .on_change(|_, _, _| {}),
         ));
+    }
+    if !scrolls {
+        form = form
+            .row(
+                FormRow::new(
+                    "Font",
+                    Checkbox::new("preferences-font", "Monospaced").checked(true),
+                )
+                .id("preferences-font-row")
+                .error("Unknown font family"),
+            )
+            .row(
+                FormRow::new(
+                    "Size",
+                    Checkbox::new("preferences-size", "Fit to window").checked(false),
+                )
+                .id("preferences-size-row")
+                .warning("Larger sizes may not fit"),
+            );
     }
     WindowFrame::new(title)
         .role(WindowRole::Preferences)

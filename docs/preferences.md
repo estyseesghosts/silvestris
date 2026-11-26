@@ -30,6 +30,15 @@ Preferences capture in hig-09/images.
   still does not fit scrolls, with a `Scrollbar` inside the box's right edge.
 - `Form`/`FormRow`: right-aligned `Label:` column, controls in one column,
   label-less rows (checkboxes) aligned to the control column, optional note.
+  Rows carry explicit `FormRowState` values: normal, disabled/dependent,
+  informational note, warning and validation error. `.warning()` and `.error()`
+  use one standard message slot below the control with a 12 px mark, so an
+  error does not move the control or its label. `.dependent_on(Binding<bool>)`
+  dims and disables the row from the model without rebuilding the form; the
+  consumer still supplies the control's own disabled state for interaction.
+  `Binding<T>` controls (`checkbox`, `radio`, `popup`, `slider`) and a
+  `TextBinding<T>` in a row keep the value in the model; a validation error
+  leaves the last valid value in place.
 - `fit_content()` reports the laid-out height of the overview so the window can resize to it exactly; label wrapping makes a precomputed height unreliable.
 
 Measured (reference/measurements.json): `prefs.overview.geometry`

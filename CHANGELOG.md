@@ -5,6 +5,21 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After a89fd69
+
+Forms carry layout and validation behavior (#54):
+
+- `preferences::FormRowState` adds normal, disabled, informational note,
+  warning and validation-error states. `FormRow::warning` and `.error` share one
+  message slot below the control, aligned to the control column with a 12 px
+  mark, so the control and its label do not move when the message appears.
+- `FormRow::disabled` and `.dependent_on(Binding<bool>)` dim a row from the
+  model without rebuilding the form. The consumer still passes the control's
+  own disabled state for interaction and accessibility.
+- Bound checkbox/radio/pop-up/slider controls and `TextBinding` continue to own
+  values in the model; a failed parse leaves the last valid value. The
+  preferences capture now includes error and warning rows.
+
 ## After c8e2ecb
 
 Preferences window coordinator (#14):
