@@ -1,10 +1,10 @@
 # Silvestris roadmap
 
-Silvestris is the GUI layer for lotus, sandcat, chaus and johjoh, and for any future app in the same style. Apps compose and extend Silvestris; they do not paint their own controls. Every bespoke widget in a consumer is either a gap in Silvestris (tracked below) or a deliberate app-owned domain view (listed as such).
+Silvestris is the GUI layer for lotus, sandcat, chaus, johjoh and Pain, and for any future app in the same style. Apps compose and extend Silvestris; they do not paint their own controls. Every bespoke widget in a consumer is either a gap in Silvestris (tracked below) or a deliberate app-owned domain view (listed as such).
 
 Work is chosen by three inputs: what consumers are drawing themselves today (the gap register), what the Mac OS X 10.6 reference corpus in hig-09 shows, and what the HIG (2009) specifies. Three reference apps (a Finder-style file manager, the Installer/Setup Assistant, and System Preferences) are the acceptance tests: if one needs a private widget, Silvestris is missing a component.
 
-Adoption status: lotus, chaus and johjoh are active consumers. Sandcat currently builds against an uncommitted Silvestris checkout; it is not a gating consumer, and its adoption is deferred until Silvestris's own foundations land. Sandcat rows in the gap register are demand evidence, not a schedule.
+Adoption status: lotus, chaus, johjoh and Pain are active consumers. Sandcat currently builds against an uncommitted Silvestris checkout; it is not a gating consumer, and its adoption is deferred until Silvestris's own foundations land. Sandcat rows in the gap register are demand evidence, not a schedule.
 
 Tracking issue: [#72](https://github.com/estyseesghosts/silvestris/issues/72). Coverage: `docs/coverage.md` ([#52](https://github.com/estyseesghosts/silvestris/issues/52)). Visual gate: `docs/goldens.md` ([#18](https://github.com/estyseesghosts/silvestris/issues/18)). Composition: `docs/guide.md`. Consumer rules, pins and the gap register: `docs/consumers.md` ([#74](https://github.com/estyseesghosts/silvestris/issues/74)). Public API changes per commit range: `CHANGELOG.md`.
 
@@ -149,7 +149,9 @@ macOS/Linux parity, host services, locale, text services, packaging.
 
 ## Definition of done
 
-An issue is done only when all of these hold (skip a line only when it cannot apply, and say why in the closing comment):
+An issue is done only when all of these hold. This definition is mandatory for
+every roadmap task below; skip a line only when it cannot apply, and say why in
+the closing comment:
 
 1. `cargo fmt --all -- --check` with the repository `rustfmt.toml` (style guides: 100 columns, lowercase hex
    literals, macro matchers), `cargo clippy --workspace --all-targets --locked -- -D warnings` and
@@ -179,7 +181,7 @@ Every issue uses the same sections, in this order:
 
 Labels: `layer: foundation | control | view | window | reference app | quality`, `P0` (blocks consumers or other
 issues), `P1` (needed by a reference app or consumer soon), `P2` (completeness and polish), `area: …`, and
-`consumer: lotus | sandcat | chaus | johjoh` for the apps that are waiting on it.
+`consumer: lotus | sandcat | chaus | johjoh | pain` for the apps that are waiting on it.
 
 ## Consumer gap register
 
@@ -199,4 +201,30 @@ The register lives in [docs/consumers.md](docs/consumers.md#gap-register), next 
 - Sandcat is not a gating consumer. Its path dependency on a dirty checkout and its adoption are deferred until Silvestris's own foundations land; no provisional API is kept for it, and M0 does not wait on it.
 - Rust formatting follows `style-guides/rust-style-guide.md`: a `rustfmt.toml` with `max_width = 100`, `hex_literal_case = "Lower"` and `format_macro_matchers = true`. The format-only commit is [#73](https://github.com/estyseesghosts/silvestris/issues/73)'s first step.
 - The uncommitted `TextArea` prototype is discarded, not landed as-is. [#58](https://github.com/estyseesghosts/silvestris/issues/58) owns the multiline text API; [#73](https://github.com/estyseesghosts/silvestris/issues/73) attaches its duplication inventory as #58's checklist.
+
+## Cocoa-fixture reconciliation, 2026-11-26
+
+Audit against the current Silvestris tree and the open tracker issues. These
+states describe implementation maturity, not issue closure:
+
+| Issue | Current state | Evidence and remaining scope |
+|---|---|---|
+| #14 | Provisional | `PreferencesNavigator`, `PreferencesToolbar`, `PreferencesOverview`, and `Form` exist; `fit_content` is a measurement hook, not a window coordinator. Animation, usable-display sizing, scroll fallback, focus return and persistence are not provided here. |
+| #26 | Missing | Window-frame toolbar slot and file-panel toolbar are host-specific compositions, not the public item model, overflow or customization API promised by #26. |
+| #33 | Missing | No hierarchical table/outline control or System Profiler gallery sample exists. |
+| #34 | Functional but incomplete | `ColumnBrowser` supports provider-fed columns, async child responses, preview, resize handles, keyboard navigation and is used by Open/Save panels. It does not satisfy the shared file-view host and DnD requirements in this plan. Keep #34 open. |
+| #35 | Functional but incomplete | `IconGrid` is virtualized and supports selection, activation and rename; panel icon-view goldens exist. Marquee selection, arrangement/sort behavior and the shared view host remain. Keep #35 open. |
+| #36 | Missing | Shell/sidebar divider dragging and table-column resizing are not a window-aware drag session, drop-target negotiation or file-drop adapter. |
+| #46 | Missing | The generic ActionMenu, command pop-down and ScopeBar are absent. |
+| #48 | Functional but incomplete | `icons::Icon` and `FileIconState` provide colored file-panel artwork and monochrome toolbar glyphs, but they share one enum and there is no public consumer-artwork adapter or enforced size-family API. |
+| #49 | Missing | `explorer.rs` is a composition sample, not the Finder-style acceptance application described by #49. |
+| #53 | Provisional | `Shell` has its own sidebar/inspector divider; there is no reusable multi-pane `SplitView`. Preserve this distinction. |
+| #54 | Provisional | `Form` and `FormRow` provide aligned rows and notes, but standard validation states, inline error placement and model-bound dependencies are not complete. |
+| #56 | Missing | No System Preferences acceptance application with scripted scenarios exists. |
+| #75 | Missing | `WindowFrame` has a toolbar host; no BottomBar primitive or its status/control layout exists. |
+
+`docs/coverage.md` remains the component-level source of truth: Toolbar, Bottom
+Bar, Outline View and Drag and Drop are missing; Split View and Preferences/Form
+are provisional; Column/Icon views are functional. Functional Column/Icon
+implementations do not close their issues while promised behaviors remain.
 - [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.
