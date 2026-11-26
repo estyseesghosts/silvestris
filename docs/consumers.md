@@ -40,6 +40,10 @@ Domain views (an emulator screen, a texture preview, a code editor) are
 yours. Build them from Silvestris tables, splits, scrollers and paint
 helpers so they still pick up the theme.
 
+Pain's terminal is also an app-owned domain view: Silvestris provides its
+window chrome and preferences widgets, while Pain owns terminal rendering,
+PTY/session state and terminal geometry.
+
 ## Getting started
 
 ### Dependency
@@ -442,6 +446,8 @@ deferred.
 | johjoh | `prompt_for_paths` native dialogs | [#29](https://github.com/estyseesghosts/silvestris/issues/29), [#63](https://github.com/estyseesghosts/silvestris/issues/63) |
 | johjoh | `render_bottom` progress/status strip | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#8](https://github.com/estyseesghosts/silvestris/issues/8) |
 | johjoh | Error advice text | [#23](https://github.com/estyseesghosts/silvestris/issues/23) |
+| pain | Terminal is one app-owned domain view; it does not use a Shell/sidebar application architecture | App-owned by design; Pain owns PTY/session state, terminal geometry and Ghostty state |
+| pain | Simple theme, palette and profile preferences | Keep a simple `WindowRole::Preferences` form; #14 must preserve this path |
 | johjoh | OS file drops (`ExternalPaths`) | [#36](https://github.com/estyseesghosts/silvestris/issues/36) |
 
 Chaus adopted #29 at `30173a58`: File → Open is
