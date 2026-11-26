@@ -50,6 +50,12 @@ pub struct TextArea {
     disabled: bool,
     min_rows: usize,
     max_rows: usize,
+    /// Externally supplied pixel cap for the whole control, including insets.
+    /// When set it replaces the row-based `max_rows` cap.
+    max_height: Option<Pixels>,
+    /// Preferred content height measured from the last shaped layout, including
+    /// insets. `None` until the area has been laid out once.
+    measured_height: Option<Pixels>,
     scroll_y: Pixels,
     selecting: bool,
     caret: CaretBlink,
@@ -94,6 +100,8 @@ impl TextArea {
             disabled: false,
             min_rows: 3,
             max_rows: 10,
+            max_height: None,
+            measured_height: None,
             scroll_y: px(0.),
             selecting: false,
             caret: CaretBlink::default(),
@@ -183,6 +191,33 @@ impl TextArea {
         self.min_rows = min_rows.max(1);
         self.max_rows = max_rows.max(self.min_rows);
         cx.notify();
+    }
+
+    /// Caps the control's height in pixels, including its field insets.
+    ///
+    /// The intrinsic minimum is still one row; a cap smaller than that is
+    /// raised to the minimum. `None` restores the row-based `max_rows` cap.
+    /// The preferred height in between comes from the area's own wrapped
+    /// measurement, so consumers never calculate wrapping themselves.
+    pub fn set_max_height(&mut self, max: Option<Pixels>, cx: &mut Context<Self>) {
+        if self.max_height == max {
+            return;
+        }
+        self.max_height = max;
+        cx.notify();
+    }
+
+    /// The wrapped content height measured by the last layout, including
+    /// insets. `None` until the control has been laid out.
+    #[must_use]
+    pub fn measured_content_height(&self) -> Option<Pixels> {
+        self.measured_height
+    }
+
+    /// The internal scroll offset applied by the last paint.
+    #[must_use]
+    pub fn scroll_offset(&self) -> Pixels {
+        self.scroll_y
     }
 
     fn restart_blink(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -613,9 +648,22 @@ impl Render for TextArea {
         let enabled = !self.disabled;
         let focused = self.focus.is_focused(window);
         let line_height = window.line_height();
-        let logical_rows = self.session.text().split('\n').count().max(1);
-        let rows = logical_rows.clamp(self.min_rows, self.max_rows);
-        let height = line_height * rows as f32 + px(m.field_text_inset * 2.0);
+        let inset = px(m.field_text_inset * 2.0);
+        let min_height = line_height * self.min_rows as f32 + inset;
+        let max_height = self
+            .max_height
+            .map_or(line_height * self.max_rows as f32 + inset, |max| {
+                max.max(min_height)
+            });
+        // Before the first shaped pass, fall back to the physical-line estimate.
+        // Afterwards the height follows the wrapped content the area actually
+        // painted, so a single long paragraph grows and three short paragraphs
+        // do not.
+        let preferred = self.measured_height.unwrap_or_else(|| {
+            let logical_rows = self.session.text().split('\n').count().max(1);
+            line_height * logical_rows as f32 + inset
+        });
+        let height = preferred.max(min_height).min(max_height);
         let focus_ring = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let field = theme.controls.field;
@@ -691,6 +739,7 @@ struct AreaPrepaint {
     origin: Point<Pixels>,
     clip: Bounds<Pixels>,
     scroll_y: Pixels,
+    content_height: Pixels,
     selection: Vec<PaintQuad>,
     caret: Option<PaintQuad>,
 }
@@ -826,7 +875,10 @@ impl Element for AreaElement {
             start += line.len() + 1;
         }
         let total = y;
-        let visible = clip.size.height;
+        // The caret may paint up to the content mask (bounds inset by 2), which
+        // starts at the field inset. Using the raw clip height would let the
+        // last row hang below the mask when the field inset is larger.
+        let visible = (bounds.size.height - inset - px(2.)).max(px(1.));
         let line = area.line_for_offset(area.session.cursor()).unwrap_or(0);
         let local = area
             .session
@@ -897,6 +949,7 @@ impl Element for AreaElement {
             origin,
             clip,
             scroll_y,
+            content_height: total + inset * 2.0,
             selection,
             caret,
         }
@@ -948,9 +1001,10 @@ impl Element for AreaElement {
         let starts = std::mem::take(&mut prepaint.starts);
         let tops = std::mem::take(&mut prepaint.tops);
         let scroll_y = prepaint.scroll_y;
+        let content_height = prepaint.content_height;
         let origin = prepaint.origin;
         let clip = prepaint.clip;
-        self.area.update(cx, |area, _| {
+        self.area.update(cx, |area, cx| {
             area.last_lines = lines;
             area.last_starts = starts;
             area.last_tops = tops;
@@ -958,6 +1012,16 @@ impl Element for AreaElement {
             area.last_bounds = Some(clip);
             area.scroll_y = scroll_y;
             area.current_line_height = line_height;
+            // Width-dependent wrapping changes the measured height. Notify only
+            // when the preferred height genuinely moved, so a stable layout does
+            // not request an identical frame every paint.
+            let changed = area
+                .measured_height
+                .is_none_or(|old| (old - content_height).abs() > px(0.5));
+            area.measured_height = Some(content_height);
+            if changed {
+                cx.notify();
+            }
         });
     }
 }
@@ -975,6 +1039,7 @@ mod tests {
         area: Entity<TextArea>,
         events: Rc<RefCell<Vec<String>>>,
         focus: FocusHandle,
+        width: f32,
     }
 
     impl Render for Harness {
@@ -982,7 +1047,7 @@ mod tests {
             div()
                 .size_full()
                 .track_focus(&self.focus)
-                .child(div().w(px(320.)).child(self.area.clone()))
+                .child(div().w(px(self.width)).child(self.area.clone()))
         }
     }
 
@@ -1009,6 +1074,7 @@ mod tests {
                 area,
                 events,
                 focus,
+                width: 320.,
             }
         })
     }
@@ -1194,5 +1260,201 @@ mod tests {
             "a\nb"
         );
         let _ = Modifiers::default();
+    }
+
+    // --- visual height -----------------
+
+    fn harness_with_text<'a>(
+        app: &'a mut TestAppContext,
+        text: &str,
+    ) -> (Entity<Harness>, &'a mut VisualTestContext) {
+        app.update(|cx| {
+            crate::theme::install(crate::ThemePreference::default(), cx);
+            crate::controls::text_field::bind_keys(cx);
+        });
+        let (view, cx) = harness(app);
+        let text = text.to_owned();
+        cx.update(|_, cx| {
+            view.update(cx, |view, cx| {
+                view.area
+                    .update(cx, |area, cx| area.set_text(text.clone(), cx))
+            })
+        });
+        (view, cx)
+    }
+
+    fn line_height(cx: &mut VisualTestContext) -> Pixels {
+        cx.update(|window, _| window.line_height())
+    }
+
+    fn inset_height(cx: &mut VisualTestContext) -> Pixels {
+        cx.update(|_, cx| px(cx.theme().metrics.field_text_inset * 2.0))
+    }
+
+    fn measured(view: &Entity<Harness>, cx: &mut VisualTestContext) -> Pixels {
+        view.read_with(cx, |view, cx| {
+            view.area
+                .read(cx)
+                .measured_content_height()
+                .expect("the area has been laid out")
+        })
+    }
+
+    fn set_area(
+        view: &Entity<Harness>,
+        cx: &mut VisualTestContext,
+        change: impl FnOnce(&mut TextArea, &mut Context<TextArea>),
+    ) {
+        cx.update(|_, cx| view.update(cx, |view, cx| view.area.update(cx, change)));
+    }
+
+    #[test]
+    fn one_physical_line_measures_one_row() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "hello");
+        draw(cx);
+        draw(cx);
+        let expected = line_height(cx) + inset_height(cx);
+        assert_eq!(measured(&view, cx), expected);
+    }
+
+    #[test]
+    fn three_explicit_newlines_measure_three_rows() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "one\ntwo\nthree");
+        draw(cx);
+        draw(cx);
+        let expected = line_height(cx) * 3.0 + inset_height(cx);
+        assert_eq!(measured(&view, cx), expected);
+    }
+
+    #[test]
+    fn a_long_wrapping_paragraph_grows_without_newlines() {
+        let mut app = TestAppContext::single();
+        let paragraph = "word ".repeat(120);
+        let (view, cx) = harness_with_text(&mut app, &paragraph);
+        draw(cx);
+        draw(cx);
+        let one_row = line_height(cx) + inset_height(cx);
+        let height = measured(&view, cx);
+        assert!(
+            height > one_row * 2.0,
+            "wrapped rows, not physical newlines, must decide growth: {height:?}"
+        );
+    }
+
+    #[test]
+    fn deleting_back_to_one_line_shrinks_the_control() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "one\ntwo\nthree\nfour\nfive");
+        draw(cx);
+        draw(cx);
+        let tall = measured(&view, cx);
+        set_area(&view, cx, |area, cx| area.set_text("one", cx));
+        draw(cx);
+        draw(cx);
+        let short = measured(&view, cx);
+        assert!(short < tall);
+        assert_eq!(short, line_height(cx) + inset_height(cx));
+    }
+
+    #[test]
+    fn max_height_clamps_and_scrolls_instead_of_growing() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "a\nb\nc\nd\ne\nf\ng\nh\ni");
+        let cap = line_height(cx) * 3.0 + inset_height(cx);
+        set_area(&view, cx, |area, cx| area.set_max_height(Some(cap), cx));
+        draw(cx);
+        draw(cx);
+        let content = measured(&view, cx);
+        let (scroll, bounds) = view.read_with(cx, |view, cx| {
+            let area = view.area.read(cx);
+            (area.scroll_offset(), area.last_bounds.expect("painted"))
+        });
+        assert!(content > cap, "content itself stays taller than the cap");
+        assert!(scroll > px(0.), "the area scrolls internally at the cap");
+        assert!(
+            bounds.size.height <= cap,
+            "the painted control respects the cap"
+        );
+    }
+
+    #[test]
+    fn the_caret_stays_visible_while_the_area_scrolls() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "a\nb\nc\nd\ne\nf\ng\nh\ni");
+        let cap = line_height(cx) * 3.0 + inset_height(cx);
+        set_area(&view, cx, |area, cx| area.set_max_height(Some(cap), cx));
+        draw(cx);
+        draw(cx);
+        let (caret_top, caret_bottom, clip) = view.read_with(cx, |view, cx| {
+            let area = view.area.read(cx);
+            let (_, _, _, y) = area
+                .visual_position(area.session.cursor())
+                .expect("caret position");
+            let origin = area.last_origin.expect("painted");
+            let clip = area.last_bounds.expect("painted");
+            (origin.y + y, origin.y + y + area.current_line_height, clip)
+        });
+        assert!(
+            caret_top >= clip.top() && caret_bottom <= clip.bottom(),
+            "caret {caret_top:?}..{caret_bottom:?} must stay inside {clip:?}"
+        );
+    }
+
+    #[test]
+    fn narrowing_wraps_more_and_widening_wraps_less() {
+        let mut app = TestAppContext::single();
+        let paragraph = "word ".repeat(120);
+        let (view, cx) = harness_with_text(&mut app, &paragraph);
+        draw(cx);
+        draw(cx);
+        let wide = measured(&view, cx);
+        set_area(&view, cx, |_, _| {});
+        cx.update(|_, cx| {
+            view.update(cx, |view, cx| {
+                view.width = 120.;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        draw(cx);
+        let narrow = measured(&view, cx);
+        assert!(narrow > wide, "narrower must wrap into more rows");
+        cx.update(|_, cx| {
+            view.update(cx, |view, cx| {
+                view.width = 320.;
+                cx.notify();
+            })
+        });
+        draw(cx);
+        draw(cx);
+        assert_eq!(measured(&view, cx), wide, "widening restores the row count");
+    }
+
+    #[test]
+    fn a_short_draft_does_not_scroll_after_removing_the_cap() {
+        let mut app = TestAppContext::single();
+        let (view, cx) = harness_with_text(&mut app, "one\ntwo\nthree\nfour");
+        let cap = line_height(cx) * 2.0 + inset_height(cx);
+        set_area(&view, cx, |area, cx| area.set_max_height(Some(cap), cx));
+        draw(cx);
+        draw(cx);
+        assert!(view.read_with(cx, |view, cx| view.area.read(cx).scroll_offset()) > px(0.));
+        set_area(&view, cx, |area, cx| {
+            area.set_text("short", cx);
+            area.set_max_height(None, cx);
+        });
+        draw(cx);
+        draw(cx);
+        let (scroll, content) = view.read_with(cx, |view, cx| {
+            let area = view.area.read(cx);
+            (
+                area.scroll_offset(),
+                area.measured_content_height().unwrap(),
+            )
+        });
+        assert_eq!(scroll, px(0.), "a short draft is not a scrolling pane");
+        assert_eq!(content, line_height(cx) + inset_height(cx));
     }
 }
