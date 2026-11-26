@@ -7,6 +7,18 @@ depend on focus, key routing and layout.
 
 ## After a9a2879
 
+Action menus and scope bars (#46):
+
+- `controls::ActionMenu` is the Action artwork plus a down arrow, opening a
+  command menu through `PopupMenu::open_pop_down` on the shared transient
+  layer. `controls::CommandPopDown` is the labelled command form with an
+  optional template image. Both invoke commands through the registry/responder
+  chain and hide keyboard shortcuts in their rows.
+- `PopupMenu::set_show_shortcuts(false)` lets a command host suppress the key
+  column; the main menu bar keeps it.
+- `controls::ScopeBar`/`Scope` compose the measured small textured segmented
+  control for search/result narrowing. It reports only the chosen scope.
+
 Finder content views (#33/#34/#35) and one file-view host:
 
 - `controls::OutlineView` (`OutlineRow`, `OutlineEvent`) renders a consumer's

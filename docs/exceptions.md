@@ -82,6 +82,11 @@ repeated here; they are listed in place next to the token.
   It is a simple affordance pending a measured toolbar capture; no toolbar crop
   is indexed in `reference/crops.json`. Its host remains the regular textured
   control. Do not describe this glyph or its geometry as measured 10.6 fidelity.
+- `ActionMenu` and `CommandPopDown` reuse the pop-up cap's triangle path and
+  ink for their down arrow, inset 5 px from the button's trailing/bottom edge.
+  No separate Action-menu or command-pop-down crop is indexed in
+  `reference/crops.json`, so the inset and the single-arrow presentation are
+  estimates; the triangle geometry itself is the measured pop-up one.
 - Toolbar rectangular/textured is the default, with capsule style available as
   an explicit item choice. The HIG recommends consistency within a toolbar;
   exact 10.6 toolbar height/bezel measurements still come from captures, not

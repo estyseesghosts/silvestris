@@ -195,6 +195,14 @@ callback, and the callback runs after the registry read ends so it can update
 the registry. The application publishes the resulting state; the registry does
 not toggle speculatively.
 
+`ActionMenu` and `CommandPopDown` are command menus: the Action artwork (plus a
+down arrow) or a labelled button, opening a `MenuModel` through the shared
+transient layer. Their rows print no shortcuts. `ScopeBar` is the small row of
+exclusive scopes above search results; it composes the segmented control and
+reports only the chosen scope. Keep value choices in `PopUpButton` and ordinary
+navigation in its own controls. See [action-menu.md](action-menu.md) and
+[scope-bar.md](scope-bar.md).
+
 ## Controllers
 
 A controller is a GPUI entity that owns one coherent piece of state and emits

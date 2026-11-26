@@ -15,7 +15,8 @@ gated too (#20). The toolbar samples cover rectangular and capsule items,
 disabled state, Icon Only and Text Only; the bottom-bar samples cover the
 regular and small families. Two preferences pages show the fitted pane and the
 pane that exceeds the fixed window. Two split-view pages show the vertical thin
-divider and the horizontal thick divider with its dimple.
+divider and the horizontal thick divider with its dimple. One action page shows
+the closed Action menu, command pop-down and small scope bar.
 
 Committed:
 

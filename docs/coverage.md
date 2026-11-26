@@ -61,12 +61,12 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Bevel, icon, round, gradient buttons | `ButtonStyle::{Bevel, Round, Recessed, Help}` | measured | four | `button-round`, `button-recessed`, `button-help`, `button-bevel` | #10 |
 | Segmented control | `SegmentedControl`, `Segment`, `SegmentMode`, `SegmentStyle` | measured | four | `segmented`, `segmented-textured`, `segmented-icon`, `segmented-small` | #11 |
 | Pop-up button | `PopUpButton`, `PopupStyle` | measured | four | `popup-button`, `popup-textured`, `popup-disabled` | #1, #2 |
-| Scope buttons | none | missing | — | — | #46 |
+| Scope buttons | `ScopeBar`, `Scope` | functional | four | — | #46 |
 | Slider | `Slider`, `Orientation`, `ThumbStyle` | measured | four | `slider`, `slider-pointed`, `slider-vertical`, `slider-disabled` | #7 |
 | Stepper | `Stepper` | provisional | four | — | unfiled |
 | Combo box | `ComboBox` | provisional | four | — | unfiled |
-| Action menu | none | missing | — | — | #46 |
-| Command pop-down | none | missing | — | — | #46 |
+| Action menu | `ActionMenu` | functional | four | — | #46 |
+| Command pop-down | `CommandPopDown` | functional | four | — | #46 |
 | Date picker | none | missing | — | — | #42 |
 | Path control | `PathControl`, `PathPopUp`, `PathEntry`, `PathEvent`, `LocationId` | functional | four | — | #41 |
 | Colour well, image well | none | missing | — | — | #44 |

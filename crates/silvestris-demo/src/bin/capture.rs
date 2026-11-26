@@ -23,11 +23,12 @@ use silvestris::bottom_bar::{
 use silvestris::chrome::WindowFrame;
 use silvestris::command::CommandRegistry;
 use silvestris::controls::{
-    BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
-    ControlSize, Disclosure, DisclosureStyle, GroupBox, Orientation, PopUpButton, PopupStyle,
-    ProgressIndicator, RadioGroup, RadioOption, RowAccessory, RowStatus, ScrollAxes, ScrollView,
-    Segment, SegmentStyle, SegmentedControl, Separator, Slider, SortDirection, SourceList,
-    SourceListStyle, TabView, TableColumn, TableView, TextField, ThumbStyle, Well,
+    ActionMenu, BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
+    CommandPopDown, ControlSize, Disclosure, DisclosureStyle, GroupBox, Orientation, PopUpButton,
+    PopupStyle, ProgressIndicator, RadioGroup, RadioOption, RowAccessory, RowStatus, Scope,
+    ScopeBar, ScrollAxes, ScrollView, Segment, SegmentStyle, SegmentedControl, Separator, Slider,
+    SortDirection, SourceList, SourceListStyle, TabView, TableColumn, TableView, TextField,
+    ThumbStyle, Well,
 };
 use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
@@ -463,6 +464,14 @@ const SPLIT_SAMPLES: [Sample; 2] = [
     },
 ];
 
+/// Action menu, command pop-down and scope bar, closed, on their own page so
+/// the arrow and scope strip are readable.
+const ACTION_SAMPLES: [Sample; 1] = [Sample {
+    id: "action-menu-scope-bar",
+    width: 460.,
+    height: 96.,
+}];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -503,6 +512,18 @@ fn split_index(page: usize) -> usize {
     page - split_page_start()
 }
 
+fn action_page_start() -> usize {
+    split_page_start() + SPLIT_SAMPLES.len()
+}
+
+fn on_action_page(page: usize) -> bool {
+    (action_page_start()..action_page_start() + ACTION_SAMPLES.len()).contains(&page)
+}
+
+fn action_index(page: usize) -> usize {
+    page - action_page_start()
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
@@ -522,6 +543,10 @@ fn page_samples(page: usize) -> &'static [Sample] {
     if on_split_page(page) {
         let index = split_index(page);
         return &SPLIT_SAMPLES[index..index + 1];
+    }
+    if on_action_page(page) {
+        let index = action_index(page);
+        return &ACTION_SAMPLES[index..index + 1];
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -544,6 +569,10 @@ fn root_size(page: usize) -> (f32, f32) {
     }
     if on_split_page(page) {
         let sample = &SPLIT_SAMPLES[split_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
+    }
+    if on_action_page(page) {
+        let sample = &ACTION_SAMPLES[action_index(page)];
         return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
     (
@@ -574,6 +603,10 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
     }
     if on_split_page(page) {
         let sample = &SPLIT_SAMPLES[split_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
+    }
+    if on_action_page(page) {
+        let sample = &ACTION_SAMPLES[action_index(page)];
         return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
     let samples = page_samples(page);
@@ -1405,6 +1438,9 @@ impl CaptureView {
                 split_sample(SplitOrientation::Horizontal, SplitDividerStyle::Thick, cx)
                     .into_any_element()
             }
+            "action-menu-scope-bar" => {
+                action_scope_sample(&self.toolbar_commands).into_any_element()
+            }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -1562,6 +1598,56 @@ fn split_sample(
             .pane("split-title", SplitPane::new(64.0, 180.0), title)
             .pane("split-log", SplitPane::new(48.0, f32::INFINITY), log)
     }
+}
+
+fn action_scope_sample(registry: &Entity<CommandRegistry>) -> impl IntoElement {
+    let menu = MenuModel {
+        label: "Action".into(),
+        entries: vec![
+            MenuEntry::Command("golden.action".into()),
+            MenuEntry::Command("golden.info".into()),
+            MenuEntry::Separator,
+            MenuEntry::Command("golden.add".into()),
+        ],
+    };
+    div()
+        .size_full()
+        .p(px(12.))
+        .flex()
+        .flex_col()
+        .items_start()
+        .gap(px(12.))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .child(ActionMenu::new(
+                    "golden-action-menu",
+                    "Action",
+                    menu.clone(),
+                    registry.clone(),
+                ))
+                .child(CommandPopDown::new(
+                    "golden-command-pop-down",
+                    "More",
+                    menu,
+                    registry.clone(),
+                )),
+        )
+        .child(
+            ScopeBar::new(
+                "golden-scope",
+                "Search scope",
+                vec![
+                    Scope::new("all", "All"),
+                    Scope::new("documents", "Documents"),
+                    Scope::new("images", "Images"),
+                ],
+            )
+            .caption("Search:")
+            .selected("all"),
+        )
 }
 
 fn preferences_sample(

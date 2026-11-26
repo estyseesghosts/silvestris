@@ -38,12 +38,15 @@ pub mod tooltip;
 
 pub mod progress;
 pub use progress::{ProgressIndicator, ProgressStyle};
+pub mod action_menu;
 pub mod column_browser;
 pub mod column_store;
 pub mod icon_grid;
 pub mod outline_view;
+pub mod scope_bar;
 pub mod table;
 pub mod table_view;
+pub use action_menu::{ActionMenu, CommandPopDown};
 pub use column_browser::{
     BrowserEvent, BrowserNode, ColumnBrowser, COLUMN_WIDTH as BROWSER_COLUMN_WIDTH,
     ROOT as BROWSER_ROOT,
@@ -51,6 +54,7 @@ pub use column_browser::{
 pub use column_store::{ColumnStore, MemoryColumns, PreferenceColumns, SavedColumns, SavedTables};
 pub use icon_grid::{IconGrid, IconGridDrag, IconGridEvent};
 pub use outline_view::{OutlineEvent, OutlineRow, OutlineView};
+pub use scope_bar::{Scope, ScopeBar};
 pub use table_view::{
     icon_text, CellContext, ColumnAlign, GridLines, SortDirection, TableColumn, TableDrag,
     TableEvent, TableView,

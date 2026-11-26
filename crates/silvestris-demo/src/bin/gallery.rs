@@ -12,14 +12,15 @@ use silvestris::bottom_bar::{
 use silvestris::chrome::{open_window, window_options, WindowFrame};
 use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
-    BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
-    ConfirmationFocus, ConfirmationSheet, ControlSize, Disclosure, DisclosureStyle, GroupBox,
-    Notice, Orientation, OutlineRow, OutlineView, PopUpButton, PopupStyle, ProgressIndicator,
-    ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus, ScrollArrows, ScrollAxes,
-    ScrollView, Scrollbar, ScrollerPreferences, Segment, SegmentMode, SegmentStyle,
-    SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider, SortDirection,
-    SourceList, SourceListEvent, SourceListStyle, Stepper, TabView, TableColumn, TableView,
-    TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, TrackClick, Well,
+    ActionMenu, BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
+    CommandPopDown, ConfirmationFocus, ConfirmationSheet, ControlSize, Disclosure, DisclosureStyle,
+    GroupBox, Notice, Orientation, OutlineRow, OutlineView, PopUpButton, PopupStyle,
+    ProgressIndicator, ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus, Scope,
+    ScopeBar, ScrollArrows, ScrollAxes, ScrollView, Scrollbar, ScrollerPreferences, Segment,
+    SegmentMode, SegmentStyle, SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder,
+    Slider, SortDirection, SourceList, SourceListEvent, SourceListStyle, Stepper, TabView,
+    TableColumn, TableView, TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle,
+    TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
@@ -2035,6 +2036,40 @@ impl Render for Gallery {
                     .into_any_element(),
             ))
             .child(cell(
+                "Action menu, command pop-down and search scope bar",
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_start()
+                    .gap(px(8.))
+                    .child(ActionMenu::new(
+                        "gallery-action-menu",
+                        "Action",
+                        gallery_action_menu(),
+                        self.commands.clone(),
+                    ))
+                    .child(CommandPopDown::new(
+                        "gallery-command-pop-down",
+                        "More",
+                        gallery_action_menu(),
+                        self.commands.clone(),
+                    ))
+                    .child(
+                        ScopeBar::new(
+                            "gallery-scope",
+                            "Search scope",
+                            vec![
+                                Scope::new("all", "All"),
+                                Scope::new("documents", "Documents"),
+                                Scope::new("images", "Images"),
+                            ],
+                        )
+                        .caption("Search:")
+                        .selected("all"),
+                    )
+                    .into_any_element(),
+            ))
+            .child(cell(
                 "File panels: an Untitled document with File > Save As (sheet) and File > Open",
                 {
                     let state = self.panel_state.clone();
@@ -2597,6 +2632,20 @@ impl Render for Gallery {
 
 fn set(id: ThemeId, cx: &mut App) {
     silvestris::set_theme_preference(ThemePreference::explicit(id), cx);
+}
+
+/// The closed Action and More menus in the fidelity grid. The commands are
+/// already registered in the gallery registry.
+fn gallery_action_menu() -> MenuModel {
+    MenuModel {
+        label: "Action".into(),
+        entries: vec![
+            MenuEntry::Command("gallery.add".into()),
+            MenuEntry::Command("gallery.remove".into()),
+            MenuEntry::Separator,
+            MenuEntry::Command("gallery.action".into()),
+        ],
+    }
 }
 
 /// The gallery's command binding context. Text clients need no exclusion here:

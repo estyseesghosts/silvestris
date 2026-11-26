@@ -82,6 +82,9 @@ pub struct PopupMenu {
     position: Point<Pixels>,
     // Opened from a control: the top edge hangs square from it.
     pop_down: bool,
+    /// Whether command rows print their keyboard shortcut. Action and
+    /// command pop-down menus suppress them (HIG pp. 288-375).
+    show_shortcuts: bool,
     layer: Entity<TransientLayer>,
     surface: Option<SurfaceId>,
     actions: BTreeMap<String, MenuAction>,
@@ -113,6 +116,7 @@ impl PopupMenu {
             focus: cx.focus_handle(),
             position: point(px(0.), px(0.)),
             pop_down: false,
+            show_shortcuts: true,
             layer,
             surface: None,
             actions: BTreeMap::new(),
@@ -158,6 +162,20 @@ impl PopupMenu {
     /// Remove host actions before installing the current overflow rows.
     pub fn clear_actions(&mut self) {
         self.actions.clear();
+    }
+
+    /// Show or hide each command row's keyboard shortcut. Action menus and
+    /// command pop-downs hide them; the main menu bar keeps them.
+    pub fn set_show_shortcuts(&mut self, show: bool, cx: &mut Context<Self>) {
+        if self.show_shortcuts != show {
+            self.show_shortcuts = show;
+            cx.notify();
+        }
+    }
+
+    #[must_use]
+    pub fn shows_shortcuts(&self) -> bool {
+        self.show_shortcuts
     }
     fn descriptor(
         &self,
@@ -553,15 +571,20 @@ impl PopupMenu {
             .min((viewport - 2. * VIEWPORT_MARGIN - 2.).max(0.))
             .floor();
         let frame_width = body_width + 2.;
+        let show_shortcuts = self.show_shortcuts;
         let shortcuts: Vec<(String, Option<String>, bool)> = entries
             .iter()
             .filter_map(|entry| match entry {
                 MenuEntry::Command(id) => self.descriptor(id, window, cx).map(|d| {
                     (
                         String::new(),
-                        d.shortcut
-                            .as_deref()
-                            .map(|k| display_shortcut(k, Platform::current())),
+                        if show_shortcuts {
+                            d.shortcut
+                                .as_deref()
+                                .map(|k| display_shortcut(k, Platform::current()))
+                        } else {
+                            None
+                        },
                         false,
                     )
                 }),
@@ -606,10 +629,14 @@ impl PopupMenu {
             };
             let check = descriptor.as_ref().is_some_and(|d| d.checked);
             let mixed = descriptor.as_ref().is_some_and(|d| d.mixed);
-            let shortcut = descriptor
-                .as_ref()
-                .and_then(|d| d.shortcut.as_deref())
-                .map(|k| display_shortcut(k, Platform::current()));
+            let shortcut = if self.show_shortcuts {
+                descriptor
+                    .as_ref()
+                    .and_then(|d| d.shortcut.as_deref())
+                    .map(|k| display_shortcut(k, Platform::current()))
+            } else {
+                None
+            };
             let submenu = matches!(entry, MenuEntry::Submenu { .. });
             let dy = m.menu_label_dy;
             let hover = cx.entity();
