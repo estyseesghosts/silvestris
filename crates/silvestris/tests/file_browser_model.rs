@@ -11,7 +11,7 @@ use gpui::{
 use silvestris::controls::path_control::LocationId;
 use silvestris::file_browser::{
     FileAncestor, FileBrowserEvent, FileBrowserModel, FileEntry, FileError, FileListing, FilePlace,
-    FileProvider, FileViewMode, MemoryProvider, PlaceSection,
+    FileProvider, FileSort, FileSortKey, FileViewHost, FileViewMode, MemoryProvider, PlaceSection,
 };
 use silvestris::icons::Icon;
 use silvestris::{ThemeId, ThemePreference};
@@ -128,6 +128,51 @@ fn panel_extension_policy_matches_directories_and_extensions() {
     assert!(!silvestris::file_panel::matches_types(&png, &types, false));
     assert!(silvestris::file_panel::matches_types(&png, &types, true));
     assert!(silvestris::file_panel::matches_types(&png, &[], false));
+}
+
+#[test]
+fn the_view_host_switches_presentation_without_losing_browser_state() {
+    let mut app = TestAppContext::single();
+    let (model, mut cx) = open(&mut app);
+    let host = cx.update(|_, cx| cx.new(|_| FileViewHost::new(model.clone())));
+    cx.update(|_, cx| {
+        model.update(cx, |model, cx| {
+            model.set_sort(
+                Some(FileSort::new(
+                    FileSortKey::Name,
+                    silvestris::controls::SortDirection::Descending,
+                )),
+                cx,
+            );
+            model.controller().update(cx, |controller, cx| {
+                controller.select("report");
+                cx.notify();
+            });
+        });
+        host.update(cx, |host, cx| host.show_icons(cx));
+    });
+    cx.run_until_parked();
+    assert_eq!(cx.read(|cx| host.read(cx).view(cx)), FileViewMode::Icons);
+    assert_eq!(cx.read(|cx| host.read(cx).location(cx).to_string()), "/");
+    assert_eq!(
+        cx.read(|cx| host
+            .read(cx)
+            .selected_ids(cx)
+            .into_iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<_>>()),
+        ["report"]
+    );
+    assert_eq!(
+        cx.read(|cx| host.read(cx).sort(cx)),
+        Some(FileSort::new(
+            FileSortKey::Name,
+            silvestris::controls::SortDirection::Descending
+        ))
+    );
+    cx.update(|_, cx| host.update(cx, |host, cx| host.show_columns(cx)));
+    assert_eq!(cx.read(|cx| host.read(cx).view(cx)), FileViewMode::Columns);
+    assert_eq!(cx.read(|cx| host.read(cx).location(cx).to_string()), "/");
 }
 
 #[test]

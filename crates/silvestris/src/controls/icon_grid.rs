@@ -3,20 +3,24 @@
 //! The grid renders an app-owned [`ListController<T>`] in fixed cells, with
 //! the same selection rules as `TableView`: click, Shift-click extends,
 //! Command/Control-click toggles, arrows move, Return activates and a
-//! double-click activates. Rows of cells are virtualised with `uniform_list`,
-//! so a 30,000-entry directory builds only the rows in view.
+//! double-click activates. A press on the empty background starts a marquee;
+//! cells it intersects become the selection, computed from the virtualized
+//! cell pitch and the list's scroll offset. Rows of cells are virtualised with
+//! `uniform_list`, so a 30,000-entry directory builds only the rows in view.
 //!
 //! The control does not read files or own a location. The consumer supplies
 //! the icon and label closures; the panel uses the same full-colour 16 px icon
-//! vocabulary as its list and sidebar.
+//! vocabulary as its list and sidebar. `set_draggable` offers an
+//! [`IconGridDrag`] per cell without deciding what a drop means.
 
 use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, px, uniform_list, AnyElement, App, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, KeyDownEvent, MouseButton, MouseDownEvent, Pixels, Point,
-    ScrollStrategy, SharedString, Subscription, UniformListScrollHandle, Window,
+    canvas, div, point, prelude::*, px, size, uniform_list, AnyElement, App, Bounds, Context,
+    Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, Pixels, Point, ScrollStrategy, SharedString, Subscription,
+    UniformListScrollHandle, Window,
 };
 
 use super::scroll_source::ScrollSource as _;
@@ -47,6 +51,8 @@ pub const GRID_GUTTER: f32 = 8.0;
 type IconFn<T> = Rc<dyn Fn(&T, bool, bool, &mut Window, &mut App) -> AnyElement>;
 type LabelFn<T> = Rc<dyn Fn(&T) -> SharedString>;
 type RenameFn<T> = Rc<dyn Fn(&T, &str, &mut App) -> bool>;
+/// Marquee start and current pointer, in window coordinates.
+type Marquee = Rc<Cell<Option<(Point<Pixels>, Point<Pixels>)>>>;
 
 struct Editing {
     id: ItemId,
@@ -70,6 +76,17 @@ pub enum IconGridEvent {
     BackgroundContextMenu { position: Point<Pixels> },
 }
 
+/// The value a draggable cell offers to GPUI's drag system. A consumer matches
+/// it with `on_drag_move::<IconGridDrag>` on a drop target and reads `ids` to
+/// resolve its own payload; the grid never decides move, copy or alias.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IconGridDrag {
+    /// The cell the gesture started on.
+    pub source: ItemId,
+    /// The selection at drag start, or just `source` when it was not selected.
+    pub ids: Vec<ItemId>,
+}
+
 pub struct IconGrid<T> {
     controller: Entity<ListController<T>>,
     focus: FocusHandle,
@@ -79,8 +96,12 @@ pub struct IconGrid<T> {
     rename: Option<RenameFn<T>>,
     editing: Option<Editing>,
     multiple: bool,
+    /// Whether cells offer an [`IconGridDrag`] to GPUI.
+    draggable: bool,
     /// Columns in the last frame; keyboard movement needs the same pitch.
     columns: Rc<Cell<usize>>,
+    /// Marquee start and current pointer, in window coordinates.
+    marquee: Marquee,
 }
 
 impl<T: 'static> IconGrid<T> {
@@ -99,8 +120,17 @@ impl<T: 'static> IconGrid<T> {
             rename: None,
             editing: None,
             multiple: false,
+            draggable: false,
             columns: Rc::new(Cell::new(4)),
+            marquee: Rc::new(Cell::new(None)),
         }
+    }
+
+    /// Let cells offer [`IconGridDrag`] values to GPUI. The consumer decides
+    /// which drop targets exist and what a drop means.
+    pub fn set_draggable(&mut self, draggable: bool, cx: &mut Context<Self>) {
+        self.draggable = draggable;
+        cx.notify();
     }
 
     /// Call before the first render; renaming uses the same provider contract
@@ -209,6 +239,12 @@ impl<T: 'static> IconGrid<T> {
         self.focus.clone()
     }
 
+    /// The list controller the grid renders. Selection is the controller's.
+    #[must_use]
+    pub fn controller(&self) -> Entity<ListController<T>> {
+        self.controller.clone()
+    }
+
     #[must_use]
     pub fn is_selected(&self, id: &ItemId, cx: &App) -> bool {
         self.controller.read(cx).is_selected(id)
@@ -300,6 +336,150 @@ impl<T: 'static> IconGrid<T> {
         cx.notify();
     }
 
+    fn marquee_started(
+        &mut self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        window.focus(&self.focus, cx);
+        self.marquee.set(Some((position, position)));
+        self.controller.update(cx, |controller, cx| {
+            controller.clear_selection();
+            cx.notify();
+        });
+        cx.notify();
+    }
+
+    fn marquee_moved(
+        &mut self,
+        position: Point<Pixels>,
+        pressed: Option<MouseButton>,
+        cx: &mut Context<Self>,
+    ) {
+        if pressed != Some(MouseButton::Left) {
+            return;
+        }
+        let Some((start, _)) = self.marquee.get() else {
+            return;
+        };
+        self.marquee.set(Some((start, position)));
+        self.select_marquee(start, position, cx);
+        cx.notify();
+    }
+
+    fn marquee_ended(&mut self, cx: &mut Context<Self>) {
+        if self.marquee.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Top-left of the virtualized content in window coordinates, after the
+    /// current scroll offset. The list's own bounds already contain the grid
+    /// gutter; the offset is GPUI's negated scroll position.
+    fn content_origin(&self) -> Point<Pixels> {
+        let state = self.scroll.0.borrow();
+        let handle = &state.base_handle;
+        let bounds = handle.bounds();
+        let offset = handle.offset();
+        point(bounds.origin.x + offset.x, bounds.origin.y + offset.y)
+    }
+
+    /// The logical cell containing a window point, when an item exists there.
+    fn cell_index_at(&self, position: Point<Pixels>, cx: &App) -> Option<usize> {
+        let origin = self.content_origin();
+        let columns = self.columns.get().max(1);
+        let x = (position.x - origin.x).as_f32();
+        let y = (position.y - origin.y).as_f32();
+        if x < 0.0 || y < 0.0 {
+            return None;
+        }
+        let column = (x / CELL_WIDTH).floor() as usize;
+        let row = (y / CELL_HEIGHT).floor() as usize;
+        let index = row.saturating_mul(columns).saturating_add(column);
+        (index < self.controller.read(cx).visible_len()).then_some(index)
+    }
+
+    fn select_marquee(&mut self, start: Point<Pixels>, end: Point<Pixels>, cx: &mut Context<Self>) {
+        let rect = Bounds::new(
+            point(start.x.min(end.x), start.y.min(end.y)),
+            size((start.x - end.x).abs(), (start.y - end.y).abs()),
+        );
+        let origin = self.content_origin();
+        let columns = self.columns.get().max(1);
+        let span = |start: f32, end: f32, pitch: f32| {
+            let first = (start / pitch).floor().max(0.0) as usize;
+            let last = ((end - 0.01).max(0.0) / pitch).floor().max(0.0) as usize;
+            (first.min(last), last)
+        };
+        let (first_column, last_column) = span(
+            (rect.left() - origin.x).as_f32(),
+            (rect.right() - origin.x).as_f32(),
+            CELL_WIDTH,
+        );
+        let (first_row, last_row) = span(
+            (rect.top() - origin.y).as_f32(),
+            (rect.bottom() - origin.y).as_f32(),
+            CELL_HEIGHT,
+        );
+        let last_column = last_column.min(columns - 1);
+        let ids = {
+            let controller = self.controller.read(cx);
+            let len = controller.visible_len();
+            let mut ids = Vec::new();
+            for row in first_row..=last_row {
+                for column in first_column..=last_column {
+                    let index = row.saturating_mul(columns).saturating_add(column);
+                    if index >= len {
+                        break;
+                    }
+                    if let Some(item) = controller.visible_item(index) {
+                        ids.push(controller.id_of(item));
+                    }
+                }
+            }
+            ids
+        };
+        self.controller.update(cx, |controller, cx| {
+            controller.set_selection(ids);
+            cx.notify();
+        });
+        cx.emit(IconGridEvent::SelectionChanged);
+    }
+
+    fn jump(&mut self, last: bool, extend: bool, cx: &mut Context<Self>) {
+        let columns = self.columns.get().max(1);
+        let (len, id) = {
+            let controller = self.controller.read(cx);
+            let len = controller.visible_len();
+            if len == 0 {
+                return;
+            }
+            let index = if last { len - 1 } else { 0 };
+            (
+                len,
+                controller
+                    .visible_item(index)
+                    .map(|item| controller.id_of(item)),
+            )
+        };
+        let Some(id) = id else {
+            return;
+        };
+        self.controller.update(cx, |controller, cx| {
+            if extend && self.multiple {
+                controller.extend_to(id.clone());
+            } else {
+                controller.select(id.clone());
+            }
+            cx.notify();
+        });
+        let row = if last { (len - 1) / columns } else { 0 };
+        self.scroll.scroll_to_item(row, ScrollStrategy::Nearest);
+        cx.emit(IconGridEvent::SelectionChanged);
+        cx.notify();
+    }
+
     fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let modifiers = event.keystroke.modifiers;
         if modifiers.secondary(cx) && event.keystroke.key == "a" && self.multiple {
@@ -316,7 +496,8 @@ impl<T: 'static> IconGrid<T> {
             "right" => self.step(1, 0, modifiers.shift, cx),
             "up" => self.step(0, -1, modifiers.shift, cx),
             "down" => self.step(0, 1, modifiers.shift, cx),
-            "home" => self.step(-(i16::MAX as isize), 0, false, cx),
+            "home" => self.jump(false, modifiers.shift, cx),
+            "end" => self.jump(true, modifiers.shift, cx),
             "enter" => self.activate(cx),
             "space" => {
                 if let Some(id) = self.selected_ids(cx).first().cloned() {
@@ -347,6 +528,7 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
         let theme = cx.theme().clone();
         let controller_entity = self.controller.clone();
         let count = controller_entity.read(cx).visible_len();
+        let draggable = self.draggable;
 
         let viewport = self.scroll.viewport().width;
         let columns = if viewport > px(0.) {
@@ -365,6 +547,8 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
             .as_ref()
             .map(|editing| (editing.id.clone(), editing.field.clone()));
         let list_theme = theme.clone();
+        let marquee = self.marquee.clone();
+        let band = theme.lists.table_active;
         let list = uniform_list("icon-rows", rows, move |range, window, cx| {
             range
                 .map(|row| {
@@ -381,13 +565,22 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                             let item = controller.visible_item(index)?;
                             let id = controller.id_of(item);
                             let is_selected = controller.is_selected(&id);
+                            let drag_ids = if is_selected {
+                                controller.selected_ids().to_vec()
+                            } else {
+                                vec![id.clone()]
+                            };
                             let label = (label)(item);
                             let icon_element = (icon)(item, is_selected, active, window, cx);
-                            Some((id, is_selected, label, icon_element))
+                            Some((id, is_selected, label, icon_element, drag_ids))
                         });
-                        let Some((id, is_selected, label, icon_element)) = cell else {
+                        let Some((id, is_selected, label, icon_element, drag_ids)) = cell else {
                             break;
                         };
+                        let drag = draggable.then(|| IconGridDrag {
+                            source: id.clone(),
+                            ids: drag_ids,
+                        });
                         let selection = if active {
                             list_theme.lists.table_active
                         } else {
@@ -467,6 +660,14 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                                         .id(SharedString::from(format!("icon-hit-{id}")))
                                         .absolute()
                                         .inset_0()
+                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                            cx.stop_propagation();
+                                        })
+                                        .when_some(drag, |el, drag| {
+                                            el.on_drag(drag, |_, _, _, cx| {
+                                                cx.new(|_| gpui::EmptyView)
+                                            })
+                                        })
                                         .on_click(move |event, window, cx| {
                                             let id = click_id.clone();
                                             let modifiers = event.modifiers();
@@ -551,6 +752,29 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                     cx.stop_propagation();
                 }),
             )
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|grid, event: &MouseDownEvent, window, cx| {
+                    // A cell's overlay stops propagation, but the logical
+                    // index is the authoritative test: a press on an icon must
+                    // never start a marquee that clears the selection.
+                    if grid.cell_index_at(event.position, cx).is_some() {
+                        return;
+                    }
+                    grid.marquee_started(event.position, window, cx);
+                }),
+            )
+            .on_mouse_move(cx.listener(|grid, event: &MouseMoveEvent, _, cx| {
+                grid.marquee_moved(event.position, event.pressed_button, cx);
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|grid, _: &MouseUpEvent, _, cx| grid.marquee_ended(cx)),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|grid, _: &MouseUpEvent, _, cx| grid.marquee_ended(cx)),
+            )
             .child(
                 ScrollView::new("icon-grid-scroll", &self.scroll)
                     .axes(ScrollAxes::Vertical)
@@ -563,6 +787,50 @@ impl<T: 'static> gpui::Render for IconGrid<T> {
                             .pl(px(GRID_GUTTER))
                             .child(list),
                     ),
+            )
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        let Some((start, end)) = marquee.get() else {
+                            return;
+                        };
+                        let rect = Bounds::new(
+                            point(
+                                start.x.min(end.x) - bounds.origin.x,
+                                start.y.min(end.y) - bounds.origin.y,
+                            ),
+                            size((start.x - end.x).abs(), (start.y - end.y).abs()),
+                        );
+                        window.paint_quad(gpui::fill(rect, hsla(band.fill.from).opacity(0.22)));
+                        let h = crate::convert::hairline(window);
+                        let line = hsla(band.line);
+                        window.paint_quad(gpui::fill(
+                            Bounds::new(rect.origin, size(rect.size.width, h)),
+                            line,
+                        ));
+                        window.paint_quad(gpui::fill(
+                            Bounds::new(
+                                point(rect.origin.x, rect.origin.y + rect.size.height - h),
+                                size(rect.size.width, h),
+                            ),
+                            line,
+                        ));
+                        window.paint_quad(gpui::fill(
+                            Bounds::new(rect.origin, size(h, rect.size.height)),
+                            line,
+                        ));
+                        window.paint_quad(gpui::fill(
+                            Bounds::new(
+                                point(rect.origin.x + rect.size.width - h, rect.origin.y),
+                                size(h, rect.size.height),
+                            ),
+                            line,
+                        ));
+                    },
+                )
+                .absolute()
+                .inset_0(),
             )
     }
 }

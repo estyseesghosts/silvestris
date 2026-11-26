@@ -20,6 +20,8 @@
 //!   text core; Return or leaving the field commits, Escape cancels.
 //! - Double-click activates; secondary click reports the clicked selection
 //!   for a contextual menu.
+//! - `set_draggable(true)` offers a [`TableDrag`] per row without deciding
+//!   which drop targets exist or what a drop means.
 //! - The selection is blue while the table has focus in the active window,
 //!   grey otherwise (`Lists::table_active`, `table_inactive`).
 use std::cmp::Ordering;
@@ -239,6 +241,17 @@ fn lower_order(a: &str, b: &str) -> Ordering {
         .cmp(b.chars().flat_map(char::to_lowercase))
 }
 
+/// The value a draggable row offers to GPUI's drag system. A consumer matches
+/// it with `on_drag_move::<TableDrag>` on a drop target; the table never
+/// decides move, copy or alias.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TableDrag {
+    /// The row the gesture started on.
+    pub source: ItemId,
+    /// The selection at drag start, or just `source` when it was not selected.
+    pub ids: Vec<ItemId>,
+}
+
 /// What the user did, reported to the app.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TableEvent {
@@ -307,6 +320,8 @@ pub struct TableView<T: 'static> {
     alternating: bool,
     fill_width: bool,
     multiple: bool,
+    /// Whether rows offer a [`TableDrag`] to GPUI.
+    draggable: bool,
     grid: GridLines,
     autosave: Option<(Rc<dyn ColumnStore>, String)>,
     editing: Option<Editing>,
@@ -346,6 +361,7 @@ impl<T: 'static> TableView<T> {
             alternating: true,
             fill_width: false,
             multiple: true,
+            draggable: false,
             grid: GridLines::None,
             autosave: None,
             editing: None,
@@ -419,6 +435,13 @@ impl<T: 'static> TableView<T> {
     /// `false` restricts the user to one selected row.
     pub fn set_allows_multiple(&mut self, multiple: bool) {
         self.multiple = multiple;
+    }
+
+    /// Let rows offer [`TableDrag`] values to GPUI. The consumer decides which
+    /// drop targets exist and what a drop means.
+    pub fn set_draggable(&mut self, draggable: bool, cx: &mut Context<Self>) {
+        self.draggable = draggable;
+        cx.notify();
     }
 
     pub fn set_grid(&mut self, grid: GridLines, cx: &mut Context<Self>) {
@@ -1182,6 +1205,7 @@ impl<T: 'static> TableView<T> {
         let grid = self.grid;
         let grid_color = theme.controls.table_grid;
         let fill = self.fill_width;
+        let draggable = self.draggable;
         let viewport = self.scroll.viewport().width.as_f32();
         let editing = self
             .editing
@@ -1189,15 +1213,24 @@ impl<T: 'static> TableView<T> {
             .map(|e| (e.id.clone(), e.column.clone(), e.field.clone()));
         let mut out = Vec::with_capacity(range.len());
         for index in range {
-            let (id, selected) = {
+            let (id, selected, drag_ids) = {
                 let controller = self.controller.read(cx);
                 let Some(item) = controller.visible_item(index) else {
                     continue;
                 };
                 let id = controller.id_of(item);
                 let selected = controller.is_selected(&id);
-                (id, selected)
+                let drag_ids = if selected {
+                    controller.selected_ids().to_vec()
+                } else {
+                    vec![id.clone()]
+                };
+                (id, selected, drag_ids)
             };
+            let drag = draggable.then(|| TableDrag {
+                source: id.clone(),
+                ids: drag_ids,
+            });
             let text = if selected {
                 selection.text
             } else {
@@ -1244,7 +1277,10 @@ impl<T: 'static> TableView<T> {
                         cx.stop_propagation();
                         this.click_row(index, e, window, cx);
                     }),
-                );
+                )
+                .when_some(drag, |el, drag| {
+                    el.on_drag(drag, |_, _, _, cx| cx.new(|_| gpui::EmptyView))
+                });
             if selected {
                 row = row.child(
                     canvas(

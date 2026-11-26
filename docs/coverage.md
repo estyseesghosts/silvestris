@@ -91,7 +91,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Multiline text area | `TextArea`, `TextAreaEvent` | functional | four | — | #58 |
 | Token field | none | missing | — | — | #43 |
 | Search field | `TextField` search variant | provisional | four | — | #77 |
-| Table view | `TableView`, `TableColumn`, `TableEvent`, `CellContext`, `ColumnAlign`, `GridLines`, `SortDirection`, `ColumnStore`, `MemoryColumns`, `PreferenceColumns`, `SavedColumns`, `SavedTables` | measured | four | `table-view` | #32 |
+| Table view | `TableView`, `TableColumn`, `TableEvent`, `TableDrag`, `CellContext`, `ColumnAlign`, `GridLines`, `SortDirection`, `ColumnStore`, `MemoryColumns`, `PreferenceColumns`, `SavedColumns`, `SavedTables` | measured | four | `table-view` | #32 |
 | Scrolling list | `controls::table::virtual_table` | provisional | four | — | #32 |
 | Scroller and scroll view | `ScrollView`, `ScrollAxes`, `Scrollbar`, `ScrollSource`, `ScrollerPreferences`, `ScrollArrows`, `TrackClick` | measured | four | `scroll-view` | #40 |
 
@@ -102,9 +102,9 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Disclosure triangle | `Disclosure`, `DisclosureStyle` | measured | four | `disclosure`, `disclosure-expanded`, `disclosure-button` | #5 |
 | Disclosure button | `DisclosureStyle::Button` | measured | four | `disclosure-button` | #5 |
 | List view | `virtual_table` | provisional | four | — | #32 |
-| Outline view | none | missing | — | — | #33 |
+| Outline view | `OutlineView`, `OutlineRow`, `OutlineEvent` | functional | four (through the table) | — | #33 |
 | Column view | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | functional | four | `column-browser` | #34 |
-| Icon view | `IconGrid`, `IconGridEvent` | functional | four | `open-dialog-icons`, `save-sheet-expanded-icons` | #35 |
+| Icon view | `IconGrid`, `IconGridEvent`, `IconGridDrag` | functional | four | `open-dialog-icons`, `save-sheet-expanded-icons` | #35 |
 | Split view | `SplitView`, `split::{SplitLayout, SplitPane, SplitState, SplitDividerStyle, SplitOrientation, SplitSlot}` | functional | four | `split-view-thin`, `split-view-thick` | #53 |
 | Tab view | `TabView`, `preferences::pane_tab_view` | measured | four | `tab-view` | #13 |
 | Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
@@ -127,7 +127,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | --- | --- | --- | --- | --- | --- |
 | Alert | `Alert`, `AlertButton`, `AlertResult`, `AlertRole` | functional | four | `save-sheet-minimal` (replace alert in modal window is behavioural) | #23 |
 | Sheet | `sheet::Sheet`, `sheet::present`, `sheet::dismiss`, `sheet::overlay`, `sheet::card_shell` | functional | four | `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #22 |
-| File browser core | `file_browser::{FileProvider, FileEntry, FileBrowserModel, FileViewMode, FileSort, FileBrowserEvent, MemoryProvider, StdFsProvider}` | functional | four (through panels) | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #78 |
+| File browser core | `file_browser::{FileProvider, FileEntry, FileBrowserModel, FileViewMode, FileViewHost, FileSort, FileBrowserEvent, MemoryProvider, StdFsProvider}` | functional | four (through panels) | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #78 |
 | Open, Save, Choose | `SavePanel`, `OpenPanel`, `FilePanel`, `FileProvider`, `MemoryProvider`, `StdFsProvider`, `FileBrowserModel`, `FileEntry`, `FileSort`, `FileSortKey`, `FileMetadata`, `FileListing`, `FileProviderCapabilities`, `SaveDisposition`, `PanelStateStore` | functional | four | `open-dialog-columns`, `open-dialog-list`, `save-sheet-minimal`, `save-sheet-expanded`, `save-sheet-grow` | #29 |
 | Print, Page Setup | none | missing | — | — | #47 |
 | About | none | missing | — | — | #47 |

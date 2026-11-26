@@ -32,6 +32,15 @@ operations return `Result`; confirmation and progress presentation belong to a
 higher layer. `resolve` is an optional host-path adapter used by Save/Open and
 by consumers that need durable paths; virtual providers may return `None`.
 
+## View host
+
+`FileViewHost` is the single switch point for Icons, List and Columns. It wraps
+the same `Entity<FileBrowserModel>`, so `set_view` changes only the
+presentation: location, history, sort and stable selection stay. A consumer
+must not create one model per presentation or reset to the home folder on a
+switch. The host also exposes `location`, `selected_ids` and `sort` for
+toolbar and status projection.
+
 ## Relationship to `file_panel`
 
 `file_panel` consumes this layer for Open, Save and Choose. For the Chaus

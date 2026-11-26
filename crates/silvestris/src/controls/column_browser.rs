@@ -115,6 +115,8 @@ pub struct ColumnBrowser {
     scroll: ScrollHandle,
     focus: FocusHandle,
     resizing: Option<(usize, Pixels, f32)>,
+    /// Forwarded to every column table so rows offer `TableDrag`.
+    draggable: bool,
 }
 
 impl EventEmitter<BrowserEvent> for ColumnBrowser {}
@@ -158,6 +160,7 @@ impl ColumnBrowser {
             scroll: ScrollHandle::new(),
             focus: cx.focus_handle(),
             resizing: None,
+            draggable: false,
         };
         browser.children.insert(ROOT.into(), Rc::from(roots));
         browser.touch(ROOT.into());
@@ -191,6 +194,17 @@ impl ColumnBrowser {
             self.push_column(None, cx);
         }
         cx.notify();
+    }
+
+    /// Let every column's rows offer [`crate::controls::TableDrag`] values to
+    /// GPUI. The consumer owns the drop targets and the resulting operation.
+    pub fn set_draggable(&mut self, draggable: bool, cx: &mut Context<Self>) {
+        self.draggable = draggable;
+        for column in &self.columns {
+            column
+                .table
+                .update(cx, |table, cx| table.set_draggable(draggable, cx));
+        }
     }
 
     /// Start editing `id`'s name in whichever column shows it. Returns whether
@@ -390,6 +404,7 @@ impl ColumnBrowser {
             });
         }
         let columns = vec![name_column];
+        let draggable = self.draggable;
         let table = cx.new(|cx| {
             let mut table = TableView::new(list.clone(), columns, cx);
             table.set_header_visible(false, cx);
@@ -397,6 +412,7 @@ impl ColumnBrowser {
             table.set_allows_multiple(false);
             table.set_row_height(ROW_HEIGHT, cx);
             table.set_fill_width(true, cx);
+            table.set_draggable(draggable, cx);
             table
         });
         let depth = self.columns.len();

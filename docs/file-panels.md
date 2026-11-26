@@ -239,7 +239,10 @@ really means "metadata unavailable".
   columns, hidden by default. Name and Date fill the browser; no horizontal
   scroller appears unless the user widens a column past the viewport.
 - **Icons** is `IconGrid`: fixed 88 x 76 cells, full-colour 32 px icons, click,
-  Shift-click, Command/Control-click, arrows and Return, virtualised rows.
+  Shift-click, Command/Control-click, arrows, Home/End, Return, marquee
+  selection over the virtualised rows and in-place rename. Cells recompute
+  their column count from the browser width; keyboard movement uses the newly
+  measured count.
 
 The toolbar's view selector has all three segments; a disabled or placeholder
 segment is not acceptable.
@@ -253,9 +256,10 @@ segment is not acceptable.
 - Selection is by id. Reloads, sorts and live model updates keep the selected
   entries; navigating to another directory clears the selection.
 - In column view, selecting a file leaves the current directory alone; only a
-  branch navigates. `allowed_types` and the choose-selection flags apply to the
-  selected row in the last column, and Open accepts that folder when
-  `can_choose_directories(true)`.
+  branch navigates. Switching to List or Icon carries that selected leaf into
+  the shared controller, so the same file stays selected by id. `allowed_types`
+  and the choose-selection flags apply to the selected row in the last column,
+  and Open accepts that folder when `can_choose_directories(true)`.
 - An Open panel with `allows_multiple(true)` lets list and icon views build a
   multiple selection; Open reports every chosen location.
 - Double-clicking a folder enters it. Double-clicking a file accepts it.

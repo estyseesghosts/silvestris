@@ -17,7 +17,7 @@ use std::rc::Rc;
 use gpui::{App, AppContext, Context, Entity, EventEmitter, Task};
 use serde::{Deserialize, Serialize};
 
-use crate::binding::ListController;
+use crate::binding::{ItemId, ListController};
 use crate::controls::path_control::{LocationId, PathEntry};
 use crate::controls::SortDirection;
 use crate::icons::Icon;
@@ -390,6 +390,12 @@ impl FileBrowserModel {
             .into_iter()
             .cloned()
             .collect()
+    }
+
+    /// The current selection by stable id, independent of presentation.
+    #[must_use]
+    pub fn selected_ids(&self, cx: &App) -> Vec<ItemId> {
+        self.controller.read(cx).selected_ids().to_vec()
     }
 
     /// Selected entries as host paths, when the provider can resolve them.

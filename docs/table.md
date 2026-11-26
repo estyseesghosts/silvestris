@@ -90,4 +90,13 @@ scrolling covers the total column width, and the header follows the
 horizontal position. Live updates through `set_items` keep the selection
 and scroll position.
 
-Not yet: drag source and destination hooks wait for #36.
+## Drag source
+
+`set_draggable(true)` makes each row offer a `TableDrag { source, ids }` to
+GPUI's drag system. `ids` is the row's selection when it was selected,
+otherwise just that row, so dragging an unselected row drags that row and
+dragging a selected row drags the whole selection. The table never decides
+move, copy or alias: match `TableDrag` with `on_drag_move::<TableDrag>` on a
+drop target and apply the consumer's policy. `ColumnBrowser` and `OutlineView`
+forward `TableDrag` to their columns/rows; `IconGrid` offers the same shape as
+`IconGridDrag`.

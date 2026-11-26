@@ -7,6 +7,25 @@ depend on focus, key routing and layout.
 
 ## After a9a2879
 
+Finder content views (#33/#34/#35) and one file-view host:
+
+- `controls::OutlineView` (`OutlineRow`, `OutlineEvent`) renders a consumer's
+  flattened tree through `TableView`: arbitrary depth, disclosure, stable ids,
+  selection, type-select, columns, inline rename and virtualisation. It is not
+  a `SourceList`; source lists stay two-level navigation sidebars.
+- `IconGrid` adds marquee selection over the virtualized rows, the `IconGridDrag`
+  source, Home/End and a measured column count that keyboard movement reuses
+  after a resize. The label-hugging selection pill is unchanged.
+- `TableView` adds `set_draggable` and the `TableDrag { source, ids }` source;
+  `ColumnBrowser` forwards it to every column. Dragging an unselected row
+  drags that row, dragging a selected row drags the selection. The consumer
+  owns drop targets and the move/copy/alias decision.
+- `ColumnBrowser` and the Open panel now carry a selected column leaf into the
+  shared model when the view switches to List or Icon, so the same file stays
+  selected by stable id.
+- `file_browser::FileViewHost` is the one Icons/List/Columns switch point over a
+  single `FileBrowserModel`; location, history, sort and selection survive.
+
 Neutral file-browser core (#78):
 
 - `file_browser` now owns `FileProvider`, `FileEntry`, `FileBrowserModel`,

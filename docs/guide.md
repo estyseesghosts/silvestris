@@ -145,9 +145,24 @@ sidebar/workspace/inspector policy. See [split-view.md](split-view.md).
 `file_browser` owns the provider protocol, entry data, one `FileBrowserModel`
 for location/history/filter/view/sort, generation-cancelled async loading and
 navigation events. Open/Save/Choose panels consume it; a file-manager app can
-instantiate it directly. `file_panel::{model, provider}` are transitional
+instantiate it directly. `FileViewHost` is the one switch point for Icons, List
+and Columns: it wraps the same model so a view change keeps location, history,
+sort and stable selection. `file_panel::{model, provider}` are transitional
 re-exports and the panel keeps extension, sheet and modal policy. See
 [file-browser.md](file-browser.md).
+
+## Content views
+
+`TableView` is the list view; `OutlineView` is its hierarchical sibling and
+renders flattened rows with disclosure, arbitrary depth and the table's
+columns, rename, type-select and virtualisation. `IconGrid` is the virtualized
+icon view; it adds marquee selection, responsive column measurement and the
+`IconGridDrag` source. `ColumnBrowser` is the column view. All three take the
+same stable-id selection model; do not treat `SourceList` as an outline.
+`TableView`, `IconGrid`, `OutlineView` and `ColumnBrowser` offer `TableDrag`/
+`IconGridDrag` sources, but the consumer owns drop targets and the move/copy
+decision. See [table.md](table.md), [outline-view.md](outline-view.md),
+[column-browser.md](column-browser.md).
 
 ## Commands
 

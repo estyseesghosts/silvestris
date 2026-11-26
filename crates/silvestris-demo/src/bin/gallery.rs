@@ -14,12 +14,12 @@ use silvestris::command::{self, CommandButton, CommandRegistry, InvokeCommand};
 use silvestris::controls::{
     BrowserNode, Button, ButtonStyle, CheckState, Checkbox, ColumnAlign, ColumnBrowser,
     ConfirmationFocus, ConfirmationSheet, ControlSize, Disclosure, DisclosureStyle, GroupBox,
-    Notice, Orientation, PopUpButton, PopupStyle, ProgressIndicator, ProgressStyle, RadioGroup,
-    RadioOption, RowAccessory, RowStatus, ScrollArrows, ScrollAxes, ScrollView, Scrollbar,
-    ScrollerPreferences, Segment, SegmentMode, SegmentStyle, SegmentedControl, Separator,
-    SeparatorAxis, ShortcutRecorder, Slider, SortDirection, SourceList, SourceListEvent,
-    SourceListStyle, Stepper, TabView, TableColumn, TableView, TextArea, TextAreaEvent, TextField,
-    TextFieldEvent, ThumbStyle, TrackClick, Well,
+    Notice, Orientation, OutlineRow, OutlineView, PopUpButton, PopupStyle, ProgressIndicator,
+    ProgressStyle, RadioGroup, RadioOption, RowAccessory, RowStatus, ScrollArrows, ScrollAxes,
+    ScrollView, Scrollbar, ScrollerPreferences, Segment, SegmentMode, SegmentStyle,
+    SegmentedControl, Separator, SeparatorAxis, ShortcutRecorder, Slider, SortDirection,
+    SourceList, SourceListEvent, SourceListStyle, Stepper, TabView, TableColumn, TableView,
+    TextArea, TextAreaEvent, TextField, TextFieldEvent, ThumbStyle, TrackClick, Well,
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
@@ -241,6 +241,7 @@ struct Gallery {
     gallery_scroll: gpui::ScrollHandle,
     fidelity_scroll: gpui::ScrollHandle,
     files_table: Entity<TableView<GalleryFile>>,
+    outline: Entity<OutlineView<GalleryFile>>,
     browser: Entity<ColumnBrowser>,
     fidelity_scroll_small: gpui::ScrollHandle,
     last_source: gpui::SharedString,
@@ -868,6 +869,58 @@ impl Gallery {
             table.set_sort("name", SortDirection::Ascending, cx);
             table
         });
+        let outline = cx.new(|cx| {
+            let nodes = cx.new(|_| {
+                let mut c = ListController::new(|row: &OutlineRow<GalleryFile>| row.id.clone());
+                c.set_items(vec![
+                    OutlineRow::new(
+                        "outline-src",
+                        0,
+                        GalleryFile {
+                            id: 100,
+                            name: "Sources".into(),
+                            size: 0,
+                            done: false,
+                        },
+                    )
+                    .branch(true),
+                    OutlineRow::new(
+                        "outline-main",
+                        1,
+                        GalleryFile {
+                            id: 101,
+                            name: "main.rs".into(),
+                            size: 4,
+                            done: false,
+                        },
+                    ),
+                    OutlineRow::new(
+                        "outline-ui",
+                        1,
+                        GalleryFile {
+                            id: 102,
+                            name: "ui.rs".into(),
+                            size: 12,
+                            done: true,
+                        },
+                    ),
+                ]);
+                c
+            });
+            OutlineView::new(
+                nodes,
+                |file: &GalleryFile| file.name.clone(),
+                None::<fn(&GalleryFile, &str, &mut gpui::App) -> bool>,
+                |_, _, _, _| {},
+                vec![
+                    TableColumn::text("size", "Size", |row: &OutlineRow<GalleryFile>| {
+                        format!("{} KB", row.item.size).into()
+                    })
+                    .width(70.),
+                ],
+                cx,
+            )
+        });
         let browser = cx.new(|cx| {
             let mut browser = ColumnBrowser::new(
                 vec![
@@ -953,6 +1006,7 @@ impl Gallery {
             gallery_scroll: gpui::ScrollHandle::new(),
             fidelity_scroll: gpui::ScrollHandle::new(),
             files_table,
+            outline,
             browser,
             fidelity_scroll_small: gpui::ScrollHandle::new(),
             last_source: "No source-list event".into(),
@@ -1958,6 +2012,16 @@ impl Render for Gallery {
                     .border_1()
                     .border_color(silvestris::convert::hsla(theme.colors.group_border))
                     .child(self.files_table.clone())
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Outline view: flattened tree, disclosure, depth, stable selection",
+                div()
+                    .w(px(300.))
+                    .h(px(140.))
+                    .border_1()
+                    .border_color(silvestris::convert::hsla(theme.colors.group_border))
+                    .child(self.outline.clone())
                     .into_any_element(),
             ))
             .child(cell(

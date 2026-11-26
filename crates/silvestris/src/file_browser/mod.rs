@@ -13,6 +13,7 @@ pub mod model;
 pub mod provider;
 #[cfg(feature = "std-fs")]
 pub mod std_fs;
+pub mod view;
 
 pub use model::{
     choosable, compare_kind_folders_first, place_icon, FileBrowserEvent, FileBrowserModel,
@@ -25,3 +26,4 @@ pub use provider::{
 };
 #[cfg(feature = "std-fs")]
 pub use std_fs::StdFsProvider;
+pub use view::FileViewHost;

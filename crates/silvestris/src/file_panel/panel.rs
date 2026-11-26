@@ -2173,17 +2173,7 @@ impl Render for FilePanel {
         let view_fn = {
             let this = this.clone();
             Rc::new(move |mode: FileViewMode, _: &mut Window, cx: &mut App| {
-                this.update(cx, |panel, cx| {
-                    panel.model.update(cx, |model, cx| model.set_view(mode, cx));
-                    match mode {
-                        FileViewMode::Icons => panel.ensure_icon_grid(cx),
-                        FileViewMode::Columns => panel.ensure_browser(cx),
-                        FileViewMode::List => {}
-                    }
-                    panel.save_panel_state(cx);
-                    panel.refresh_stops(cx);
-                    cx.notify();
-                });
+                this.update(cx, |panel, cx| panel.set_view(mode, cx));
             })
         };
         let nav_fn = {
@@ -3147,8 +3137,11 @@ impl FilePanel {
     }
 
     /// Switch presentation without a toolbar click. The location, controller
-    /// and selection stay; the choice is written to the state store.
+    /// and selection stay; the choice is written to the state store. A file
+    /// selected in the column browser becomes the selection in the new view,
+    /// because a column leaf is not a location and would otherwise be dropped.
     pub fn set_view(&mut self, view: FileViewMode, cx: &mut Context<Self>) {
+        self.adopt_column_selection(cx);
         self.model.update(cx, |model, cx| model.set_view(view, cx));
         match view {
             FileViewMode::Icons => self.ensure_icon_grid(cx),
@@ -3157,6 +3150,42 @@ impl FilePanel {
         }
         self.save_panel_state(cx);
         self.refresh_stops(cx);
+        cx.notify();
+    }
+
+    /// Carry the column browser's selected leaf into the shared model when it
+    /// belongs to the current location and is not a branch. A branch already
+    /// navigated through `PathChanged`, so its selection is not a child here.
+    fn adopt_column_selection(&mut self, cx: &mut Context<Self>) {
+        if self.model.read(cx).view() != FileViewMode::Columns {
+            return;
+        }
+        let Some(browser) = self.browser.clone() else {
+            return;
+        };
+        let path = browser.read(cx).path(cx);
+        let Some(id) = path.last().cloned() else {
+            return;
+        };
+        let Some((parent, entry)) = self.browser_entries.get(&id).cloned() else {
+            return;
+        };
+        if entry.is_dir && !entry.is_package {
+            return;
+        }
+        if parent != *self.model.read(cx).location() {
+            return;
+        }
+        let controller = self.model.read(cx).controller();
+        controller.update(cx, |controller, cx| {
+            let present = controller
+                .visible()
+                .any(|item| controller.id_of(item) == id);
+            if present {
+                controller.select(id);
+                cx.notify();
+            }
+        });
         cx.notify();
     }
 

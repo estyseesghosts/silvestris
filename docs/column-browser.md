@@ -57,6 +57,24 @@ not move or change selection while a column loads; the column shows
 - `focus_first` and `focus_column` move keyboard focus from the panel's Tab
   order.
 
+## Shared file views
+
+`ColumnBrowser` is one presentation of a shared browser state, not a second
+navigation model. The Open panel keeps one `FileBrowserModel`: a branch
+selection emits `PathChanged` and the panel calls `model.navigate`, while a
+leaf selection stays in the current location. When the panel switches to
+List or Icon, it carries the deepest selected leaf into the model controller
+by stable id, so the same file stays selected where that id still exists.
+`FileViewHost` wraps the same model for consumers that want one switch entry
+point.
+
+## Drag source
+
+`set_draggable(true)` forwards `TableView::set_draggable` to every column, so
+each row offers a `TableDrag { source, ids }`. A branch row is still just a
+row for drag purposes; the consumer resolves its own payload and decides
+whether dropping it means move, copy or navigation.
+
 ## Preview
 
 `set_preview(f)` renders a final column for the selected leaf only; a branch

@@ -264,6 +264,46 @@ fn switching_to_columns_keeps_the_location_and_selection() {
 }
 
 #[test]
+fn a_file_selected_in_columns_is_still_selected_in_list() {
+    let mut app = TestAppContext::single();
+    let (panel, _outcome, mut cx) = present(&mut app, false, false, None);
+    let columns = cx.debug_bounds("segment-columns").expect("columns segment");
+    cx.simulate_click(columns.center(), Modifiers::default());
+    draw(&mut cx);
+    click_row(&mut cx, "note");
+    let list = cx.debug_bounds("segment-list").expect("list segment");
+    cx.simulate_click(list.center(), Modifiers::default());
+    draw(&mut cx);
+    let ids = cx.read(|cx| {
+        panel
+            .read(cx)
+            .model()
+            .read(cx)
+            .selected_ids(cx)
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(ids, ["note"]);
+    assert_eq!(
+        cx.read(|cx| panel.read(cx).selected_count(cx)),
+        1,
+        "the column leaf survives into list view"
+    );
+    let names = cx.read(|cx| {
+        panel
+            .read(cx)
+            .model()
+            .read(cx)
+            .selected_entries(cx)
+            .into_iter()
+            .map(|entry| entry.name.to_string())
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(names, ["note.txt"]);
+}
+
+#[test]
 fn columns_mode_keeps_the_location_when_a_file_is_selected() {
     let mut app = TestAppContext::single();
     let (panel, outcome, mut cx) = present(&mut app, false, false, None);
