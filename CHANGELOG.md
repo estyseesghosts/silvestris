@@ -5,6 +5,22 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After 5cc9455
+
+Drag-and-drop session core (#36):
+
+- `drag::{DragSession, DragPhase, DragOperation, DropResult, DragImage}` owns
+  the window-aware session: payload/source, three-pixel threshold, allowed
+  operations, drop-time Option sampling, transparent image, pointer capture,
+  accepted/rejected feedback, insertion state and cancellation. It performs no
+  container or filesystem policy.
+- `drag::{DropTarget, DropTargets}` register destinations by stable id with a
+  predicate over the complete payload, so a multi-item drag is accepted only
+  when every item is acceptable. `drag::autoscroll` returns a delta only for
+  the frontmost source window and only in its edge regions.
+- View adapters for SourceList, TableView, IconGrid and host file drops are
+  still to come.
+
 ## After a89fd69
 
 Forms carry layout and validation behavior (#54):

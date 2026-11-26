@@ -214,7 +214,7 @@ states describe implementation maturity, not issue closure:
 | #33 | Missing | No hierarchical table/outline control or System Profiler gallery sample exists. |
 | #34 | Functional but incomplete | `ColumnBrowser` supports provider-fed columns, async child responses, preview, resize handles, keyboard navigation and is used by Open/Save panels. It does not satisfy the shared file-view host and DnD requirements in this plan. Keep #34 open. |
 | #35 | Functional but incomplete | `IconGrid` is virtualized and supports selection, activation and rename; panel icon-view goldens exist. Marquee selection, arrangement/sort behavior and the shared view host remain. Keep #35 open. |
-| #36 | Missing | Shell/sidebar divider dragging and table-column resizing are not a window-aware drag session, drop-target negotiation or file-drop adapter. |
+| #36 | Provisional | `drag` owns the session mechanics: payload/source, three-pixel threshold, drop-time Option/copy, allowed operations, transparent drag image, target registration and all-item negotiation, accepted/rejected feedback, insertion indicators, drop results, cancellation, pointer capture and the frontmost-source autoscroll rule. GPUI view adapters for SourceList/TableView/IconGrid and the host file-drop adapter remain. |
 | #46 | Missing | The generic ActionMenu, command pop-down and ScopeBar are absent. |
 | #48 | Measured/finished | `FileArtwork` keeps full-colour file/object artwork with selected/inactive/disabled states; `TemplateImage` owns the monochrome system-image vocabulary; `ConsumerArtwork` adapts consumer 32 px toolbar and category artwork. Size families are fixed in `FileArtwork::file_element`/`TemplateImageSlot`, the gallery shows each class, and goldens cover file states, template states and consumer artwork in all four appearances. |
 | #49 | Missing | `explorer.rs` is a composition sample, not the Finder-style acceptance application described by #49. |
@@ -223,8 +223,8 @@ states describe implementation maturity, not issue closure:
 | #56 | Missing | No System Preferences acceptance application with scripted scenarios exists. |
 | #75 | Functional but incomplete | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus}` supplies status values (with optional activation), fixed/flexible spaces, regular/small rectangular controls and source-list gradient controls through the command registry. Goldens and scenario tests cover truncation, disabled commands and both bar families. Consumer migration and measured 10.6 state captures remain. |
 
-`docs/coverage.md` remains the component-level source of truth: Outline View and
-Drag and Drop are missing; Toolbar and Bottom Bar are functional but
+`docs/coverage.md` remains the component-level source of truth: Outline View is
+missing; Drag and Drop, Toolbar and Bottom Bar are provisional/functional but
 incomplete; Split View and Forms are provisional; Preferences and Column/Icon
 views are functional. Functional implementations do not close their issues
 while promised behaviors remain.

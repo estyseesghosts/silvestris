@@ -216,6 +216,7 @@ all four appearances.
 | Help tags | `tooltip::attach`, `tooltip::attach_in` | Themed tooltips on the transient layer |
 | Notices | `Notice`, `notice::error_banner` | Empty and error states for a workspace |
 | Status values | `status::value` | Labelled values for status bars |
+| Drag and drop | `drag::DragSession`, `DragOperation`, `DragImage`, `DropTarget`, `DropTargets`, `DropFeedback`, `Insertion` | Session mechanics and target negotiation. The consumer owns what a drop means |
 | Artwork | `icons::FileArtwork`, `TemplateImage`, `TemplateImageSlot`, `ConsumerArtwork` | File/object artwork stays full-colour; template images use host state ink in fixed 19 px toolbar or 13 px segmented slots. Consumer artwork is supplied by a renderer and hosted at 32 px for toolbar or preference-category use |
 | Confirmation sheet | `ConfirmationSheet`, `ConfirmationFocus` | Thin wrapper over `Alert`; new code should compose `Alert` and a `sheet::Sheet` |
 | Multiline text | `TextArea` | Prototype. Do not adopt until #58 lands the multiline API |

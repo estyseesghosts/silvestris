@@ -174,6 +174,22 @@ Until #61 lands, type the controller API yourself and keep collection state in
 the controller rather than in the view. Undo (#39), document identity and dirty
 state (#37) are separate controllers because they outlive one view.
 
+## Drag and drop
+
+`drag::DragSession` is the shared session mechanics, not an application policy.
+Begin it on mouse-down with the payload and source id; it stays pending until
+the pointer moves three pixels (HIG p. 123). `pointer_moved` records modifiers
+but `operation`/`drop` sample Option only at drop time, so Option never latches.
+`DropTargets::register` takes a predicate over the complete payload; `negotiate`
+reports accepted or rejected feedback and a target highlights only when every
+dragged item is acceptable. `Insertion` carries a gap, an item or a text offset.
+`DragImage::transparent` is the Aqua drag image, and `autoscroll` returns a
+delta only for the frontmost source window. Cancellation releases capture.
+
+The consumer decides what a drop means: Finder provider policy, Lotus retile,
+Sandcat attachment or Chaus document open. Do not put container, volume or
+filesystem rules in the session.
+
 ## Preferences
 
 Use `PreferencesNavigator` for pane selection and history,

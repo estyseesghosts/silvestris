@@ -143,7 +143,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Application lifecycle | `lifecycle::AppDelegate`, `QuitCoordinator`, `Terminate` | functional | — | — | #59 |
 | Preference storage | `silvestris_core::prefs::{Store, Versioned, Migration, Storage}`, `silvestris::prefs::Preferences` | functional | — | — | #62 |
 | Modal sessions | `modal::ModalSession`, `ModalScope`, `ModalResult`; `ConfirmationFocus` | functional | four | — | #21 |
-| Drag and drop | none | missing | — | — | #36 |
+| Drag and drop | `drag::{DragSession, DragOperation, DragImage, DropTarget, DropTargets, DropFeedback, Insertion, DragPhase, DropResult, Autoscroll}` | provisional | — | — | #36 |
 | Undo and redo | `undo::UndoManager`, `TextHistory`, `undo::entry` | functional | four | — | #39 |
 | System images and icons | `sprites`; `icons::FileArtwork`, `TemplateImage`, `ConsumerArtwork` | functional | four | `artwork-file-states`, `artwork-template-states`, `artwork-consumer` | #48 |
 | Cursors | GPUI cursor styles | provisional | four | — | #48 |
