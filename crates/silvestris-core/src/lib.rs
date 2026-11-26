@@ -11,6 +11,7 @@ pub mod command;
 pub mod geist;
 pub mod layout;
 pub mod prefs;
+pub mod split;
 pub mod sprites;
 pub mod theme;
 pub mod tokens;

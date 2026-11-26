@@ -129,6 +129,17 @@ Mount transient menus above the shell, not inside inspector content. Escape
 dismisses an overlay inspector; `on_inspector_key_down` runs first and returns
 `true` to handle an application shortcut or close an application popup.
 
+## Split views
+
+`SplitView` is the reusable multi-pane splitter inside a workspace. It supports
+horizontal or vertical orientation, two or more panes, thin (1 px, 2 px hot
+zone) and thick (9 px, dimple) Aqua dividers, per-pane minimums and maximums,
+explicit collapse, pointer and keyboard resizing, and exact measured pane
+bounds through `on_bounds`. It is controlled: pass a `SplitState`, persist the
+new state from `on_resize`, and pass it back. Persist only divider IDs and
+positions. Do not turn it into a tiling tree or use it to replace Shell's
+sidebar/workspace/inspector policy. See [split-view.md](split-view.md).
+
 ## Commands
 
 One `Entity<CommandRegistry>` per application. Register one callback per stable

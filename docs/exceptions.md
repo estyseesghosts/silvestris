@@ -47,6 +47,14 @@ repeated here; they are listed in place next to the token.
   establish the shape. See handbook 06 and Microsoft's
   [Windows 11 rounding guidance](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/ui/apply-rounded-corners).
 
+## Split views
+
+- The thick splitter's geometry is measured from the 10.6 Automator capture:
+  9 logical px, 1 px divider edges and a 4 px dimple. Its inner tonal ramp is
+  approximated by the window surface colour between those edges.
+- Keyboard divider adjustment uses a designed 10 logical px step, matching the
+  existing sidebar splitter; Home/End move to the adjacent minimum/maximum.
+
 ## Estimated values
 
 `estimated:` tokens come from post-10.6 captures the user supplied because no

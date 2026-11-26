@@ -177,6 +177,19 @@ overlays depending on width. Layout is planned by the pure
 in your state and update them from the shell's change callbacks.
 `Shell::measured` hands you the plan when a child needs the exact geometry.
 
+### Split views
+
+| | |
+|---|---|
+| Modules | `silvestris::split`, `silvestris::core::split` |
+| Types | `SplitView`, `SplitState`, `SplitDividerState`, `SplitPane`, `SplitLayout`, `SplitSlot`, `SplitOrientation`, `SplitDividerStyle` |
+| Docs | [split-view.md](split-view.md), [guide.md](guide.md#split-views) |
+
+`SplitView` is the reusable multi-pane splitter, separate from Shell. It is
+controlled: persist divider IDs and positions from `on_resize` and pass the
+state back. The consumer keeps pane content, collapse decisions and domain
+policy. `on_bounds` reports the measured pane rectangles.
+
 ### Controls
 
 All controls are in `silvestris::controls`. Most are `RenderOnce` builders:
@@ -420,7 +433,7 @@ deferred.
 | lotus | `icons.rs` 16 px stroke icon set, `group_icon` | [#48](https://github.com/estyseesghosts/silvestris/issues/48) |
 | lotus | `lotus_window/command_palette.rs` | [#76](https://github.com/estyseesghosts/silvestris/issues/76) |
 | lotus | `tiling.rs` edge drop zones, drag previews | [#36](https://github.com/estyseesghosts/silvestris/issues/36) (primitives); tiling policy stays app-owned |
-| lotus | Split stage dividers | [#53](https://github.com/estyseesghosts/silvestris/issues/53) |
+| lotus | Split stage dividers | [#53](https://github.com/estyseesghosts/silvestris/issues/53) (`split::SplitView`; tiling/session policy stays app-owned) |
 | lotus | Memory, register, breakpoint, kernel, snapshot tables; event timeline | [#32](https://github.com/estyseesghosts/silvestris/issues/32), [#33](https://github.com/estyseesghosts/silvestris/issues/33), [#40](https://github.com/estyseesghosts/silvestris/issues/40) |
 | lotus | `state_dot`, row accessories in the session list | [#4](https://github.com/estyseesghosts/silvestris/issues/4) |
 | lotus | Status bar values (`status_value`), toolbar ([lotus#133](https://github.com/estyseesghosts/lotus/issues/133)) | [#75](https://github.com/estyseesghosts/silvestris/issues/75), [#26](https://github.com/estyseesghosts/silvestris/issues/26) |

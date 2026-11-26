@@ -218,14 +218,14 @@ states describe implementation maturity, not issue closure:
 | #46 | Missing | The generic ActionMenu, command pop-down and ScopeBar are absent. |
 | #48 | Measured/finished | `FileArtwork` keeps full-colour file/object artwork with selected/inactive/disabled states; `TemplateImage` owns the monochrome system-image vocabulary; `ConsumerArtwork` adapts consumer 32 px toolbar and category artwork. Size families are fixed in `FileArtwork::file_element`/`TemplateImageSlot`, the gallery shows each class, and goldens cover file states, template states and consumer artwork in all four appearances. |
 | #49 | Missing | `explorer.rs` is a composition sample, not the Finder-style acceptance application described by #49. |
-| #53 | Provisional | `Shell` has its own sidebar/inspector divider; there is no reusable multi-pane `SplitView`. Preserve this distinction. |
+| #53 | Functional | `split::SplitView` provides horizontal/vertical two-or-more-pane layouts, thin (1 px, 2 px hot zone) and thick (9 px, dimple) Aqua dividers, per-pane min/max and explicit collapse, pointer and keyboard resizing, exact `container_query` pane bounds and a persisted divider ID/position model. `Shell` keeps its own sidebar/workspace/inspector policy. Consumer adoption (Lotus split stages) remains. |
 | #54 | Functional but incomplete | `Form`/`FormRow` now carry explicit normal, disabled/dependent, note, warning and error states; warnings and errors share a fixed message slot with a mark, and `dependent_on(Binding<bool>)` drives the row from the model. Bound checkbox/radio/pop-up/slider controls and `TextBinding` keep values in the model; an invalid parse keeps the last value. Remaining: consumer adoption and broader validation scenarios. |
 | #56 | Missing | No System Preferences acceptance application with scripted scenarios exists. |
 | #75 | Functional but incomplete | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus}` supplies status values (with optional activation), fixed/flexible spaces, regular/small rectangular controls and source-list gradient controls through the command registry. Goldens and scenario tests cover truncation, disabled commands and both bar families. Consumer migration and measured 10.6 state captures remain. |
 
 `docs/coverage.md` remains the component-level source of truth: Outline View is
 missing; Drag and Drop, Toolbar and Bottom Bar are provisional/functional but
-incomplete; Split View and Forms are provisional; Preferences and Column/Icon
-views are functional. Functional implementations do not close their issues
-while promised behaviors remain.
+incomplete; Forms is functional; Split View, Preferences and Column/Icon views
+are functional. Functional implementations do not close their issues while
+promised behaviors remain.
 - [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.

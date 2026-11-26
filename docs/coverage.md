@@ -105,7 +105,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Outline view | none | missing | — | — | #33 |
 | Column view | `ColumnBrowser`, `BrowserNode`, `BrowserEvent` | functional | four | `column-browser` | #34 |
 | Icon view | `IconGrid`, `IconGridEvent` | functional | four | `open-dialog-icons`, `save-sheet-expanded-icons` | #35 |
-| Split view | `Shell` divider only | provisional | four | — | #53 |
+| Split view | `SplitView`, `split::{SplitLayout, SplitPane, SplitState, SplitDividerStyle, SplitOrientation, SplitSlot}` | functional | four | `split-view-thin`, `split-view-thick` | #53 |
 | Tab view | `TabView`, `preferences::pane_tab_view` | measured | four | `tab-view` | #13 |
 | Separator | `Separator`, `SeparatorAxis` | measured | four | `separator` | #13 |
 | Group box | `GroupBox` (text, checkbox or pop-up title), `Form` | measured | four | `groupbox` | #13 |

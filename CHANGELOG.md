@@ -5,6 +5,24 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## After fab6328
+
+Standalone split view (#53):
+
+- `split::SplitView` composes two or more panes horizontally or vertically with
+  the measured `container_query` extent. It is deliberately independent of
+  `Shell`; a consumer can put it inside the workspace.
+- `split::{SplitDividerStyle, SplitOrientation, SplitPane, SplitState,
+  SplitLayout, SplitSlot}` model thin (1 px, 2 px hot zone) and thick (9 px,
+  4 px dimple) dividers, pane minimums/maximums and explicit collapse. A
+  destination never decides which pane collapses.
+- The view is controlled: drag, Home/End and arrow keys emit a new
+  `SplitState` through `on_resize`; persist divider IDs and positions only.
+  `on_bounds` reports exact measured pane rectangles for domain views that size
+  themselves from their allocation.
+- Goldens cover a vertical thin split and a horizontal thick split in all four
+  appearances.
+
 ## After 5cc9455
 
 Drag-and-drop session core (#36):

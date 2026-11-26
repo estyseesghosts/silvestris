@@ -31,6 +31,7 @@ use silvestris::controls::{
 };
 use silvestris::core::command::{CommandDescriptor, MenuEntry, MenuModel};
 use silvestris::core::source_list::SourceNode;
+use silvestris::core::split::{SplitDividerStyle, SplitOrientation, SplitPane, SplitState};
 use silvestris::file_panel::{
     FileEntry, FilePanel, FilePlace, FileViewMode, MemoryProvider, PanelMode, PanelOptions,
     PlaceSection,
@@ -42,6 +43,7 @@ use silvestris::menu::PopupMenu;
 use silvestris::preferences::{
     pane_body, pane_viewport, Form, FormRow, PreferencesNavigator, PreferencesToolbar,
 };
+use silvestris::split::SplitView;
 use silvestris::toolbar::{Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle};
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
@@ -446,6 +448,21 @@ const PREFERENCE_SAMPLES: [Sample; 2] = [
     },
 ];
 
+/// Split views get their own page so the thin and thick dividers are shown at
+/// a readable size rather than inside a control cell.
+const SPLIT_SAMPLES: [Sample; 2] = [
+    Sample {
+        id: "split-view-thin",
+        width: 360.,
+        height: 220.,
+    },
+    Sample {
+        id: "split-view-thick",
+        width: 360.,
+        height: 220.,
+    },
+];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -474,6 +491,18 @@ fn preference_index(page: usize) -> usize {
     page - preference_page_start()
 }
 
+fn split_page_start() -> usize {
+    preference_page_start() + PREFERENCE_SAMPLES.len()
+}
+
+fn on_split_page(page: usize) -> bool {
+    (split_page_start()..split_page_start() + SPLIT_SAMPLES.len()).contains(&page)
+}
+
+fn split_index(page: usize) -> usize {
+    page - split_page_start()
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
@@ -485,6 +514,14 @@ fn page_samples(page: usize) -> &'static [Sample] {
     if on_panel_page(page) {
         let index = panel_index(page);
         return &PANEL_SAMPLES[index..index + 1];
+    }
+    if on_preference_page(page) {
+        let index = preference_index(page);
+        return &PREFERENCE_SAMPLES[index..index + 1];
+    }
+    if on_split_page(page) {
+        let index = split_index(page);
+        return &SPLIT_SAMPLES[index..index + 1];
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -503,6 +540,10 @@ fn root_size(page: usize) -> (f32, f32) {
     }
     if on_preference_page(page) {
         let sample = &PREFERENCE_SAMPLES[preference_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
+    }
+    if on_split_page(page) {
+        let sample = &SPLIT_SAMPLES[split_index(page)];
         return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
     (
@@ -529,6 +570,10 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
     }
     if on_preference_page(page) {
         let sample = &PREFERENCE_SAMPLES[preference_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
+    }
+    if on_split_page(page) {
+        let sample = &SPLIT_SAMPLES[split_index(page)];
         return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
     let samples = page_samples(page);
@@ -1352,6 +1397,14 @@ impl CaptureView {
             }
             "preferences-general" => preferences_sample("General", 4, false, cx).into_any_element(),
             "preferences-scroll" => preferences_sample("Privacy", 30, true, cx).into_any_element(),
+            "split-view-thin" => {
+                split_sample(SplitOrientation::Vertical, SplitDividerStyle::Thin, cx)
+                    .into_any_element()
+            }
+            "split-view-thick" => {
+                split_sample(SplitOrientation::Horizontal, SplitDividerStyle::Thick, cx)
+                    .into_any_element()
+            }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -1444,6 +1497,71 @@ fn save_sheet_crop_sample(panel: &Entity<FilePanel>, cx: &mut App) -> impl IntoE
             )
             .child(panel.clone()),
         )
+}
+
+fn split_sample(
+    orientation: SplitOrientation,
+    style: SplitDividerStyle,
+    cx: &mut App,
+) -> impl IntoElement {
+    let theme = cx.theme().clone();
+    let pane = |id: &'static str, label: &'static str, background: gpui::Hsla| {
+        div()
+            .debug_selector(move || id.into())
+            .size_full()
+            .bg(background)
+            .p(px(8.))
+            .text_size(px(theme.type_.size_small))
+            .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+            .child(label)
+    };
+    let source = pane(
+        "split-source",
+        "Source list",
+        silvestris::convert::hsla(theme.colors.sidebar),
+    );
+    let content = pane(
+        "split-content",
+        "Content",
+        silvestris::convert::hsla(theme.colors.content),
+    );
+    let inspector = pane(
+        "split-inspector",
+        "Inspector",
+        silvestris::convert::hsla(theme.colors.window),
+    );
+    let title = pane(
+        "split-title",
+        "Split view",
+        silvestris::convert::hsla(theme.colors.content),
+    );
+    let log = pane(
+        "split-log",
+        "Log",
+        silvestris::convert::hsla(theme.colors.window),
+    );
+
+    if orientation.is_side_by_side() {
+        SplitView::new("split-sample", orientation)
+            .divider_style(style)
+            .state(SplitState::with_dividers([
+                ("split-source", 96.0),
+                ("split-content", 270.0),
+            ]))
+            .pane("split-source", SplitPane::new(72.0, 160.0), source)
+            .pane(
+                "split-content",
+                SplitPane::new(120.0, f32::INFINITY),
+                content,
+            )
+            .pane("split-inspector", SplitPane::new(48.0, 160.0), inspector)
+    } else {
+        SplitView::new("split-sample", orientation)
+            .divider_style(style)
+            .state(SplitState::with_dividers([("split-title", 112.0)]))
+            .pane("split-title", SplitPane::new(64.0, 180.0), title)
+            .pane("split-log", SplitPane::new(48.0, f32::INFINITY), log)
+    }
 }
 
 fn preferences_sample(

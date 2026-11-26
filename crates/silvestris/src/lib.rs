@@ -64,6 +64,7 @@ pub mod transient;
 pub mod undo;
 
 pub mod shell;
+pub mod split;
 
 pub mod window_role;
 
