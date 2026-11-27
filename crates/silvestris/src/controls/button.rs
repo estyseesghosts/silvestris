@@ -1290,6 +1290,14 @@ mod tests {
         draw(cx);
         assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
 
+        // Keyboard Space activates once while the button holds focus.
+        cx.simulate_keystrokes("space");
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("space").unwrap(),
+        });
+        draw(cx);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 2);
+
         // Releasing outside the circle cancels the pending activation.
         cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
         draw(cx);
@@ -1298,7 +1306,7 @@ mod tests {
         draw(cx);
         cx.simulate_mouse_up(outside, MouseButton::Left, modifiers);
         draw(cx);
-        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 2);
 
         cx.update(|_, cx| {
             harness.update(cx, |h, cx| {
@@ -1309,7 +1317,7 @@ mod tests {
         draw(cx);
         cx.simulate_click(position, modifiers);
         draw(cx);
-        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 2);
     }
 
     #[test]
