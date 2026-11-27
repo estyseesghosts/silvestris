@@ -57,6 +57,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Push button | `Button`, `ButtonStyle`, `ControlSize` | measured | four | `button-default` | #10 |
+| Installer Continue button | `Button`, `ButtonStyle::InstallerContinue` | measured | four | `button-installer-continue`, `button-installer-continue-normal`, `button-installer-continue-disabled` | unfiled |
 | Default button throb | `ButtonStyle::Default` | measured | four | `button-default` | #9 |
 | Bevel, icon, round, gradient buttons | `ButtonStyle::{Bevel, Round, Recessed, Help}` | measured | four | `button-round`, `button-recessed`, `button-help`, `button-bevel` | #10 |
 | Segmented control | `SegmentedControl`, `Segment`, `SegmentMode`, `SegmentStyle` | measured | four | `segmented`, `segmented-textured`, `segmented-icon`, `segmented-small` | #11 |
@@ -73,6 +74,52 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Radio button | `RadioGroup`, `RadioOption` | measured | four | `radio-on`, `radio-off`, `radio-small` | #6 |
 | Checkbox, mixed state | `Checkbox`, `CheckState` | measured | four | `checkbox-on`, `checkbox-off`, `checkbox-mixed`, `checkbox-small`, `checkbox-mini` | #19 |
 | Placard | none | missing | — | — | #107 |
+
+### Installer Continue
+
+`ButtonStyle::InstallerContinue` is the Snow Leopard installer's circular
+Continue button. It is a first-class Silvestris control but not a standard HIG
+push button: use it only for install, first-run setup, setup-assistant and
+sequential configuration screens. Do not substitute it for ordinary Continue,
+OK or Save buttons in dialogs.
+
+```rust
+Button::new("continue", "Continue")
+    .style(ButtonStyle::InstallerContinue)
+    .default_button(true)
+    .on_click(/* application callback */)
+```
+
+The supplied label is the accessible name and is never drawn. The control keeps
+the existing `disabled`, `default_button`, `throb`, `tooltip`, `focus_handle`
+and `on_click` behaviour, including pointer cancellation, keyboard Space,
+dialog Return routing, the keyboard-only focus ring and tab traversal. Only the
+regular size exists; no reference supports a small or mini installer control.
+The bezel is a fixed 30 px square (31 x 30 px in the reference) regardless of
+label length and flex context, so it stays circular at every scale.
+
+The enabled default material is measured from `continue-arrow-glyph.png` and
+the same button in `install-mac-os-x-language.png`: a 1 px `#666666` rim, an
+upper `#5187E2` to `#71ABEC` band, a lower `#52AAED` to `#88E9FC` band, a
+`#F6F8F8` bottom edge and a `#1C2737` glyph. The glyph is vector geometry, not
+a font character: two 4 px dots at x 7 and 13 and a solid right-pointing
+triangle from x 19 to x 24.5, 10 px tall, with 2 px gaps. It never moves,
+resizes or changes spacing during breathing, presses or focus changes.
+
+`Controls::installer_continue` holds separate normal, default, pressed and
+disabled bezels plus the glyph ink for each state; `Metrics::installer_continue_diameter`
+is the 30 px diameter. Aqua Light is the historical reference. Aqua Dark is a
+designed blue adaptation, and Geist Light/Dark use Geist's inverted
+default-action material (dark fill on light, light fill on dark) with the same
+geometry and glyph. Pressed and disabled bezels are designed, as are all three
+non-reference appearances; see [docs/exceptions.md](exceptions.md).
+
+A default, enabled, active-window control reuses the existing default-button
+breathing implementation (`throb_bevel`, 1,100 ms, about 8%): only the upper
+and lower bands move, while the rim, bottom edge and glyph hold. Breathing
+stops when the control is disabled, the window is inactive, reduced motion is
+on, a press is held, or `.throb(false)` is set. It continues while focus is in
+another control and resumes after the release transition.
 
 ## Indicators and feedback
 
@@ -161,6 +208,7 @@ window state at paint time; interaction code never branches on theme.
 | Table selection | blue flat | blue flat | grey flat | `Lists::table_*` tokens |
 | Title bar and traffic lights | active chrome and coloured lights | active | inactive chrome and idle lights | window-frame goldens |
 | Push/default button | normal/default | normal/default, throb stopped | dimmed material | `Button` throb guard + `button` goldens |
+| Installer Continue | default breathes | breathes with focus elsewhere | static default | `Button` eligibility test + installer goldens |
 | Pop-up | normal | normal | dimmed body/cap | `popup-disabled` and popup tokens |
 | Source-list disclosure | secondary ink or white on selection | same | disabled ink | `disclosure` goldens |
 | Slider | normal track/thumb | normal | disabled track/thumb | `slider-disabled` golden |

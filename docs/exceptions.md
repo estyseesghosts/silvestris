@@ -167,6 +167,18 @@ repeated here; they are listed in place next to the token.
   the button is down and fades back over 120 ms on release, observed on a 10.6
   VM with Mail's Cancel. Both durations are estimates. Keyboard presses and
   reduced motion show the pressed bevel immediately.
+- Installer Continue (`ButtonStyle::InstallerContinue`): the enabled default
+  bezel and glyph are measured from `continue-arrow-glyph.png` and the same
+  button in `install-mac-os-x-language.png` (both show a 31 x 30 px bezel at
+  1x). Measured: the 1 px `#666666` rim, upper `#5187E2` to `#71ABEC` band,
+  lower `#52AAED` to `#88E9FC` band, `#F6F8F8` bottom edge, `#1C2737` glyph,
+  4 px dots, 2 px gaps and the 10 px triangle. The split sits near 15/27 of the
+  inner height; the reference gloss boundary curves up toward the centre, so
+  the shared horizontal split is an approximation. Designed: the pressed and
+  disabled bezels, all Dark Aqua colours and both Geist treatments; the corpus
+  contains only one enabled Aqua phase. The 1,100 ms / 8% breathing is the
+  existing estimate above, reused unchanged. No capture shows a small or mini
+  variant, so only the regular 30 px diameter exists.
 - Help-button gloss is measured from the Appearance pane help tag only at the
   ring/glyph level; pressed and disabled help states are designed.
 - Disclosure pressed and animated rotation are designed; the collapsed

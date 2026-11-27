@@ -3,7 +3,8 @@
 The visual gate renders the M2 control set and three window frames at 100, 125,
 150, 175 and 200% in all four appearances, compares every pixel against the
 committed goldens, and reports the distance to a 10.6 reference crop for
-information. The control set covers push buttons (all styles and sizes),
+information. The control set covers push buttons (all styles and sizes), the
+Snow Leopard installer Continue control (default, non-default and disabled),
 checkboxes (on/off/mixed/small/mini/disabled), radios, rounded and textured
 pop-ups, segmented controls (text/icon/textured/small), sliders (round,
 pointed, vertical, disabled), progress (bar, barber pole, spinner, ring),
@@ -19,7 +20,8 @@ divider and the horizontal thick divider with its dimple. One action page shows
 the closed Action menu, command pop-down, small scope bar and the toolbar
 customization palette. Three toolbar-artwork pages show the 2×2 artwork matrix
 in Icon Only / Icon & Label / Text Only, the artwork state row, and a generic
-pictorial-command composition.
+pictorial-command composition. A final page shows the installer Continue
+default, non-default and disabled samples.
 
 Committed:
 
@@ -32,8 +34,9 @@ Committed:
   identify a display scale, so its crops record `scale: null` and the note says
   so; the Appearance pane capture is 144 dpi and 2x. The same file indexes all
   70 uncategorised captures with a `subject_guess` and `verified: false` — a
-  triage label from one contact-sheet pass, not evidence. No corpus image or
-  crop is committed.
+  triage label from one contact-sheet pass, not evidence. The installer
+  Continue crop and its full language-screen source are indexed separately as
+  verified captures. No corpus image or crop is committed.
 
 ## Render
 

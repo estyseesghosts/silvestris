@@ -36,6 +36,16 @@ bevel only when checked) with command state, Tab/Space, occlusion and focus
 ring. Segmented controls accept consumer glyphs, and the toolbar search item
 uses the measured 108 px search-field width.
 
+Installer Continue: `ButtonStyle::InstallerContinue` is a fixed 30 px circular
+control with built-in vector dots-and-triangle artwork, no visible label (the
+supplied label stays accessible), dedicated `Controls::installer_continue`
+bezels and glyph inks, `Metrics::installer_continue_diameter`, and the shared
+default-button `throb_bevel` animation. It reuses the existing pointer,
+keyboard, default-action, focus and disabled contract, and has gallery samples
+plus `button-installer-continue`, `-normal` and `-disabled` goldens in all four
+appearances at every scale. The Snow Leopard reference is measured; pressed,
+disabled and the three non-reference appearances are designed.
+
 Finder content views (#33/#34/#35) and one file-view host:
 
 - `controls::OutlineView` (`OutlineRow`, `OutlineEvent`) renders a consumer's

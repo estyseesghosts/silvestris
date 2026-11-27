@@ -230,5 +230,16 @@ Toolbar and Bottom Bar are provisional/functional but incomplete; Forms is
 functional; Outline View, Split View, Preferences and Column/Icon views are
 functional. Functional implementations do not close their issues while
 promised behaviors remain.
+
+Installer Continue (unfiled): `ButtonStyle::InstallerContinue` is the Snow
+Leopard installer's fixed 30 px circular control with a built-in vector
+dots-and-triangle glyph, dedicated `Controls::installer_continue` bezels and
+glyph inks, and the shared default-button breathing. It reuses the existing
+button interaction, focus and disabled contract, has gallery samples for the
+breathing default, static default, non-default, disabled and `#EDEDED`
+comparison cases, and three golden stems across all four appearances and five
+scales. Aqua Light is measured from the supplied close-up and full language
+screen; pressed, disabled and the three non-reference appearances are designed,
+as recorded in `docs/exceptions.md`.
 - [#74](https://github.com/estyseesghosts/silvestris/issues/74) is re-scoped to lotus's vendored patches plus the pin contract for lotus, chaus and johjoh. Sandcat re-pins later.
 
