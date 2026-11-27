@@ -253,10 +253,14 @@ host and are a documented verification limitation, not a passing gate.
 - `cargo test -p silvestris-core`, the Aqua isolation fixtures, the Geist
   contrast checks, font metadata checks, scrollbar interaction tests and theme
   switching tests pass.
-- Candidate Geist goldens are rendered with `pwsh tools/metrology/render.ps1`
-  and reported by `tools/metrology/gate.py`. Aqua differences are reported as
-  forbidden; Geist differences are reported as awaiting review. Final golden
-  acceptance is deliberately left to the user after visual inspection.
+- Candidate goldens for all four appearances were rendered with
+  `pwsh tools/metrology/render.ps1` and compared with
+  `tools/metrology/gate.py`: 1440 goldens, 770 failed, 76 forbidden Aqua
+  differences and 694 Geist differences awaiting review. A clean `d575f34`
+  worktree render proved the installer-image differences are pre-existing host
+  drift, and a deterministic Aqua regression in the preference-form note line
+  box was found and fixed. Final golden acceptance is deliberately left to the
+  user after visual inspection.
 - An appended Geist-only golden page (page 24) adds search field, button state,
   horizontal scroll, long-text wrapping and pictogram samples. It is rendered
   only for Geist appearances, so no accepted Aqua golden moves. The generated
