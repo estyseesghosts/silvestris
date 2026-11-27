@@ -27,7 +27,7 @@ use gpui::{
     SharedString, Window,
 };
 use silvestris_core::tokens::{Bevel, Theme};
-use silvestris_core::{Gradient, Rgba8};
+use silvestris_core::{Gradient, Rgba8, ThemeFamily};
 
 use crate::convert::hsla;
 use crate::paint;
@@ -467,7 +467,7 @@ impl RenderOnce for Button {
         };
         let installer = (self.style == ButtonStyle::InstallerContinue)
             .then_some(theme.controls.installer_continue);
-        let base: Bevel = if let Some(installer) = installer {
+        let mut base: Bevel = if let Some(installer) = installer {
             if self.disabled {
                 installer.disabled
             } else if self.default {
@@ -488,11 +488,12 @@ impl RenderOnce for Button {
             (
                 cx.focus_handle().tab_stop(true),
                 Rc::new(Cell::new(Press::Resting)),
+                Rc::new(Cell::new(false)),
             )
         });
-        let (default_focus, feedback) = {
+        let (default_focus, feedback, hover) = {
             let state = state.read(cx);
-            (state.0.clone(), state.1.clone())
+            (state.0.clone(), state.1.clone(), state.2.clone())
         };
         let focus = self.focus.unwrap_or_else(|| default_focus.clone());
         let enabled = !self.disabled;
@@ -507,6 +508,12 @@ impl RenderOnce for Button {
             feedback.set(Press::Resting);
         }
         let amount = feedback.get().amount(window, cx);
+        if enabled && theme.id.family == ThemeFamily::Geist && hover.get() && base == states.normal
+        {
+            // Geist has one explicit hover material for every button style.
+            // Aqua keeps its measured per-style bevels untouched.
+            base = theme.controls.hover;
+        }
         if amount == 0.0 && matches!(feedback.get(), Press::Released { .. }) {
             feedback.set(Press::Resting);
         }
@@ -579,6 +586,8 @@ impl RenderOnce for Button {
         let pointer_down = feedback.clone();
         let key_down = feedback.clone();
         let activation = feedback.clone();
+        let hover_for_element = hover.clone();
+        let repaint_on_hover = theme.id.family == ThemeFamily::Geist;
         let key_handler = handler.clone();
         let help = self.style == ButtonStyle::Help;
 
@@ -683,6 +692,18 @@ impl RenderOnce for Button {
                 let bezel_canvas = canvas(
                     |_, _, _| (),
                     move |bounds, _, window, _cx| {
+                        let hover_track = hover_for_element.clone();
+                        window.on_mouse_event(move |e: &MouseMoveEvent, phase, window, _| {
+                            if phase.capture() {
+                                let inside = bounds.contains(&e.position);
+                                if hover_track.get() != inside {
+                                    hover_track.set(inside);
+                                    if repaint_on_hover {
+                                        window.refresh();
+                                    }
+                                }
+                            }
+                        });
                         let painted = if throb {
                             throb_bevel(bezel, throb_for_paint.get())
                         } else {
