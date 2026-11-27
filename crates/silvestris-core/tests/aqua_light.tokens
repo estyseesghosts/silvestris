@@ -1,0 +1,5593 @@
+Snapshot {
+    id: ThemeId {
+        family: Aqua,
+        appearance: Light,
+    },
+    provenance: Measured,
+    typography: Typography {
+        ui: "Lato",
+        mono: "Source Code Pro",
+        size_regular: 13.0,
+        size_small: 11.0,
+        size_mini: 9.0,
+        size_mono: 12.0,
+        size_title: 13.0,
+        size_heading: 11.0,
+        size_menu: 13.0,
+        size_view: 12.0,
+        size_label: 10.0,
+    },
+    colors: Colors {
+        window: Rgba8 {
+            r: 237,
+            g: 237,
+            b: 237,
+            a: 255,
+        },
+        content: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        },
+        canvas: Rgba8 {
+            r: 30,
+            g: 30,
+            b: 30,
+            a: 255,
+        },
+        text: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 255,
+        },
+        text_secondary: Rgba8 {
+            r: 76,
+            g: 76,
+            b: 76,
+            a: 255,
+        },
+        text_disabled: Rgba8 {
+            r: 154,
+            g: 154,
+            b: 154,
+            a: 255,
+        },
+        text_on_accent: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        },
+        title: Rgba8 {
+            r: 38,
+            g: 38,
+            b: 38,
+            a: 255,
+        },
+        title_inactive: Rgba8 {
+            r: 122,
+            g: 122,
+            b: 122,
+            a: 255,
+        },
+        title_engrave: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 150,
+        },
+        separator: Rgba8 {
+            r: 192,
+            g: 192,
+            b: 192,
+            a: 255,
+        },
+        divider: Rgba8 {
+            r: 180,
+            g: 180,
+            b: 180,
+            a: 255,
+        },
+        focus_ring: Rgba8 {
+            r: 94,
+            g: 157,
+            b: 216,
+            a: 211,
+        },
+        accent: Rgba8 {
+            r: 59,
+            g: 119,
+            b: 218,
+            a: 255,
+        },
+        link: Rgba8 {
+            r: 11,
+            g: 71,
+            b: 216,
+            a: 255,
+        },
+        success: Rgba8 {
+            r: 43,
+            g: 154,
+            b: 63,
+            a: 255,
+        },
+        warning: Rgba8 {
+            r: 210,
+            g: 142,
+            b: 11,
+            a: 255,
+        },
+        error: Rgba8 {
+            r: 208,
+            g: 48,
+            b: 42,
+            a: 255,
+        },
+        info: Rgba8 {
+            r: 59,
+            g: 119,
+            b: 218,
+            a: 255,
+        },
+        sidebar: Rgba8 {
+            r: 222,
+            g: 228,
+            b: 234,
+            a: 255,
+        },
+        sidebar_inactive: Rgba8 {
+            r: 236,
+            g: 236,
+            b: 236,
+            a: 255,
+        },
+        sidebar_heading: Rgba8 {
+            r: 115,
+            g: 129,
+            b: 147,
+            a: 255,
+        },
+        source_secondary: Rgba8 {
+            r: 223,
+            g: 228,
+            b: 233,
+            a: 255,
+        },
+        source_secondary_heading: Rgba8 {
+            r: 115,
+            g: 129,
+            b: 147,
+            a: 255,
+        },
+        row_alternate: Rgba8 {
+            r: 237,
+            g: 243,
+            b: 254,
+            a: 255,
+        },
+        group_fill: Rgba8 {
+            r: 230,
+            g: 230,
+            b: 230,
+            a: 255,
+        },
+        group_border: Rgba8 {
+            r: 200,
+            g: 200,
+            b: 200,
+            a: 255,
+        },
+        group_border_top: Rgba8 {
+            r: 171,
+            g: 171,
+            b: 171,
+            a: 255,
+        },
+        group_border_bottom: Rgba8 {
+            r: 219,
+            g: 219,
+            b: 219,
+            a: 255,
+        },
+        group_highlight: Rgba8 {
+            r: 226,
+            g: 226,
+            b: 226,
+            a: 255,
+        },
+        group_highlight_bottom: Rgba8 {
+            r: 228,
+            g: 228,
+            b: 228,
+            a: 255,
+        },
+        group_shadow: [
+            Rgba8 {
+                r: 197,
+                g: 197,
+                b: 197,
+                a: 255,
+            },
+            Rgba8 {
+                r: 219,
+                g: 219,
+                b: 219,
+                a: 255,
+            },
+            Rgba8 {
+                r: 229,
+                g: 229,
+                b: 229,
+                a: 255,
+            },
+        ],
+        well_fill: Rgba8 {
+            r: 230,
+            g: 230,
+            b: 230,
+            a: 255,
+        },
+        well_border: Rgba8 {
+            r: 200,
+            g: 200,
+            b: 200,
+            a: 255,
+        },
+        well_shadow: Rgba8 {
+            r: 210,
+            g: 210,
+            b: 210,
+            a: 255,
+        },
+        band_rule: Rgba8 {
+            r: 216,
+            g: 216,
+            b: 216,
+            a: 255,
+        },
+        menu: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 243,
+        },
+        menu_text: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 255,
+        },
+        menu_text_disabled: Rgba8 {
+            r: 163,
+            g: 163,
+            b: 163,
+            a: 255,
+        },
+        menu_separator: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 27,
+        },
+        menu_separator_highlight: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 0,
+        },
+        menu_border: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 27,
+        },
+        menu_shadow: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 84,
+        },
+        tooltip: Rgba8 {
+            r: 255,
+            g: 255,
+            b: 198,
+            a: 255,
+        },
+        tooltip_border: Rgba8 {
+            r: 181,
+            g: 181,
+            b: 160,
+            a: 255,
+        },
+        tooltip_text: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 255,
+        },
+        shadow: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 90,
+        },
+        scrim: Rgba8 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 40,
+        },
+    },
+    metrics: Metrics {
+        window_radius: 4.0,
+        titlebar_height: 22.0,
+        toolbar_height: 32.0,
+        toolbar_labelled_height: 49.0,
+        bottom_bar_height: 32.0,
+        bottom_bar_small_height: 22.0,
+        traffic_diameter: 14.0,
+        traffic_left: 8.0,
+        traffic_top: 4.0,
+        traffic_pitch: 21.0,
+        push_height: 21.0,
+        push_small_height: 18.0,
+        push_mini_height: 15.0,
+        push_radius: 11.0,
+        installer_continue_diameter: 30.0,
+        popup_cap: [
+            21.0,
+            18.0,
+            15.0,
+        ],
+        push_padding: [
+            16.0,
+            14.0,
+            11.0,
+        ],
+        push_label_dy: [
+            -1.0,
+            0.0,
+            0.0,
+        ],
+        textured_height: 22.0,
+        textured_radius: 4.0,
+        segment_height: 21.0,
+        field_height: 22.0,
+        field_small_height: 19.0,
+        field_text_inset: 4.0,
+        caret_width: 1.0,
+        caret_inset_top: 3.0,
+        caret_inset_bottom: 2.0,
+        checkbox_size: 14.0,
+        checkbox_small_size: 12.0,
+        checkbox_mini_size: 10.0,
+        checkbox_label_gap: 6.0,
+        checkbox_radius: 2.0,
+        radio_size: [
+            14.0,
+            12.0,
+            10.0,
+        ],
+        radio_dot_fraction: 0.24,
+        radio_label_gap: 6.0,
+        radio_row_gap: 3.0,
+        source_row_height: 20.0,
+        source_indent: 14.0,
+        table_row_height: 18.0,
+        table_header_height: 18.0,
+        menu_item_height: 18.0,
+        menu_separator_height: 12.0,
+        menu_padding: 4.0,
+        menu_radius: 5.0,
+        scroller_width: [
+            15.0,
+            11.0,
+            9.0,
+        ],
+        focus_ring: [
+            (
+                2.0,
+                0.67,
+            ),
+            (
+                1.0,
+                1.0,
+            ),
+            (
+                0.0,
+                0.66,
+            ),
+            (
+                -1.0,
+                0.34,
+            ),
+        ],
+        disclosure_size: 13.0,
+        disclosure_width: 4.5,
+        disclosure_height: 6.0,
+        slider_height: 19.0,
+        slider_track_height: [
+            5.0,
+            4.0,
+            3.0,
+        ],
+        slider_thumb_width: [
+            15.0,
+            13.0,
+            11.0,
+        ],
+        slider_thumb_height: [
+            18.0,
+            15.0,
+            13.0,
+        ],
+        slider_tick_height: 5.0,
+        slider_tick_gap: 1.0,
+        slider_tick_label_gap: 4.0,
+        progress_height: [
+            16.0,
+            12.0,
+            10.0,
+        ],
+        spinner_size: [
+            16.0,
+            13.0,
+            11.0,
+        ],
+        menu_shadow_offset: [
+            0.0,
+            10.0,
+        ],
+        menu_shadow_blur: 6.5,
+        menu_shadow_spread: -2.0,
+        menu_label_dy: -1.0,
+        well_inset: 1.0,
+        splitter_hot_zone: 2.0,
+        control_spacing: 8.0,
+        tab_label_margin: 12.0,
+        panel_radius: 5.0,
+    },
+    chrome: ChromeSet {
+        active: Chrome {
+            highlight: Rgba8 {
+                r: 226,
+                g: 226,
+                b: 226,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 208,
+                    g: 208,
+                    b: 208,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 167,
+                    g: 167,
+                    b: 167,
+                    a: 255,
+                },
+            },
+            separator: Rgba8 {
+                r: 81,
+                g: 81,
+                b: 81,
+                a: 255,
+            },
+        },
+        inactive: Chrome {
+            highlight: Rgba8 {
+                r: 243,
+                g: 243,
+                b: 243,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 236,
+                    g: 236,
+                    b: 236,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 216,
+                    g: 216,
+                    b: 216,
+                    a: 255,
+                },
+            },
+            separator: Rgba8 {
+                r: 157,
+                g: 157,
+                b: 157,
+                a: 255,
+            },
+        },
+        bottom_active: Chrome {
+            highlight: Rgba8 {
+                r: 203,
+                g: 203,
+                b: 203,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 203,
+                    g: 203,
+                    b: 203,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 167,
+                    g: 167,
+                    b: 167,
+                    a: 255,
+                },
+            },
+            separator: Rgba8 {
+                r: 81,
+                g: 81,
+                b: 81,
+                a: 255,
+            },
+        },
+        bottom_inactive: Chrome {
+            highlight: Rgba8 {
+                r: 236,
+                g: 236,
+                b: 236,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 232,
+                    g: 232,
+                    b: 232,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 214,
+                    g: 214,
+                    b: 214,
+                    a: 255,
+                },
+            },
+            separator: Rgba8 {
+                r: 157,
+                g: 157,
+                b: 157,
+                a: 255,
+            },
+        },
+    },
+    controls: Controls {
+        push: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 94,
+                        g: 94,
+                        b: 94,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 105,
+                        g: 105,
+                        b: 105,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 252,
+                        g: 252,
+                        b: 252,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 239,
+                        g: 239,
+                        b: 239,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 233,
+                        g: 233,
+                        b: 233,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.375,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 60,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 133,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 25,
+                        g: 21,
+                        b: 59,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 167,
+                        g: 189,
+                        b: 231,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 114,
+                        g: 163,
+                        b: 232,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 74,
+                        g: 145,
+                        b: 229,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 173,
+                        g: 219,
+                        b: 239,
+                        a: 255,
+                    },
+                },
+                split: 0.36842105,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 60,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 181,
+                        g: 181,
+                        b: 181,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 162,
+                        g: 162,
+                        b: 162,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 240,
+                        g: 240,
+                        b: 240,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 229,
+                        g: 229,
+                        b: 229,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 222,
+                        g: 222,
+                        b: 222,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                split: 0.375,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 26,
+                },
+                text: Rgba8 {
+                    r: 154,
+                    g: 154,
+                    b: 154,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 53,
+                        g: 64,
+                        b: 162,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 97,
+                        g: 97,
+                        b: 97,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 210,
+                        g: 229,
+                        b: 248,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 168,
+                        g: 209,
+                        b: 249,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 136,
+                        g: 195,
+                        b: 246,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 215,
+                        g: 253,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.36842105,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 60,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+        },
+        push_default: Bevel {
+            border: Gradient {
+                from: Rgba8 {
+                    r: 53,
+                    g: 64,
+                    b: 162,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 97,
+                    g: 97,
+                    b: 97,
+                    a: 255,
+                },
+            },
+            upper: Gradient {
+                from: Rgba8 {
+                    r: 210,
+                    g: 229,
+                    b: 248,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 168,
+                    g: 209,
+                    b: 249,
+                    a: 255,
+                },
+            },
+            lower: Gradient {
+                from: Rgba8 {
+                    r: 136,
+                    g: 195,
+                    b: 246,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 215,
+                    g: 253,
+                    b: 255,
+                    a: 255,
+                },
+            },
+            split: 0.36842105,
+            emboss: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 60,
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        textured: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 254,
+                        g: 254,
+                        b: 254,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 219,
+                        g: 219,
+                        b: 219,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 219,
+                        g: 219,
+                        b: 219,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 184,
+                        g: 184,
+                        b: 184,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 43,
+                    g: 43,
+                    b: 43,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 138,
+                        g: 138,
+                        b: 138,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 130,
+                        g: 130,
+                        b: 130,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 207,
+                        g: 207,
+                        b: 207,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 32,
+                },
+                text: Rgba8 {
+                    r: 143,
+                    g: 143,
+                    b: 143,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+        },
+        gradient: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 179,
+                        g: 179,
+                        b: 179,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 163,
+                        g: 163,
+                        b: 163,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 249,
+                        g: 249,
+                        b: 249,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 251,
+                        g: 251,
+                        b: 251,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 233,
+                        g: 233,
+                        b: 233,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 237,
+                        g: 237,
+                        b: 237,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 138,
+                        g: 138,
+                        b: 138,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 130,
+                        g: 130,
+                        b: 130,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 207,
+                        g: 207,
+                        b: 207,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 32,
+                },
+                text: Rgba8 {
+                    r: 143,
+                    g: 143,
+                    b: 143,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+        },
+        round: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 254,
+                        g: 254,
+                        b: 254,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 219,
+                        g: 219,
+                        b: 219,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 219,
+                        g: 219,
+                        b: 219,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 184,
+                        g: 184,
+                        b: 184,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 43,
+                    g: 43,
+                    b: 43,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 138,
+                        g: 138,
+                        b: 138,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 130,
+                        g: 130,
+                        b: 130,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 207,
+                        g: 207,
+                        b: 207,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 32,
+                },
+                text: Rgba8 {
+                    r: 143,
+                    g: 143,
+                    b: 143,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+        },
+        recessed: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 198,
+                        g: 198,
+                        b: 198,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 216,
+                        g: 216,
+                        b: 216,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 230,
+                        g: 230,
+                        b: 230,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 230,
+                        g: 230,
+                        b: 230,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 244,
+                        g: 244,
+                        b: 244,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 30,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 181,
+                        g: 181,
+                        b: 181,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 162,
+                        g: 162,
+                        b: 162,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 240,
+                        g: 240,
+                        b: 240,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 229,
+                        g: 229,
+                        b: 229,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 222,
+                        g: 222,
+                        b: 222,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                split: 0.375,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 26,
+                },
+                text: Rgba8 {
+                    r: 154,
+                    g: 154,
+                    b: 154,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 85,
+                        g: 85,
+                        b: 85,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 77,
+                        g: 77,
+                        b: 77,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 104,
+                        g: 104,
+                        b: 104,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 108,
+                        b: 108,
+                        a: 255,
+                    },
+                },
+                split: 0.3,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            },
+        },
+        segment: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 119,
+                        g: 119,
+                        b: 119,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 94,
+                        g: 94,
+                        b: 94,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 249,
+                        g: 249,
+                        b: 249,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 241,
+                        g: 241,
+                        b: 241,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 230,
+                        g: 230,
+                        b: 230,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.42105263,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 42,
+                        g: 48,
+                        b: 128,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 74,
+                        g: 74,
+                        b: 74,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 195,
+                        g: 217,
+                        b: 239,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 141,
+                        g: 184,
+                        b: 224,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 92,
+                        g: 155,
+                        b: 214,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 166,
+                        g: 220,
+                        b: 246,
+                        a: 255,
+                    },
+                },
+                split: 0.42105263,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 181,
+                        g: 181,
+                        b: 181,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 162,
+                        g: 162,
+                        b: 162,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 240,
+                        g: 240,
+                        b: 240,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 229,
+                        g: 229,
+                        b: 229,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 222,
+                        g: 222,
+                        b: 222,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                split: 0.375,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 26,
+                },
+                text: Rgba8 {
+                    r: 154,
+                    g: 154,
+                    b: 154,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 53,
+                        g: 60,
+                        b: 151,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 94,
+                        g: 94,
+                        b: 94,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 234,
+                        g: 242,
+                        b: 251,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 174,
+                        g: 210,
+                        b: 241,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 123,
+                        g: 184,
+                        b: 235,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 204,
+                        g: 249,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.42105263,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+        },
+        checkbox: BevelStates {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 131,
+                        g: 131,
+                        b: 131,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 95,
+                        g: 95,
+                        b: 95,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 244,
+                        g: 244,
+                        b: 244,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 233,
+                        g: 233,
+                        b: 233,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.41666666,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 40,
+                },
+                text: Rgba8 {
+                    r: 28,
+                    g: 45,
+                    b: 61,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 95,
+                        g: 95,
+                        b: 95,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 74,
+                        g: 74,
+                        b: 74,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 216,
+                        g: 216,
+                        b: 216,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 203,
+                        g: 203,
+                        b: 203,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 194,
+                        g: 194,
+                        b: 194,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 222,
+                        g: 222,
+                        b: 222,
+                        a: 255,
+                    },
+                },
+                split: 0.41666666,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 40,
+                },
+                text: Rgba8 {
+                    r: 28,
+                    g: 45,
+                    b: 61,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 180,
+                        g: 180,
+                        b: 180,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 162,
+                        g: 162,
+                        b: 162,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 241,
+                        g: 241,
+                        b: 241,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 237,
+                        g: 237,
+                        b: 237,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 231,
+                        g: 231,
+                        b: 231,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 241,
+                        g: 241,
+                        b: 241,
+                        a: 255,
+                    },
+                },
+                split: 0.41666666,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 20,
+                },
+                text: Rgba8 {
+                    r: 154,
+                    g: 154,
+                    b: 154,
+                    a: 255,
+                },
+            },
+            selected: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 46,
+                        g: 56,
+                        b: 147,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 95,
+                        g: 95,
+                        b: 95,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 222,
+                        g: 235,
+                        b: 247,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 134,
+                        g: 180,
+                        b: 220,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 125,
+                        g: 185,
+                        b: 236,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 200,
+                        g: 247,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.41666666,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 40,
+                },
+                text: Rgba8 {
+                    r: 28,
+                    g: 45,
+                    b: 61,
+                    a: 255,
+                },
+            },
+        },
+        radio: Radio {
+            states: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 133,
+                            g: 133,
+                            b: 133,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 93,
+                            g: 93,
+                            b: 93,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 233,
+                            g: 233,
+                            b: 233,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 233,
+                            g: 233,
+                            b: 233,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 40,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 133,
+                            g: 133,
+                            b: 133,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 93,
+                            g: 93,
+                            b: 93,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 222,
+                            g: 222,
+                            b: 222,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 201,
+                            g: 201,
+                            b: 201,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 201,
+                            g: 201,
+                            b: 201,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 222,
+                            g: 222,
+                            b: 222,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 40,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 180,
+                            g: 180,
+                            b: 180,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 162,
+                            g: 162,
+                            b: 162,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 241,
+                            g: 241,
+                            b: 241,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 237,
+                            g: 237,
+                            b: 237,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 231,
+                            g: 231,
+                            b: 231,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 241,
+                            g: 241,
+                            b: 241,
+                            a: 255,
+                        },
+                    },
+                    split: 0.41666666,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 20,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 23,
+                            g: 42,
+                            b: 138,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 93,
+                            g: 93,
+                            b: 93,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 221,
+                            g: 229,
+                            b: 243,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 134,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 134,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 218,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 40,
+                    },
+                    text: Rgba8 {
+                        r: 33,
+                        g: 45,
+                        b: 59,
+                        a: 255,
+                    },
+                },
+            },
+            dot: Rgba8 {
+                r: 33,
+                g: 45,
+                b: 59,
+                a: 255,
+            },
+        },
+        field: Field {
+            border_top: Rgba8 {
+                r: 132,
+                g: 132,
+                b: 132,
+                a: 255,
+            },
+            border: Rgba8 {
+                r: 158,
+                g: 158,
+                b: 158,
+                a: 255,
+            },
+            border_bottom: Rgba8 {
+                r: 198,
+                g: 198,
+                b: 198,
+                a: 255,
+            },
+            inner_shadow: Rgba8 {
+                r: 216,
+                g: 216,
+                b: 216,
+                a: 255,
+            },
+            fill: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+            fill_disabled: Rgba8 {
+                r: 244,
+                g: 244,
+                b: 244,
+                a: 255,
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            placeholder: Rgba8 {
+                r: 140,
+                g: 140,
+                b: 140,
+                a: 255,
+            },
+            caret: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            selection: Rgba8 {
+                r: 181,
+                g: 213,
+                b: 255,
+                a: 255,
+            },
+        },
+        search: Field {
+            border_top: Rgba8 {
+                r: 132,
+                g: 132,
+                b: 132,
+                a: 255,
+            },
+            border: Rgba8 {
+                r: 158,
+                g: 158,
+                b: 158,
+                a: 255,
+            },
+            border_bottom: Rgba8 {
+                r: 225,
+                g: 225,
+                b: 225,
+                a: 255,
+            },
+            inner_shadow: Rgba8 {
+                r: 216,
+                g: 216,
+                b: 216,
+                a: 255,
+            },
+            fill: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+            fill_disabled: Rgba8 {
+                r: 244,
+                g: 244,
+                b: 244,
+                a: 255,
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            placeholder: Rgba8 {
+                r: 140,
+                g: 140,
+                b: 140,
+                a: 255,
+            },
+            caret: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            selection: Rgba8 {
+                r: 181,
+                g: 213,
+                b: 255,
+                a: 255,
+            },
+        },
+        scroller: Scroller {
+            track: Gradient {
+                from: Rgba8 {
+                    r: 197,
+                    g: 197,
+                    b: 197,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 250,
+                    g: 250,
+                    b: 250,
+                    a: 255,
+                },
+            },
+            track_border: Rgba8 {
+                r: 179,
+                g: 179,
+                b: 179,
+                a: 255,
+            },
+            thumb: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 7,
+                        g: 81,
+                        b: 192,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 94,
+                        g: 94,
+                        b: 94,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 136,
+                        g: 180,
+                        b: 229,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 152,
+                        g: 195,
+                        b: 239,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 93,
+                        g: 165,
+                        b: 233,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 164,
+                        g: 224,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.36363637,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            thumb_inactive: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 143,
+                        g: 143,
+                        b: 143,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 125,
+                        g: 125,
+                        b: 125,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 228,
+                        g: 228,
+                        b: 228,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 210,
+                        g: 210,
+                        b: 210,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 189,
+                        g: 189,
+                        b: 189,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 230,
+                        g: 230,
+                        b: 230,
+                        a: 255,
+                    },
+                },
+                split: 0.36363637,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            arrow: Rgba8 {
+                r: 89,
+                g: 89,
+                b: 89,
+                a: 255,
+            },
+            track_rows: [
+                Rgba8 {
+                    r: 197,
+                    g: 197,
+                    b: 197,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 203,
+                    g: 203,
+                    b: 203,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 210,
+                    g: 210,
+                    b: 210,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 219,
+                    g: 219,
+                    b: 219,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 226,
+                    g: 226,
+                    b: 226,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 233,
+                    g: 233,
+                    b: 233,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 239,
+                    g: 239,
+                    b: 239,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 244,
+                    g: 244,
+                    b: 244,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 248,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 251,
+                    g: 251,
+                    b: 251,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 252,
+                    g: 252,
+                    b: 252,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 253,
+                    g: 253,
+                    b: 253,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 250,
+                    g: 250,
+                    b: 250,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 246,
+                    g: 246,
+                    b: 246,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            ],
+            arrow_rows: [
+                Rgba8 {
+                    r: 199,
+                    g: 199,
+                    b: 199,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 219,
+                    g: 219,
+                    b: 219,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 245,
+                    g: 245,
+                    b: 245,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 249,
+                    g: 249,
+                    b: 249,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 250,
+                    g: 250,
+                    b: 250,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 251,
+                    g: 251,
+                    b: 251,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 248,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 231,
+                    g: 231,
+                    b: 231,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 237,
+                    g: 237,
+                    b: 237,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 241,
+                    g: 241,
+                    b: 241,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 246,
+                    g: 246,
+                    b: 246,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 253,
+                    g: 253,
+                    b: 253,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 254,
+                    g: 254,
+                    b: 254,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 251,
+                    g: 251,
+                    b: 251,
+                    a: 255,
+                },
+                Rgba8 {
+                    r: 242,
+                    g: 242,
+                    b: 242,
+                    a: 255,
+                },
+            ],
+            cap_shadow: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 90,
+            },
+        },
+        table_header: Bevel {
+            border: Gradient {
+                from: Rgba8 {
+                    r: 192,
+                    g: 192,
+                    b: 192,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 192,
+                    g: 192,
+                    b: 192,
+                    a: 255,
+                },
+            },
+            upper: Gradient {
+                from: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 232,
+                    g: 232,
+                    b: 232,
+                    a: 255,
+                },
+            },
+            lower: Gradient {
+                from: Rgba8 {
+                    r: 233,
+                    g: 233,
+                    b: 233,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 255,
+                },
+            },
+            split: 0.5,
+            emboss: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        table_header_sorted: Bevel {
+            border: Gradient {
+                from: Rgba8 {
+                    r: 114,
+                    g: 161,
+                    b: 212,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 148,
+                    g: 186,
+                    b: 221,
+                    a: 255,
+                },
+            },
+            upper: Gradient {
+                from: Rgba8 {
+                    r: 205,
+                    g: 226,
+                    b: 245,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 136,
+                    g: 190,
+                    b: 236,
+                    a: 255,
+                },
+            },
+            lower: Gradient {
+                from: Rgba8 {
+                    r: 124,
+                    g: 184,
+                    b: 234,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 194,
+                    g: 237,
+                    b: 255,
+                    a: 255,
+                },
+            },
+            split: 0.46666667,
+            emboss: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        sort_arrow: Rgba8 {
+            r: 61,
+            g: 91,
+            b: 116,
+            a: 255,
+        },
+        table_grid: Rgba8 {
+            r: 217,
+            g: 217,
+            b: 217,
+            a: 255,
+        },
+        popup: PopUp {
+            body: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 134,
+                            g: 134,
+                            b: 134,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 97,
+                            g: 97,
+                            b: 97,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 251,
+                            g: 251,
+                            b: 251,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 223,
+                            g: 223,
+                            b: 223,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 224,
+                            g: 224,
+                            b: 224,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                            a: 255,
+                        },
+                    },
+                    split: 0.47368422,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 134,
+                            g: 134,
+                            b: 134,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 97,
+                            g: 97,
+                            b: 97,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 231,
+                            g: 231,
+                            b: 231,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 200,
+                            g: 200,
+                            b: 200,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 200,
+                            g: 200,
+                            b: 200,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 237,
+                            g: 237,
+                            b: 237,
+                            a: 255,
+                        },
+                    },
+                    split: 0.47368422,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 181,
+                            g: 181,
+                            b: 181,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 162,
+                            g: 162,
+                            b: 162,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 229,
+                            g: 229,
+                            b: 229,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 222,
+                            g: 222,
+                            b: 222,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                    },
+                    split: 0.47368422,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 26,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 134,
+                            g: 134,
+                            b: 134,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 97,
+                            g: 97,
+                            b: 97,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 251,
+                            g: 251,
+                            b: 251,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 223,
+                            g: 223,
+                            b: 223,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 224,
+                            g: 224,
+                            b: 224,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                            a: 255,
+                        },
+                    },
+                    split: 0.47368422,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+            },
+            cap: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 29,
+                            g: 30,
+                            b: 137,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 56,
+                            g: 98,
+                            b: 179,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 221,
+                            g: 229,
+                            b: 243,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 173,
+                            g: 202,
+                            b: 236,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 133,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 218,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                    },
+                    split: 0.42105263,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 42,
+                            g: 48,
+                            b: 128,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 74,
+                            g: 74,
+                            b: 74,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 195,
+                            g: 217,
+                            b: 239,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 141,
+                            g: 184,
+                            b: 224,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 92,
+                            g: 155,
+                            b: 214,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 166,
+                            g: 220,
+                            b: 246,
+                            a: 255,
+                        },
+                    },
+                    split: 0.42105263,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 181,
+                            g: 181,
+                            b: 181,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 162,
+                            g: 162,
+                            b: 162,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 229,
+                            g: 229,
+                            b: 229,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 222,
+                            g: 222,
+                            b: 222,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                    },
+                    split: 0.47368422,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 26,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 29,
+                            g: 30,
+                            b: 137,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 56,
+                            g: 98,
+                            b: 179,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 221,
+                            g: 229,
+                            b: 243,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 173,
+                            g: 202,
+                            b: 236,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 133,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 218,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                    },
+                    split: 0.42105263,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+            },
+            divider: Rgba8 {
+                r: 102,
+                g: 160,
+                b: 226,
+                a: 255,
+            },
+            arrow: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        popup_textured: PopUp {
+            body: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 254,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 184,
+                            g: 184,
+                            b: 184,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 43,
+                        g: 43,
+                        b: 43,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 50,
+                            g: 50,
+                            b: 50,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 104,
+                            g: 104,
+                            b: 104,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 106,
+                            g: 106,
+                            b: 106,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 108,
+                            g: 108,
+                            b: 108,
+                            a: 255,
+                        },
+                    },
+                    split: 0.3,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 138,
+                            g: 138,
+                            b: 138,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 130,
+                            g: 130,
+                            b: 130,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 225,
+                            g: 225,
+                            b: 225,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 225,
+                            g: 225,
+                            b: 225,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 207,
+                            g: 207,
+                            b: 207,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 32,
+                    },
+                    text: Rgba8 {
+                        r: 143,
+                        g: 143,
+                        b: 143,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 254,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 184,
+                            g: 184,
+                            b: 184,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 43,
+                        g: 43,
+                        b: 43,
+                        a: 255,
+                    },
+                },
+            },
+            cap: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 254,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 184,
+                            g: 184,
+                            b: 184,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 43,
+                        g: 43,
+                        b: 43,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 50,
+                            g: 50,
+                            b: 50,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 104,
+                            g: 104,
+                            b: 104,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 106,
+                            g: 106,
+                            b: 106,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 108,
+                            g: 108,
+                            b: 108,
+                            a: 255,
+                        },
+                    },
+                    split: 0.3,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 242,
+                        g: 242,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 138,
+                            g: 138,
+                            b: 138,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 130,
+                            g: 130,
+                            b: 130,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 225,
+                            g: 225,
+                            b: 225,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 225,
+                            g: 225,
+                            b: 225,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 207,
+                            g: 207,
+                            b: 207,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 32,
+                    },
+                    text: Rgba8 {
+                        r: 143,
+                        g: 143,
+                        b: 143,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 85,
+                            b: 85,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 77,
+                            g: 77,
+                            b: 77,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 254,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 219,
+                            g: 219,
+                            b: 219,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 184,
+                            g: 184,
+                            b: 184,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 43,
+                        g: 43,
+                        b: 43,
+                        a: 255,
+                    },
+                },
+            },
+            divider: Rgba8 {
+                r: 77,
+                g: 77,
+                b: 77,
+                a: 255,
+            },
+            arrow: Rgba8 {
+                r: 43,
+                g: 43,
+                b: 43,
+                a: 255,
+            },
+        },
+        progress: Progress {
+            track: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 210,
+                        g: 210,
+                        b: 210,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 164,
+                        g: 164,
+                        b: 164,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 215,
+                        g: 215,
+                        b: 215,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 229,
+                        g: 229,
+                        b: 229,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 229,
+                        g: 229,
+                        b: 229,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 243,
+                        g: 243,
+                        b: 243,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 48,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            fill: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 56,
+                        g: 63,
+                        b: 148,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 92,
+                        g: 93,
+                        b: 98,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 220,
+                        g: 235,
+                        b: 249,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 123,
+                        g: 184,
+                        b: 235,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 145,
+                        g: 202,
+                        b: 240,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 192,
+                        g: 239,
+                        b: 251,
+                        a: 255,
+                    },
+                },
+                split: 0.46153846,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            barber_light: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 143,
+                        g: 144,
+                        b: 145,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 143,
+                        g: 144,
+                        b: 145,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 225,
+                        g: 225,
+                        b: 225,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 210,
+                        g: 211,
+                        b: 211,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 215,
+                        g: 216,
+                        b: 216,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 254,
+                        g: 255,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            barber_dark: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 46,
+                        g: 76,
+                        b: 182,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 46,
+                        g: 76,
+                        b: 182,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 158,
+                        g: 186,
+                        b: 229,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 89,
+                        g: 158,
+                        b: 222,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 21,
+                        g: 131,
+                        b: 222,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 89,
+                        g: 184,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            radius: 1.0,
+            spinner: Rgba8 {
+                r: 76,
+                g: 76,
+                b: 76,
+                a: 255,
+            },
+            spinner_dim: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 40,
+            },
+        },
+        slider: Slider {
+            track: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 104,
+                        g: 96,
+                        b: 93,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 164,
+                        g: 158,
+                        b: 157,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 147,
+                        g: 145,
+                        b: 144,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 162,
+                        g: 161,
+                        b: 161,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 162,
+                        g: 161,
+                        b: 161,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 177,
+                        g: 177,
+                        b: 177,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 40,
+                },
+                text: Rgba8 {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                },
+            },
+            track_disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 185,
+                        g: 185,
+                        b: 185,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 210,
+                        g: 210,
+                        b: 210,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 215,
+                        g: 215,
+                        b: 215,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 227,
+                        g: 227,
+                        b: 227,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 227,
+                        g: 227,
+                        b: 227,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 239,
+                        g: 239,
+                        b: 239,
+                        a: 255,
+                    },
+                },
+                split: 0.5,
+                emboss: Rgba8 {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 24,
+                },
+                text: Rgba8 {
+                    r: 154,
+                    g: 154,
+                    b: 154,
+                    a: 255,
+                },
+            },
+            round: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 94,
+                            g: 94,
+                            b: 94,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 105,
+                            g: 105,
+                            b: 105,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 251,
+                            g: 251,
+                            b: 251,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 231,
+                            g: 231,
+                            b: 231,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 236,
+                            g: 236,
+                            b: 236,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 253,
+                            g: 253,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.45454547,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 60,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 42,
+                            g: 48,
+                            b: 128,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 74,
+                            g: 74,
+                            b: 74,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 195,
+                            g: 217,
+                            b: 239,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 141,
+                            g: 184,
+                            b: 224,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 92,
+                            g: 155,
+                            b: 214,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 166,
+                            g: 220,
+                            b: 246,
+                            a: 255,
+                        },
+                    },
+                    split: 0.42105263,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 94,
+                            g: 94,
+                            b: 94,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 105,
+                            g: 105,
+                            b: 105,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 251,
+                            g: 251,
+                            b: 251,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 231,
+                            g: 231,
+                            b: 231,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 236,
+                            g: 236,
+                            b: 236,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 253,
+                            g: 253,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.45454547,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 60,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 94,
+                            g: 94,
+                            b: 94,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 105,
+                            g: 105,
+                            b: 105,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 251,
+                            g: 251,
+                            b: 251,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 231,
+                            g: 231,
+                            b: 231,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 236,
+                            g: 236,
+                            b: 236,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 253,
+                            g: 253,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.45454547,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 60,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+            },
+            pointed: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 105,
+                            g: 93,
+                            b: 154,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 122,
+                            g: 122,
+                            b: 122,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 212,
+                            g: 227,
+                            b: 247,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 139,
+                            g: 184,
+                            b: 236,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 147,
+                            g: 191,
+                            b: 240,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 194,
+                            g: 232,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 42,
+                            g: 48,
+                            b: 128,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 74,
+                            g: 74,
+                            b: 74,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 195,
+                            g: 217,
+                            b: 239,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 141,
+                            g: 184,
+                            b: 224,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 92,
+                            g: 155,
+                            b: 214,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 166,
+                            g: 220,
+                            b: 246,
+                            a: 255,
+                        },
+                    },
+                    split: 0.42105263,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 105,
+                            g: 93,
+                            b: 154,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 122,
+                            g: 122,
+                            b: 122,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 212,
+                            g: 227,
+                            b: 247,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 139,
+                            g: 184,
+                            b: 236,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 147,
+                            g: 191,
+                            b: 240,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 194,
+                            g: 232,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 105,
+                            g: 93,
+                            b: 154,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 122,
+                            g: 122,
+                            b: 122,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 212,
+                            g: 227,
+                            b: 247,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 139,
+                            g: 184,
+                            b: 236,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 147,
+                            g: 191,
+                            b: 240,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 194,
+                            g: 232,
+                            b: 253,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 48,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+            },
+            tick: Rgba8 {
+                r: 138,
+                g: 138,
+                b: 138,
+                a: 255,
+            },
+        },
+        help: Help {
+            states: BevelStates {
+                normal: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 85,
+                            g: 43,
+                            b: 128,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 151,
+                            g: 128,
+                            b: 174,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 253,
+                            g: 250,
+                            b: 253,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 222,
+                            g: 208,
+                            b: 247,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 222,
+                            g: 208,
+                            b: 247,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 254,
+                            g: 247,
+                            b: 254,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 70,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                pressed: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 133,
+                            g: 133,
+                            b: 133,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 93,
+                            g: 93,
+                            b: 93,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 225,
+                            g: 211,
+                            b: 250,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 205,
+                            g: 187,
+                            b: 235,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 189,
+                            g: 171,
+                            b: 221,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 225,
+                            g: 211,
+                            b: 250,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 40,
+                    },
+                    text: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                disabled: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 181,
+                            g: 181,
+                            b: 181,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 162,
+                            g: 162,
+                            b: 162,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 240,
+                            g: 240,
+                            b: 240,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 229,
+                            g: 229,
+                            b: 229,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 222,
+                            g: 222,
+                            b: 222,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 242,
+                            g: 242,
+                            b: 242,
+                            a: 255,
+                        },
+                    },
+                    split: 0.375,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 26,
+                    },
+                    text: Rgba8 {
+                        r: 154,
+                        g: 154,
+                        b: 154,
+                        a: 255,
+                    },
+                },
+                selected: Bevel {
+                    border: Gradient {
+                        from: Rgba8 {
+                            r: 23,
+                            g: 42,
+                            b: 138,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 93,
+                            g: 93,
+                            b: 93,
+                            a: 255,
+                        },
+                    },
+                    upper: Gradient {
+                        from: Rgba8 {
+                            r: 221,
+                            g: 229,
+                            b: 243,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 134,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                    },
+                    lower: Gradient {
+                        from: Rgba8 {
+                            r: 134,
+                            g: 178,
+                            b: 228,
+                            a: 255,
+                        },
+                        to: Rgba8 {
+                            r: 218,
+                            g: 254,
+                            b: 254,
+                            a: 255,
+                        },
+                    },
+                    split: 0.5,
+                    emboss: Rgba8 {
+                        r: 0,
+                        g: 0,
+                        b: 0,
+                        a: 40,
+                    },
+                    text: Rgba8 {
+                        r: 33,
+                        g: 45,
+                        b: 59,
+                        a: 255,
+                    },
+                },
+            },
+            glyph: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        installer_continue: InstallerContinue {
+            normal: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 100,
+                        g: 100,
+                        b: 100,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 81,
+                        g: 135,
+                        b: 226,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 113,
+                        g: 171,
+                        b: 236,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 82,
+                        g: 170,
+                        b: 237,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 136,
+                        g: 233,
+                        b: 252,
+                        a: 255,
+                    },
+                },
+                split: 0.5555556,
+                emboss: Rgba8 {
+                    r: 246,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                text: Rgba8 {
+                    r: 28,
+                    g: 39,
+                    b: 55,
+                    a: 255,
+                },
+            },
+            default: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 100,
+                        g: 100,
+                        b: 100,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 81,
+                        g: 135,
+                        b: 226,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 113,
+                        g: 171,
+                        b: 236,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 82,
+                        g: 170,
+                        b: 237,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 136,
+                        g: 233,
+                        b: 252,
+                        a: 255,
+                    },
+                },
+                split: 0.5555556,
+                emboss: Rgba8 {
+                    r: 246,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                text: Rgba8 {
+                    r: 28,
+                    g: 39,
+                    b: 55,
+                    a: 255,
+                },
+            },
+            pressed: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 106,
+                        g: 106,
+                        b: 106,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 100,
+                        g: 100,
+                        b: 100,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 63,
+                        g: 111,
+                        b: 190,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 92,
+                        g: 148,
+                        b: 210,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 64,
+                        g: 143,
+                        b: 206,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 108,
+                        g: 201,
+                        b: 228,
+                        a: 255,
+                    },
+                },
+                split: 0.5555556,
+                emboss: Rgba8 {
+                    r: 246,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                text: Rgba8 {
+                    r: 20,
+                    g: 31,
+                    b: 45,
+                    a: 255,
+                },
+            },
+            disabled: Bevel {
+                border: Gradient {
+                    from: Rgba8 {
+                        r: 169,
+                        g: 169,
+                        b: 169,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 153,
+                        g: 153,
+                        b: 153,
+                        a: 255,
+                    },
+                },
+                upper: Gradient {
+                    from: Rgba8 {
+                        r: 201,
+                        g: 210,
+                        b: 220,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 214,
+                        g: 221,
+                        b: 228,
+                        a: 255,
+                    },
+                },
+                lower: Gradient {
+                    from: Rgba8 {
+                        r: 203,
+                        g: 217,
+                        b: 227,
+                        a: 255,
+                    },
+                    to: Rgba8 {
+                        r: 226,
+                        g: 237,
+                        b: 242,
+                        a: 255,
+                    },
+                },
+                split: 0.5555556,
+                emboss: Rgba8 {
+                    r: 246,
+                    g: 248,
+                    b: 248,
+                    a: 255,
+                },
+                text: Rgba8 {
+                    r: 139,
+                    g: 149,
+                    b: 159,
+                    a: 255,
+                },
+            },
+            glyph: Rgba8 {
+                r: 28,
+                g: 39,
+                b: 55,
+                a: 255,
+            },
+            glyph_default: Rgba8 {
+                r: 28,
+                g: 39,
+                b: 55,
+                a: 255,
+            },
+            glyph_pressed: Rgba8 {
+                r: 20,
+                g: 31,
+                b: 45,
+                a: 255,
+            },
+            glyph_disabled: Rgba8 {
+                r: 139,
+                g: 149,
+                b: 159,
+                a: 255,
+            },
+        },
+    },
+    lists: Lists {
+        source_active: Selection {
+            line: Rgba8 {
+                r: 85,
+                g: 149,
+                b: 210,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 108,
+                    g: 165,
+                    b: 221,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 26,
+                    g: 106,
+                    b: 185,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        source_unfocused: Selection {
+            line: Rgba8 {
+                r: 171,
+                g: 186,
+                b: 213,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 179,
+                    g: 190,
+                    b: 214,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 129,
+                    g: 150,
+                    b: 185,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        source_inactive: Selection {
+            line: Rgba8 {
+                r: 151,
+                g: 151,
+                b: 151,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 180,
+                    g: 180,
+                    b: 180,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 138,
+                    g: 138,
+                    b: 138,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        source_secondary_active: Selection {
+            line: Rgba8 {
+                r: 85,
+                g: 149,
+                b: 210,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 108,
+                    g: 165,
+                    b: 221,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 26,
+                    g: 106,
+                    b: 185,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        source_secondary_inactive: Selection {
+            line: Rgba8 {
+                r: 171,
+                g: 186,
+                b: 213,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 179,
+                    g: 190,
+                    b: 214,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 129,
+                    g: 150,
+                    b: 185,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        table_active: Selection {
+            line: Rgba8 {
+                r: 59,
+                g: 119,
+                b: 218,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 59,
+                    g: 119,
+                    b: 218,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 59,
+                    g: 119,
+                    b: 218,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+        table_inactive: Selection {
+            line: Rgba8 {
+                r: 212,
+                g: 212,
+                b: 212,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 212,
+                    g: 212,
+                    b: 212,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 212,
+                    g: 212,
+                    b: 212,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+        },
+        menu: Selection {
+            line: Rgba8 {
+                r: 89,
+                g: 128,
+                b: 238,
+                a: 255,
+            },
+            fill: Gradient {
+                from: Rgba8 {
+                    r: 99,
+                    g: 136,
+                    b: 248,
+                    a: 255,
+                },
+                to: Rgba8 {
+                    r: 33,
+                    g: 95,
+                    b: 246,
+                    a: 255,
+                },
+            },
+            text: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        },
+    },
+    grip: ResizeGrip {
+        visible: true,
+        bar: GripStyle {
+            inset: 4.0,
+            shade: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 37,
+            },
+            line: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 107,
+            },
+            highlight: Rgba8 {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 80,
+            },
+        },
+        body: GripStyle {
+            inset: 1.0,
+            shade: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 40,
+            },
+            line: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 113,
+            },
+            highlight: Rgba8 {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 6,
+            },
+        },
+        hit: 15.0,
+    },
+}

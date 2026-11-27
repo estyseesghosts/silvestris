@@ -187,7 +187,9 @@ def main():
             "td,th{border:1px solid #ccc;padding:4px;vertical-align:top}"
             "img{image-rendering:pixelated;max-width:320px}</style>",
             f"<h1>Golden report</h1><p>tolerance {args.tolerance} channel value; "
-            f"{len(rows)} goldens; {len(failures)} failed</p>"]
+            f"{len(rows)} goldens; {len(failures)} failed</p>"
+            "<p>Aqua differences are forbidden during the Geist refinement. "
+            "Geist differences are expected only with a recorded task and reason.</p>"]
     if args.accept:
         page.append(f"<p>Accepted {len(accepted)} goldens: {html.escape(args.reason)}</p>")
     page.append("<table><tr><th>Golden</th><th>Status</th><th>Golden image</th>"
@@ -215,7 +217,14 @@ def main():
     page.append("</table>")
     (args.report / "index.html").write_text("\n".join(page), encoding="utf-8")
 
+    aqua_failures = [key for key in failures if key.startswith("aqua-")]
+    geist_failures = [key for key in failures if key.startswith("geist-")]
+    other_failures = [key for key in failures if key not in aqua_failures + geist_failures]
     print(f"{len(rows)} goldens, {len(failures)} failed; report {args.report / 'index.html'}")
+    print(f"  forbidden Aqua differences: {len(aqua_failures)}")
+    print(f"  Geist differences awaiting review: {len(geist_failures)}")
+    if other_failures:
+        print(f"  unclassified differences: {len(other_failures)}")
     if failures and not args.accept:
         for key in failures:
             print("FAIL", key)
