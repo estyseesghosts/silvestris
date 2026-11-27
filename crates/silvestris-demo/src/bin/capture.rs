@@ -1659,21 +1659,29 @@ impl CaptureView {
             "geist-button-states" => div()
                 .size_full()
                 .flex()
-                .items_center()
+                .flex_col()
+                .items_start()
+                .justify_center()
                 .gap(px(6.))
-                .children([
-                    Button::new("geist-state-normal", "Normal").into_any_element(),
-                    Button::new("geist-state-selected", "Selected")
-                        .selected(true)
-                        .into_any_element(),
-                    Button::new("geist-state-default", "Default")
-                        .default_button(true)
-                        .throb(false)
-                        .into_any_element(),
-                    Button::new("geist-state-disabled", "Disabled")
-                        .disabled(true)
-                        .into_any_element(),
-                ])
+                .child(
+                    div().flex().gap(px(6.)).children([
+                        Button::new("geist-state-normal", "Normal").into_any_element(),
+                        Button::new("geist-state-selected", "Selected")
+                            .selected(true)
+                            .into_any_element(),
+                    ]),
+                )
+                .child(
+                    div().flex().gap(px(6.)).children([
+                        Button::new("geist-state-default", "Default")
+                            .default_button(true)
+                            .throb(false)
+                            .into_any_element(),
+                        Button::new("geist-state-disabled", "Disabled")
+                            .disabled(true)
+                            .into_any_element(),
+                    ]),
+                )
                 .into_any_element(),
             "geist-scroll-horizontal" => {
                 let handle = gpui::ScrollHandle::new();
@@ -1705,7 +1713,9 @@ impl CaptureView {
                     .size_full()
                     .flex()
                     .flex_col()
+                    .justify_center()
                     .gap(px(8.))
+                    .p(px(4.))
                     .child(
                         div()
                             .text_size(px(theme.type_.size_regular))

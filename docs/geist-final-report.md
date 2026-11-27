@@ -59,6 +59,30 @@ radii, flat scrollbar and pictogram changes; they are not accepted until the
 user inspects them. The gate reports Aqua differences separately as forbidden
 and Geist differences as awaiting review.
 
+## Acceptance checklist (docs/geist.txt, 15 items)
+
+This records the checklist in the specification without editing the supplied
+specification file. "Verified" means evidence in this repository; "awaiting
+review" means the evidence exists but the user has not approved it.
+
+| # | Item | Status and evidence |
+| - | ---- | ------------------- |
+| 1 | Aqua Light accepted output unchanged | Verified by `aqua_isolation` fixtures and the candidate gate; no Aqua golden was regenerated or accepted. |
+| 2 | Aqua Dark accepted output unchanged | Same as item 1. |
+| 3 | Geist Sans used, Geist Mono retained | Verified by `tools/fonts/manifest.py --check`, `geist_fonts` tests and the resolved `Typography` tokens. |
+| 4 | Geist Dark genuinely near-black | Verified by palette values (`#000000` content, `#0A0A0A` window) and the candidate window captures; awaiting user review. |
+| 5 | Geist Light uses the same semantic roles and geometry | Verified by the single `GeistPalette` with dark/light constructors and shared component recipes. |
+| 6 | Exact control radii, spacing and materials | Verified by palette/geometry tests and the corner-rule tests; awaiting user review of candidate images. |
+| 7 | Menus, toolbars, sidebars, lists, tables, preferences consistent | Verified by shared token resolution and interaction tests; candidate screenshots await review. |
+| 8 | Flat Geist scrollbars with all interactions preserved | Verified by `geist_scrollbar` tests (pointer, drag, page, jump, themes) and shared `ScrollSource` geometry. |
+| 9 | Consistent pictograms, no Aqua artwork leakage | Verified by `geist_icons` tests, the pinned Lucide generator `--check`, and candidate pictogram captures. |
+| 10 | Windows and Linux corners correct | Blocked: headless capture has no DWM compositor. Code paths and capability reporting are documented; interactive Windows 11 verification remains. |
+| 11 | All five scale factors inspected | Candidate renders exist at 100/125/150/175/200% for all four themes; user inspection is pending. |
+| 12 | Theme switching preserves focus, selection, scroll and state | Verified by five `theme_switch` tests covering focus, field contents, scroll position and toolbar arrangement. |
+| 13 | Functional, font and visual gates pass | Functional and font gates pass; visual gate reports only the documented pre-existing host drift and new Geist differences awaiting review. |
+| 14 | Consumer smoke tests show no toolkit regressions | Blocked: Lotus, Pain and Chaus are separate repositories not present here. Required consumer-side changes are documented. |
+| 15 | User approves screenshots before golden acceptance | Blocked by design: candidate Geist images are rendered but deliberately not accepted. |
+
 ## Remaining issues
 
 - Native Windows 11 corner captures over light and dark desktops at all five
