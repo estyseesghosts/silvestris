@@ -6,7 +6,8 @@ Light/Dark appearances. This is work in progress toward Lotus issues
 
 GPUI is pinned to 6b720973027999bae402df23d469026f4cced988.
 Rust is pinned to 1.98.1. Aqua uses bundled Lato and Source Code Pro; Geist
-uses bundled Inter and Geist Mono. Font sources, hashes and notices are in
+uses bundled Geist Sans and Geist Mono, with Inter retained as an auxiliary
+family. Font sources, hashes and notices are in
 crates/silvestris-fonts/fonts/manifest.json. No fonts are fetched at runtime.
 
 ## Build and inspect

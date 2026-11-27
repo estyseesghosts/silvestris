@@ -437,7 +437,7 @@ impl Render for SourceList {
                             .h(px(theme.metrics.source_row_height))
                             .pl(px(4.))
                             .font_family(theme.type_.ui)
-                            .font_weight(gpui::FontWeight::BOLD)
+                            .font_weight(crate::theme::heading_font_weight(&theme))
                             .text_size(px(theme.type_.size_heading))
                             .text_color(hsla(match style {
                                 SourceListStyle::Primary => theme.colors.sidebar_heading,

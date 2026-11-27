@@ -31,8 +31,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, FontWeight, Pixels,
-    SharedString, Size, Window,
+    canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, Pixels, SharedString,
+    Size, Window,
 };
 
 use crate::binding::Binding;
@@ -760,7 +760,7 @@ impl RenderOnce for PreferencesOverview {
                             .absolute()
                             .top(px(HEADING_TOP))
                             .left(px(HEADING_LEFT))
-                            .font_weight(FontWeight::BOLD)
+                            .font_weight(crate::theme::heading_font_weight(&theme))
                             .text_size(px(theme.type_.size_regular))
                             .child(category.label),
                     )

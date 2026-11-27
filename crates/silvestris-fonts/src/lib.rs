@@ -1,7 +1,8 @@
 //! Font bytes for the four Silvestris themes, compiled into the binary.
 //!
-//! Aqua uses Lato and Source Code Pro; Geist uses Inter and Geist Mono
-//! (handbook 11 "Exact typography requirements"). Every face here is listed,
+//! Aqua uses Lato and Source Code Pro; Geist uses Geist Sans and Geist Mono,
+//! with Inter retained as an auxiliary family (handbook 11 "Exact typography
+//! requirements"). Every face here is listed,
 //! with release, archive and file SHA-256, internal names and license, in
 //! `fonts/manifest.json`, which `tools/fonts/manifest.py --check` verifies.
 //! Nothing is downloaded at runtime.
@@ -34,6 +35,8 @@ macro_rules! face {
 pub const LATO: &str = "Lato";
 pub const SOURCE_CODE_PRO: &str = "Source Code Pro";
 pub const INTER: &str = "Inter";
+/// Internal typographic family (name ID 16) of the static Geist TTFs.
+pub const GEIST_SANS: &str = "Geist";
 pub const GEIST_MONO: &str = "Geist Mono";
 
 /// Every vendored face. Weights are those the themes use: regular and bold
@@ -67,13 +70,27 @@ pub static FACES: &[Face] = &[
     face!(INTER, "inter/Inter-Medium.ttf", 500, false),
     face!(INTER, "inter/Inter-SemiBold.ttf", 600, false),
     face!(INTER, "inter/Inter-Bold.ttf", 700, false),
+    // Static faces from the same pinned v1.9.2 release as Geist Mono. The
+    // Medium and SemiBold files carry legacy family names, but their typographic
+    // family is "Geist"; name ID 16 is what GPUI resolves for weight selection.
+    face!(GEIST_SANS, "geist-sans/Geist-Regular.ttf", 400, false),
+    face!(GEIST_SANS, "geist-sans/Geist-Italic.ttf", 400, true),
+    face!(GEIST_SANS, "geist-sans/Geist-Medium.ttf", 500, false),
+    face!(GEIST_SANS, "geist-sans/Geist-SemiBold.ttf", 600, false),
+    face!(GEIST_SANS, "geist-sans/Geist-Bold.ttf", 700, false),
     face!(GEIST_MONO, "geist-mono/GeistMono-Regular.ttf", 400, false),
     face!(GEIST_MONO, "geist-mono/GeistMono-Medium.ttf", 500, false),
     face!(GEIST_MONO, "geist-mono/GeistMono-Bold.ttf", 700, false),
 ];
 
 /// Families a consumer must find registered before opening a window.
-pub const FAMILIES: [&str; 4] = [LATO, SOURCE_CODE_PRO, INTER, GEIST_MONO];
+pub const FAMILIES: [&str; 5] = [
+    LATO,
+    SOURCE_CODE_PRO,
+    INTER,
+    GEIST_SANS,
+    GEIST_MONO,
+];
 
 /// Machine-readable provenance for About/Licenses screens and audits.
 pub const MANIFEST: &str = include_str!("../fonts/manifest.json");
@@ -87,6 +104,7 @@ pub static LICENSES: &[(&str, &str)] = &[
         include_str!("../fonts/source-code-pro/LICENSE.md"),
     ),
     ("Inter", include_str!("../fonts/inter/LICENSE.txt")),
+    ("Geist", include_str!("../fonts/geist-sans/OFL.txt")),
     ("Geist Mono", include_str!("../fonts/geist-mono/OFL.txt")),
 ];
 

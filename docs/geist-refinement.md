@@ -124,3 +124,32 @@ Geist screenshots, or compare screenshots at mismatched scales. Font
 registration changes can silently substitute faces; rounded borders can
 change by one pixel at fractional scaling; offscreen rendering does not prove
 native window transparency.
+
+## Checkpoint: typography and font registration
+
+Geist Sans is vendored from the same pinned release as Geist Mono,
+`vercel/geist-font` v1.9.2 (archive SHA-256
+`15f066d58dcb99fb10014a49913009fdaf41e464cfb8851a44b44e593c95d3d8`).
+Static TTF faces for Regular 400, Italic 400, Medium 500, SemiBold 600 and
+Bold 700 live in `crates/silvestris-fonts/fonts/geist-sans`. The internal
+names were inspected with `tools/fonts/sfnt_names.py`: `Geist-Regular.ttf`
+and `Geist-Italic.ttf` report family "Geist"; the Medium and SemiBold files
+have legacy family names "Geist Medium" and "Geist SemiBold" but declare the
+typographic family "Geist" (name ID 16), which is the registered family.
+Inter remains bundled as an auxiliary family but is no longer Geist's UI
+font. Aqua's Lato and Source Code Pro registrations are untouched.
+
+Geist typography roles are now regular 13, small 12, mini 11, title 13,
+heading 12 semibold, menu 13, list/table 13, toolbar label 11 and mono 12.
+Section headings use 600 only for Geist; Aqua keeps its measured bold
+heading. No global line-height override was added.
+
+`cargo run -p silvestris-demo --features capture --bin measure_typography`
+records width and ascent/descent for Latin, digits, punctuation, ellipses,
+paths and accented strings at 100, 125, 150, 175 and 200% into
+[`geist-typography/measurements.json`](geist-typography/measurements.json).
+At 100%, 13px Geist Sans measures 41.7 px for "Cancel" with a 16.9 px
+line box, leaving 5.5 px above and below inside a 28px push button. The
+values are logical and scale linearly; the JSON records both logical and
+device pixels. Headless GPUI tests use a no-op text system, so native font
+registration is verified by the real capture path, not by those tests.

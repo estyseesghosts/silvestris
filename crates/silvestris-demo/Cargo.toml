@@ -19,6 +19,11 @@ name = "capture"
 path = "src/bin/capture.rs"
 required-features = ["capture"]
 
+[[bin]]
+name = "measure_typography"
+path = "src/bin/measure_typography.rs"
+required-features = ["capture"]
+
 [dependencies]
 silvestris = { workspace = true, features = ["std-fs"] }
 gpui = { workspace = true }

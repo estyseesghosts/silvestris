@@ -46,6 +46,15 @@ RELEASES = {
         "reserved_font_name": None,
         "themes": ["geist-light", "geist-dark"], "role": "ui",
     },
+    "geist-sans": {
+        "project": "https://github.com/vercel/geist-font",
+        "release": "v1.9.2",
+        "archive": "https://github.com/vercel/geist-font/releases/download/v1.9.2/geist-font-v1.9.2.zip",
+        "archive_sha256": "15f066d58dcb99fb10014a49913009fdaf41e464cfb8851a44b44e593c95d3d8",
+        "license": "geist-sans/OFL.txt",
+        "reserved_font_name": None,
+        "themes": ["geist-light", "geist-dark"], "role": "ui",
+    },
     "geist-mono": {
         "project": "https://github.com/vercel/geist-font",
         "release": "v1.9.2",

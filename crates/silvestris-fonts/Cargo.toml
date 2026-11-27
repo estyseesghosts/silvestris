@@ -6,7 +6,7 @@ rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 
-description = "Bundled Lato, Source Code Pro, Inter and Geist Mono font bytes with their OFL notices."
+description = "Bundled Lato, Source Code Pro, Inter, Geist Sans and Geist Mono font bytes with their notices."
 include = ["src/**", "fonts/**", "Cargo.toml"]
 
 [dependencies]

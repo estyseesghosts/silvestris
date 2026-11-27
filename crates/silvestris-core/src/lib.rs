@@ -26,6 +26,7 @@ pub mod fonts {
     pub const LATO: &str = "Lato";
     pub const SOURCE_CODE_PRO: &str = "Source Code Pro";
     pub const INTER: &str = "Inter";
+    pub const GEIST_SANS: &str = "Geist";
     pub const GEIST_MONO: &str = "Geist Mono";
 }
 

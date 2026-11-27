@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{App, Global, WindowAppearance};
-use silvestris_core::{Appearance, FontOverrides, Theme, ThemeId, ThemePreference};
+use gpui::{App, FontWeight, Global, WindowAppearance};
+use silvestris_core::{Appearance, FontOverrides, Theme, ThemeFamily, ThemeId, ThemePreference};
 
 pub struct ThemeState {
     preference: ThemePreference,
@@ -24,6 +24,17 @@ pub struct ThemeState {
 }
 
 impl Global for ThemeState {}
+
+/// Weight for section headings. Geist uses semibold 600; Aqua keeps the
+/// measured bold heading and must not change.
+#[must_use]
+pub fn heading_font_weight(theme: &Theme) -> FontWeight {
+    if theme.id.family == ThemeFamily::Geist {
+        FontWeight::SEMIBOLD
+    } else {
+        FontWeight::BOLD
+    }
+}
 
 pub fn appearance_of(a: WindowAppearance) -> Appearance {
     match a {

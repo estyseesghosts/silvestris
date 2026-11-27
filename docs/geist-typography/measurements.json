@@ -1,0 +1,2604 @@
+{
+  "theme": "geist-dark",
+  "source": "GPUI TextSystem::shape_line on the pinned GPUI revision",
+  "note": "logical sizes are scale-independent; device values are logical * scale",
+  "control_heights": {
+    "push": 28.0,
+    "push_small": 24.0,
+    "push_mini": 20.0,
+    "field": 28.0,
+    "field_small": 24.0
+  },
+  "scales": {
+    "100%": {
+      "scale": 1.0,
+      "roles": [
+        {
+          "role": "regular",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 41.71699905395508,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 75.84200286865234,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 49.829002380371094,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.59400939941406,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 71.6300048828125,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 222.32595825195312,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 197.1320037841797,
+              "device_height": 16.899999618530273
+            }
+          ]
+        },
+        {
+          "role": "small",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 38.507999420166016,
+              "logical_height": 15.600000381469727,
+              "device_width": 38.507999420166016,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 70.00800323486328,
+              "logical_height": 15.600000381469727,
+              "device_width": 70.00800323486328,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Settings",
+              "logical_width": 45.99599838256836,
+              "logical_height": 15.600000381469727,
+              "device_width": 45.99599838256836,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 104.85599517822266,
+              "logical_height": 15.600000381469727,
+              "device_width": 104.85599517822266,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 66.1199951171875,
+              "logical_height": 15.600000381469727,
+              "device_width": 66.1199951171875,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 205.2239990234375,
+              "logical_height": 15.600000381469727,
+              "device_width": 205.2239990234375,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 181.96798706054688,
+              "logical_height": 15.600000381469727,
+              "device_width": 181.96798706054688,
+              "device_height": 15.600000381469727
+            }
+          ]
+        },
+        {
+          "role": "mini",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 35.29899978637695,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 64.17400360107422,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 42.163002014160156,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 96.11798858642578,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 60.61000061035156,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 188.12200927734375,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 166.8040008544922,
+              "device_height": 14.300000190734863
+            }
+          ]
+        },
+        {
+          "role": "title",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 41.71699905395508,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 75.84200286865234,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 49.829002380371094,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.59400939941406,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 71.6300048828125,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 222.32595825195312,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 197.1320037841797,
+              "device_height": 16.899999618530273
+            }
+          ]
+        },
+        {
+          "role": "heading",
+          "font_size": 12.0,
+          "weight": 600.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 40.47599792480469,
+              "logical_height": 15.600000381469727,
+              "device_width": 40.47599792480469,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 73.23600006103516,
+              "logical_height": 15.600000381469727,
+              "device_width": 73.23600006103516,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Settings",
+              "logical_width": 48.87600326538086,
+              "logical_height": 15.600000381469727,
+              "device_width": 48.87600326538086,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 110.37600708007812,
+              "logical_height": 15.600000381469727,
+              "device_width": 110.37600708007812,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 69.30000305175781,
+              "logical_height": 15.600000381469727,
+              "device_width": 69.30000305175781,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 216.49197387695312,
+              "logical_height": 15.600000381469727,
+              "device_width": 216.49197387695312,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 189.79197692871094,
+              "logical_height": 15.600000381469727,
+              "device_width": 189.79197692871094,
+              "device_height": 15.600000381469727
+            }
+          ]
+        },
+        {
+          "role": "menu",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 41.71699905395508,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 75.84200286865234,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 49.829002380371094,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.59400939941406,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 71.6300048828125,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 222.32595825195312,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 197.1320037841797,
+              "device_height": 16.899999618530273
+            }
+          ]
+        },
+        {
+          "role": "view",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 41.71699905395508,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 75.84200286865234,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 49.829002380371094,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.59400939941406,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 71.6300048828125,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 222.32595825195312,
+              "device_height": 16.899999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 197.1320037841797,
+              "device_height": 16.899999618530273
+            }
+          ]
+        },
+        {
+          "role": "toolbar-label",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 35.29899978637695,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 64.17400360107422,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 42.163002014160156,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 96.11798858642578,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 60.61000061035156,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 188.12200927734375,
+              "device_height": 14.300000190734863
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 166.8040008544922,
+              "device_height": 14.300000190734863
+            }
+          ]
+        },
+        {
+          "role": "mono",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist Mono",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 43.20000076293945,
+              "logical_height": 15.600000381469727,
+              "device_width": 43.20000076293945,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 72.0,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Settings",
+              "logical_width": 57.60000228881836,
+              "logical_height": 15.600000381469727,
+              "device_width": 57.60000228881836,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 129.5999755859375,
+              "logical_height": 15.600000381469727,
+              "device_width": 129.5999755859375,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 72.0,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 244.7999267578125,
+              "logical_height": 15.600000381469727,
+              "device_width": 244.7999267578125,
+              "device_height": 15.600000381469727
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 223.19993591308594,
+              "logical_height": 15.600000381469727,
+              "device_width": 223.19993591308594,
+              "device_height": 15.600000381469727
+            }
+          ]
+        }
+      ]
+    },
+    "125%": {
+      "scale": 1.25,
+      "roles": [
+        {
+          "role": "regular",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 52.14624786376953,
+              "device_height": 21.125
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 94.80250549316406,
+              "device_height": 21.125
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.2862548828125,
+              "device_height": 21.125
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 141.9925079345703,
+              "device_height": 21.125
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 89.53750610351562,
+              "device_height": 21.125
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 277.9074401855469,
+              "device_height": 21.125
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 246.41500854492188,
+              "device_height": 21.125
+            }
+          ]
+        },
+        {
+          "role": "small",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 38.507999420166016,
+              "logical_height": 15.600000381469727,
+              "device_width": 48.1349983215332,
+              "device_height": 19.5
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 70.00800323486328,
+              "logical_height": 15.600000381469727,
+              "device_width": 87.51000213623047,
+              "device_height": 19.5
+            },
+            {
+              "text": "Settings",
+              "logical_width": 45.99599838256836,
+              "logical_height": 15.600000381469727,
+              "device_width": 57.494998931884766,
+              "device_height": 19.5
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 104.85599517822266,
+              "logical_height": 15.600000381469727,
+              "device_width": 131.0699920654297,
+              "device_height": 19.5
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 66.1199951171875,
+              "logical_height": 15.600000381469727,
+              "device_width": 82.64999389648438,
+              "device_height": 19.5
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 205.2239990234375,
+              "logical_height": 15.600000381469727,
+              "device_width": 256.5299987792969,
+              "device_height": 19.5
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 181.96798706054688,
+              "logical_height": 15.600000381469727,
+              "device_width": 227.45999145507812,
+              "device_height": 19.5
+            }
+          ]
+        },
+        {
+          "role": "mini",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 44.123748779296875,
+              "device_height": 17.875
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 80.2175064086914,
+              "device_height": 17.875
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 52.70375061035156,
+              "device_height": 17.875
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 120.1474838256836,
+              "device_height": 17.875
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 75.76249694824219,
+              "device_height": 17.875
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 235.1525115966797,
+              "device_height": 17.875
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 208.5050048828125,
+              "device_height": 17.875
+            }
+          ]
+        },
+        {
+          "role": "title",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 52.14624786376953,
+              "device_height": 21.125
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 94.80250549316406,
+              "device_height": 21.125
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.2862548828125,
+              "device_height": 21.125
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 141.9925079345703,
+              "device_height": 21.125
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 89.53750610351562,
+              "device_height": 21.125
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 277.9074401855469,
+              "device_height": 21.125
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 246.41500854492188,
+              "device_height": 21.125
+            }
+          ]
+        },
+        {
+          "role": "heading",
+          "font_size": 12.0,
+          "weight": 600.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 40.47599792480469,
+              "logical_height": 15.600000381469727,
+              "device_width": 50.59499740600586,
+              "device_height": 19.5
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 73.23600006103516,
+              "logical_height": 15.600000381469727,
+              "device_width": 91.54499816894531,
+              "device_height": 19.5
+            },
+            {
+              "text": "Settings",
+              "logical_width": 48.87600326538086,
+              "logical_height": 15.600000381469727,
+              "device_width": 61.09500503540039,
+              "device_height": 19.5
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 110.37600708007812,
+              "logical_height": 15.600000381469727,
+              "device_width": 137.97000122070312,
+              "device_height": 19.5
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 69.30000305175781,
+              "logical_height": 15.600000381469727,
+              "device_width": 86.625,
+              "device_height": 19.5
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 216.49197387695312,
+              "logical_height": 15.600000381469727,
+              "device_width": 270.6149597167969,
+              "device_height": 19.5
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 189.79197692871094,
+              "logical_height": 15.600000381469727,
+              "device_width": 237.23997497558594,
+              "device_height": 19.5
+            }
+          ]
+        },
+        {
+          "role": "menu",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 52.14624786376953,
+              "device_height": 21.125
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 94.80250549316406,
+              "device_height": 21.125
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.2862548828125,
+              "device_height": 21.125
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 141.9925079345703,
+              "device_height": 21.125
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 89.53750610351562,
+              "device_height": 21.125
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 277.9074401855469,
+              "device_height": 21.125
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 246.41500854492188,
+              "device_height": 21.125
+            }
+          ]
+        },
+        {
+          "role": "view",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 52.14624786376953,
+              "device_height": 21.125
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 94.80250549316406,
+              "device_height": 21.125
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.2862548828125,
+              "device_height": 21.125
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 141.9925079345703,
+              "device_height": 21.125
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 89.53750610351562,
+              "device_height": 21.125
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 277.9074401855469,
+              "device_height": 21.125
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 246.41500854492188,
+              "device_height": 21.125
+            }
+          ]
+        },
+        {
+          "role": "toolbar-label",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 44.123748779296875,
+              "device_height": 17.875
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 80.2175064086914,
+              "device_height": 17.875
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 52.70375061035156,
+              "device_height": 17.875
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 120.1474838256836,
+              "device_height": 17.875
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 75.76249694824219,
+              "device_height": 17.875
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 235.1525115966797,
+              "device_height": 17.875
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 208.5050048828125,
+              "device_height": 17.875
+            }
+          ]
+        },
+        {
+          "role": "mono",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist Mono",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 43.20000076293945,
+              "logical_height": 15.600000381469727,
+              "device_width": 54.0,
+              "device_height": 19.5
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 90.0,
+              "device_height": 19.5
+            },
+            {
+              "text": "Settings",
+              "logical_width": 57.60000228881836,
+              "logical_height": 15.600000381469727,
+              "device_width": 72.0,
+              "device_height": 19.5
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 129.5999755859375,
+              "logical_height": 15.600000381469727,
+              "device_width": 161.99996948242188,
+              "device_height": 19.5
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 90.0,
+              "device_height": 19.5
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 244.7999267578125,
+              "logical_height": 15.600000381469727,
+              "device_width": 305.9999084472656,
+              "device_height": 19.5
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 223.19993591308594,
+              "logical_height": 15.600000381469727,
+              "device_width": 278.9999084472656,
+              "device_height": 19.5
+            }
+          ]
+        }
+      ]
+    },
+    "150%": {
+      "scale": 1.5,
+      "roles": [
+        {
+          "role": "regular",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.57550048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.76300048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 74.74349975585938,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 170.39102172851562,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 107.44500732421875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 333.48895263671875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 295.697998046875,
+              "device_height": 25.349998474121094
+            }
+          ]
+        },
+        {
+          "role": "small",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 38.507999420166016,
+              "logical_height": 15.600000381469727,
+              "device_width": 57.762001037597656,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 70.00800323486328,
+              "logical_height": 15.600000381469727,
+              "device_width": 105.01200866699219,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Settings",
+              "logical_width": 45.99599838256836,
+              "logical_height": 15.600000381469727,
+              "device_width": 68.9939956665039,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 104.85599517822266,
+              "logical_height": 15.600000381469727,
+              "device_width": 157.28399658203125,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 66.1199951171875,
+              "logical_height": 15.600000381469727,
+              "device_width": 99.17999267578125,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 205.2239990234375,
+              "logical_height": 15.600000381469727,
+              "device_width": 307.83599853515625,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 181.96798706054688,
+              "logical_height": 15.600000381469727,
+              "device_width": 272.95196533203125,
+              "device_height": 23.400001525878906
+            }
+          ]
+        },
+        {
+          "role": "mini",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 52.94850158691406,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 96.26100158691406,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 63.244503021240234,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 144.17698669433594,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 90.91500091552734,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 282.1830139160156,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 250.20599365234375,
+              "device_height": 21.450000762939453
+            }
+          ]
+        },
+        {
+          "role": "title",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.57550048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.76300048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 74.74349975585938,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 170.39102172851562,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 107.44500732421875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 333.48895263671875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 295.697998046875,
+              "device_height": 25.349998474121094
+            }
+          ]
+        },
+        {
+          "role": "heading",
+          "font_size": 12.0,
+          "weight": 600.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 40.47599792480469,
+              "logical_height": 15.600000381469727,
+              "device_width": 60.71399688720703,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 73.23600006103516,
+              "logical_height": 15.600000381469727,
+              "device_width": 109.85400390625,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Settings",
+              "logical_width": 48.87600326538086,
+              "logical_height": 15.600000381469727,
+              "device_width": 73.31400299072266,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 110.37600708007812,
+              "logical_height": 15.600000381469727,
+              "device_width": 165.5640106201172,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 69.30000305175781,
+              "logical_height": 15.600000381469727,
+              "device_width": 103.95000457763672,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 216.49197387695312,
+              "logical_height": 15.600000381469727,
+              "device_width": 324.73797607421875,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 189.79197692871094,
+              "logical_height": 15.600000381469727,
+              "device_width": 284.6879577636719,
+              "device_height": 23.400001525878906
+            }
+          ]
+        },
+        {
+          "role": "menu",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.57550048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.76300048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 74.74349975585938,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 170.39102172851562,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 107.44500732421875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 333.48895263671875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 295.697998046875,
+              "device_height": 25.349998474121094
+            }
+          ]
+        },
+        {
+          "role": "view",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 62.57550048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 113.76300048828125,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 74.74349975585938,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 170.39102172851562,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 107.44500732421875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 333.48895263671875,
+              "device_height": 25.349998474121094
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 295.697998046875,
+              "device_height": 25.349998474121094
+            }
+          ]
+        },
+        {
+          "role": "toolbar-label",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 52.94850158691406,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 96.26100158691406,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 63.244503021240234,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 144.17698669433594,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 90.91500091552734,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 282.1830139160156,
+              "device_height": 21.450000762939453
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 250.20599365234375,
+              "device_height": 21.450000762939453
+            }
+          ]
+        },
+        {
+          "role": "mono",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist Mono",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 43.20000076293945,
+              "logical_height": 15.600000381469727,
+              "device_width": 64.80000305175781,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 108.0,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Settings",
+              "logical_width": 57.60000228881836,
+              "logical_height": 15.600000381469727,
+              "device_width": 86.4000015258789,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 129.5999755859375,
+              "logical_height": 15.600000381469727,
+              "device_width": 194.39996337890625,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 108.0,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 244.7999267578125,
+              "logical_height": 15.600000381469727,
+              "device_width": 367.19989013671875,
+              "device_height": 23.400001525878906
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 223.19993591308594,
+              "logical_height": 15.600000381469727,
+              "device_width": 334.7998962402344,
+              "device_height": 23.400001525878906
+            }
+          ]
+        }
+      ]
+    },
+    "175%": {
+      "scale": 1.75,
+      "roles": [
+        {
+          "role": "regular",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 73.00474548339844,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 132.7235107421875,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 87.20075225830078,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 198.78952026367188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 125.35250854492188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 389.0704345703125,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 344.98101806640625,
+              "device_height": 29.57499885559082
+            }
+          ]
+        },
+        {
+          "role": "small",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 38.507999420166016,
+              "logical_height": 15.600000381469727,
+              "device_width": 67.38899993896484,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 70.00800323486328,
+              "logical_height": 15.600000381469727,
+              "device_width": 122.51400756835938,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Settings",
+              "logical_width": 45.99599838256836,
+              "logical_height": 15.600000381469727,
+              "device_width": 80.49299621582031,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 104.85599517822266,
+              "logical_height": 15.600000381469727,
+              "device_width": 183.49798583984375,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 66.1199951171875,
+              "logical_height": 15.600000381469727,
+              "device_width": 115.70999145507812,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 205.2239990234375,
+              "logical_height": 15.600000381469727,
+              "device_width": 359.1419982910156,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 181.96798706054688,
+              "logical_height": 15.600000381469727,
+              "device_width": 318.4439697265625,
+              "device_height": 27.30000114440918
+            }
+          ]
+        },
+        {
+          "role": "mini",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 61.773250579833984,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 112.30450439453125,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 73.7852554321289,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 168.20648193359375,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 106.0675048828125,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 329.2135009765625,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 291.9070129394531,
+              "device_height": 25.024999618530273
+            }
+          ]
+        },
+        {
+          "role": "title",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 73.00474548339844,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 132.7235107421875,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 87.20075225830078,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 198.78952026367188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 125.35250854492188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 389.0704345703125,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 344.98101806640625,
+              "device_height": 29.57499885559082
+            }
+          ]
+        },
+        {
+          "role": "heading",
+          "font_size": 12.0,
+          "weight": 600.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 40.47599792480469,
+              "logical_height": 15.600000381469727,
+              "device_width": 70.83299255371094,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 73.23600006103516,
+              "logical_height": 15.600000381469727,
+              "device_width": 128.16299438476562,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Settings",
+              "logical_width": 48.87600326538086,
+              "logical_height": 15.600000381469727,
+              "device_width": 85.53300476074219,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 110.37600708007812,
+              "logical_height": 15.600000381469727,
+              "device_width": 193.15802001953125,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 69.30000305175781,
+              "logical_height": 15.600000381469727,
+              "device_width": 121.27500915527344,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 216.49197387695312,
+              "logical_height": 15.600000381469727,
+              "device_width": 378.8609619140625,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 189.79197692871094,
+              "logical_height": 15.600000381469727,
+              "device_width": 332.1359558105469,
+              "device_height": 27.30000114440918
+            }
+          ]
+        },
+        {
+          "role": "menu",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 73.00474548339844,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 132.7235107421875,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 87.20075225830078,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 198.78952026367188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 125.35250854492188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 389.0704345703125,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 344.98101806640625,
+              "device_height": 29.57499885559082
+            }
+          ]
+        },
+        {
+          "role": "view",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 73.00474548339844,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 132.7235107421875,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 87.20075225830078,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 198.78952026367188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 125.35250854492188,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 389.0704345703125,
+              "device_height": 29.57499885559082
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 344.98101806640625,
+              "device_height": 29.57499885559082
+            }
+          ]
+        },
+        {
+          "role": "toolbar-label",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 61.773250579833984,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 112.30450439453125,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 73.7852554321289,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 168.20648193359375,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 106.0675048828125,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 329.2135009765625,
+              "device_height": 25.024999618530273
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 291.9070129394531,
+              "device_height": 25.024999618530273
+            }
+          ]
+        },
+        {
+          "role": "mono",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist Mono",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 43.20000076293945,
+              "logical_height": 15.600000381469727,
+              "device_width": 75.5999984741211,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 126.0,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Settings",
+              "logical_width": 57.60000228881836,
+              "logical_height": 15.600000381469727,
+              "device_width": 100.80000305175781,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 129.5999755859375,
+              "logical_height": 15.600000381469727,
+              "device_width": 226.79995727539062,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 126.0,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 244.7999267578125,
+              "logical_height": 15.600000381469727,
+              "device_width": 428.3998718261719,
+              "device_height": 27.30000114440918
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 223.19993591308594,
+              "logical_height": 15.600000381469727,
+              "device_width": 390.5998840332031,
+              "device_height": 27.30000114440918
+            }
+          ]
+        }
+      ]
+    },
+    "200%": {
+      "scale": 2.0,
+      "roles": [
+        {
+          "role": "regular",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 83.43399810791016,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 151.6840057373047,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 99.65800476074219,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 227.18801879882812,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 143.260009765625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 444.65191650390625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 394.2640075683594,
+              "device_height": 33.79999923706055
+            }
+          ]
+        },
+        {
+          "role": "small",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 38.507999420166016,
+              "logical_height": 15.600000381469727,
+              "device_width": 77.01599884033203,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 70.00800323486328,
+              "logical_height": 15.600000381469727,
+              "device_width": 140.01600646972656,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Settings",
+              "logical_width": 45.99599838256836,
+              "logical_height": 15.600000381469727,
+              "device_width": 91.99199676513672,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 104.85599517822266,
+              "logical_height": 15.600000381469727,
+              "device_width": 209.7119903564453,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 66.1199951171875,
+              "logical_height": 15.600000381469727,
+              "device_width": 132.239990234375,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 205.2239990234375,
+              "logical_height": 15.600000381469727,
+              "device_width": 410.447998046875,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 181.96798706054688,
+              "logical_height": 15.600000381469727,
+              "device_width": 363.93597412109375,
+              "device_height": 31.200000762939453
+            }
+          ]
+        },
+        {
+          "role": "mini",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 70.5979995727539,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 128.34800720214844,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 84.32600402832031,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 192.23597717285156,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 121.22000122070312,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 376.2440185546875,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 333.6080017089844,
+              "device_height": 28.600000381469727
+            }
+          ]
+        },
+        {
+          "role": "title",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 83.43399810791016,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 151.6840057373047,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 99.65800476074219,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 227.18801879882812,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 143.260009765625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 444.65191650390625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 394.2640075683594,
+              "device_height": 33.79999923706055
+            }
+          ]
+        },
+        {
+          "role": "heading",
+          "font_size": 12.0,
+          "weight": 600.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 40.47599792480469,
+              "logical_height": 15.600000381469727,
+              "device_width": 80.95199584960938,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 73.23600006103516,
+              "logical_height": 15.600000381469727,
+              "device_width": 146.4720001220703,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Settings",
+              "logical_width": 48.87600326538086,
+              "logical_height": 15.600000381469727,
+              "device_width": 97.75200653076172,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 110.37600708007812,
+              "logical_height": 15.600000381469727,
+              "device_width": 220.75201416015625,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 69.30000305175781,
+              "logical_height": 15.600000381469727,
+              "device_width": 138.60000610351562,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 216.49197387695312,
+              "logical_height": 15.600000381469727,
+              "device_width": 432.98394775390625,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 189.79197692871094,
+              "logical_height": 15.600000381469727,
+              "device_width": 379.5839538574219,
+              "device_height": 31.200000762939453
+            }
+          ]
+        },
+        {
+          "role": "menu",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 83.43399810791016,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 151.6840057373047,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 99.65800476074219,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 227.18801879882812,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 143.260009765625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 444.65191650390625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 394.2640075683594,
+              "device_height": 33.79999923706055
+            }
+          ]
+        },
+        {
+          "role": "view",
+          "font_size": 13.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 41.71699905395508,
+              "logical_height": 16.899999618530273,
+              "device_width": 83.43399810791016,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 75.84200286865234,
+              "logical_height": 16.899999618530273,
+              "device_width": 151.6840057373047,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Settings",
+              "logical_width": 49.829002380371094,
+              "logical_height": 16.899999618530273,
+              "device_width": 99.65800476074219,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 113.59400939941406,
+              "logical_height": 16.899999618530273,
+              "device_width": 227.18801879882812,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 71.6300048828125,
+              "logical_height": 16.899999618530273,
+              "device_width": 143.260009765625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 222.32595825195312,
+              "logical_height": 16.899999618530273,
+              "device_width": 444.65191650390625,
+              "device_height": 33.79999923706055
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 197.1320037841797,
+              "logical_height": 16.899999618530273,
+              "device_width": 394.2640075683594,
+              "device_height": 33.79999923706055
+            }
+          ]
+        },
+        {
+          "role": "toolbar-label",
+          "font_size": 11.0,
+          "weight": 400.0,
+          "family": "Geist",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 35.29899978637695,
+              "logical_height": 14.300000190734863,
+              "device_width": 70.5979995727539,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 64.17400360107422,
+              "logical_height": 14.300000190734863,
+              "device_width": 128.34800720214844,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Settings",
+              "logical_width": 42.163002014160156,
+              "logical_height": 14.300000190734863,
+              "device_width": 84.32600402832031,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 96.11798858642578,
+              "logical_height": 14.300000190734863,
+              "device_width": 192.23597717285156,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 60.61000061035156,
+              "logical_height": 14.300000190734863,
+              "device_width": 121.22000122070312,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 188.12200927734375,
+              "logical_height": 14.300000190734863,
+              "device_width": 376.2440185546875,
+              "device_height": 28.600000381469727
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 166.8040008544922,
+              "logical_height": 14.300000190734863,
+              "device_width": 333.6080017089844,
+              "device_height": 28.600000381469727
+            }
+          ]
+        },
+        {
+          "role": "mono",
+          "font_size": 12.0,
+          "weight": 400.0,
+          "family": "Geist Mono",
+          "strings": [
+            {
+              "text": "Cancel",
+              "logical_width": 43.20000076293945,
+              "logical_height": 15.600000381469727,
+              "device_width": 86.4000015258789,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "0123456789",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 144.0,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Settings",
+              "logical_width": 57.60000228881836,
+              "logical_height": 15.600000381469727,
+              "device_width": 115.20000457763672,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Storage & Displays",
+              "logical_width": 129.5999755859375,
+              "logical_height": 15.600000381469727,
+              "device_width": 259.199951171875,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Load more…",
+              "logical_width": 72.0,
+              "logical_height": 15.600000381469727,
+              "device_width": 144.0,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "/Users/terezi/Documents/Finder.txt",
+              "logical_width": 244.7999267578125,
+              "logical_height": 15.600000381469727,
+              "device_width": 489.599853515625,
+              "device_height": 31.200000762939453
+            },
+            {
+              "text": "Éléphant – naïve façade: résumé",
+              "logical_width": 223.19993591308594,
+              "logical_height": 15.600000381469727,
+              "device_width": 446.3998718261719,
+              "device_height": 31.200000762939453
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -38,20 +38,21 @@ fn selection(fill: Rgba8, text: Rgba8) -> Selection {
     }
 }
 
+/// Geist typography roles (docs/geist.txt "Typography"). Sizes are shared by
+/// both appearances; only Aqua keeps the 2009 HIG small/mini sizes.
 fn typography() -> Typography {
     Typography {
-        ui: crate::fonts::INTER,
+        ui: crate::fonts::GEIST_SANS,
         mono: crate::fonts::GEIST_MONO,
-        // Same roles as Aqua so layouts do not change between families.
         size_regular: 13.0,
-        size_small: 11.0,
-        size_mini: 9.0,
+        size_small: 12.0,
+        size_mini: 11.0,
         size_mono: 12.0,
         size_title: 13.0,
-        size_heading: 11.0,
+        size_heading: 12.0,
         size_menu: 13.0,
-        size_view: 12.0,
-        size_label: 10.0,
+        size_view: 13.0,
+        size_label: 11.0,
     }
 }
 
