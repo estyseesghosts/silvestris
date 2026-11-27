@@ -7,8 +7,8 @@
 
 #[test]
 fn geist_sans_faces_have_the_real_internal_family_and_all_required_weights() {
-    let manifest: serde_json::Value = serde_json::from_str(silvestris_fonts::MANIFEST)
-        .expect("parse bundled font manifest");
+    let manifest: serde_json::Value =
+        serde_json::from_str(silvestris_fonts::MANIFEST).expect("parse bundled font manifest");
     let families = manifest["families"].as_array().expect("family list");
     let geist = families
         .iter()
@@ -23,7 +23,11 @@ fn geist_sans_faces_have_the_real_internal_family_and_all_required_weights() {
     let faces = geist["faces"].as_array().expect("geist-sans faces");
     let mut actual: Vec<(u16, bool)> = Vec::new();
     for face in faces {
-        assert_eq!(face["family"], "Geist", "typographic family in {}", face["file"]);
+        assert_eq!(
+            face["family"], "Geist",
+            "typographic family in {}",
+            face["file"]
+        );
         assert_eq!(face["variable"], false, "static face required");
         actual.push((
             face["weight"].as_u64().expect("weight") as u16,
@@ -33,7 +37,13 @@ fn geist_sans_faces_have_the_real_internal_family_and_all_required_weights() {
     actual.sort_unstable();
     assert_eq!(
         actual,
-        vec![(400, false), (400, true), (500, false), (600, false), (700, false)]
+        vec![
+            (400, false),
+            (400, true),
+            (500, false),
+            (600, false),
+            (700, false)
+        ]
     );
 }
 
@@ -54,7 +64,13 @@ fn bundled_families_keep_their_declared_weights_and_shared_names() {
         .collect();
     assert_eq!(
         weights,
-        vec![(400, false), (400, true), (500, false), (600, false), (700, false)]
+        vec![
+            (400, false),
+            (400, true),
+            (500, false),
+            (600, false),
+            (700, false)
+        ]
     );
     // Inter remains an auxiliary family; Aqua's faces are untouched.
     assert!(silvestris_fonts::FAMILIES.contains(&silvestris_fonts::INTER));

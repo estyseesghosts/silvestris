@@ -84,13 +84,7 @@ pub static FACES: &[Face] = &[
 ];
 
 /// Families a consumer must find registered before opening a window.
-pub const FAMILIES: [&str; 5] = [
-    LATO,
-    SOURCE_CODE_PRO,
-    INTER,
-    GEIST_SANS,
-    GEIST_MONO,
-];
+pub const FAMILIES: [&str; 5] = [LATO, SOURCE_CODE_PRO, INTER, GEIST_SANS, GEIST_MONO];
 
 /// Machine-readable provenance for About/Licenses screens and audits.
 pub const MANIFEST: &str = include_str!("../fonts/manifest.json");

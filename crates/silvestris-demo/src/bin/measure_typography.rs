@@ -53,15 +53,60 @@ fn main() {
         cx.open_window(options, |window, cx| {
             let theme = silvestris::core::theme(ThemeId::GEIST_DARK);
             let roles = [
-                Role { name: "regular", size: theme.type_.size_regular, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "small", size: theme.type_.size_small, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "mini", size: theme.type_.size_mini, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "title", size: theme.type_.size_title, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "heading", size: theme.type_.size_heading, mono: false, weight: FontWeight::SEMIBOLD },
-                Role { name: "menu", size: theme.type_.size_menu, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "view", size: theme.type_.size_view, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "toolbar-label", size: theme.type_.size_label, mono: false, weight: FontWeight::NORMAL },
-                Role { name: "mono", size: theme.type_.size_mono, mono: true, weight: FontWeight::NORMAL },
+                Role {
+                    name: "regular",
+                    size: theme.type_.size_regular,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "small",
+                    size: theme.type_.size_small,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "mini",
+                    size: theme.type_.size_mini,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "title",
+                    size: theme.type_.size_title,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "heading",
+                    size: theme.type_.size_heading,
+                    mono: false,
+                    weight: FontWeight::SEMIBOLD,
+                },
+                Role {
+                    name: "menu",
+                    size: theme.type_.size_menu,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "view",
+                    size: theme.type_.size_view,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "toolbar-label",
+                    size: theme.type_.size_label,
+                    mono: false,
+                    weight: FontWeight::NORMAL,
+                },
+                Role {
+                    name: "mono",
+                    size: theme.type_.size_mono,
+                    mono: true,
+                    weight: FontWeight::NORMAL,
+                },
             ];
             let mut scales = serde_json::Map::new();
             for scale in [1.0_f32, 1.25, 1.5, 1.75, 2.0] {
@@ -80,7 +125,9 @@ fn main() {
                         let run = TextRun {
                             len: text.len(),
                             font: face.clone(),
-                            color: silvestris::convert::hsla(silvestris::core::Rgba8::hex(0xededed)),
+                            color: silvestris::convert::hsla(silvestris::core::Rgba8::hex(
+                                0xededed,
+                            )),
                             background_color: None,
                             underline: None,
                             strikethrough: None,

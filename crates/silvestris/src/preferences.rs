@@ -31,8 +31,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, Pixels, SharedString,
-    Size, Window,
+    canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, Pixels,
+    SharedString, Size, Window,
 };
 
 use crate::binding::Binding;
