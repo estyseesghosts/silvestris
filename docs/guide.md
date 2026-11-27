@@ -117,7 +117,10 @@ and Space activation, announces the checked state, and occludes the titlebar
 drag area like every other toolbar control. `ConsumerTemplateImage` receives
 the control's ink in a fixed 19/13 px slot; it must not choose a colour.
 `ConsumerArtwork::with_state` receives `PictorialState` for application-drawn
-pictorial art.
+pictorial art. Silvestris cannot recolour arbitrary child elements, so the
+consumer must apply the disabled/inactive treatment itself (at minimum,
+desaturate toward grey for `enabled == false` or `active_window == false`) and
+must not replace colour artwork with host ink.
 
 | | Silvestris-provided | Application-provided |
 |---|---|---|
