@@ -38,8 +38,8 @@ use silvestris::file_panel::{
     PlaceSection,
 };
 use silvestris::icons::{
-    ConsumerArtwork, ConsumerTemplateImage, FileArtwork, FileIconState, Icon, PictorialImage,
-    PictorialState, TemplateImage, TemplateImageSlot,
+    ConsumerArtwork, ConsumerTemplateImage, FileArtwork, FileIconState, GeistPictogram, Icon,
+    PictorialImage, PictorialState, TemplateImage, TemplateImageSlot,
 };
 use silvestris::menu::PopupMenu;
 use silvestris::preferences::{
@@ -518,6 +518,36 @@ const INSTALLER_SAMPLES: [Sample; 3] = [
     },
 ];
 
+/// Geist-only edge cases appended after every established page. They are
+/// rendered only for Geist appearances, so no accepted Aqua golden moves.
+const GEIST_EDGE_SAMPLES: [Sample; 5] = [
+    Sample {
+        id: "geist-search-field",
+        width: 240.,
+        height: 80.,
+    },
+    Sample {
+        id: "geist-button-states",
+        width: 240.,
+        height: 80.,
+    },
+    Sample {
+        id: "geist-scroll-horizontal",
+        width: 240.,
+        height: 100.,
+    },
+    Sample {
+        id: "geist-long-text",
+        width: 240.,
+        height: 120.,
+    },
+    Sample {
+        id: "geist-pictograms",
+        width: 240.,
+        height: 120.,
+    },
+];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -594,11 +624,19 @@ fn installer_index(page: usize) -> usize {
     page - installer_page_start()
 }
 
+/// The appended Geist-only page. Rendering it for Aqua is never requested.
+fn geist_edge_page() -> usize {
+    installer_page_start() + INSTALLER_SAMPLES.len()
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
 
 fn page_samples(page: usize) -> &'static [Sample] {
+    if page == geist_edge_page() {
+        return &GEIST_EDGE_SAMPLES;
+    }
     if page == menu_page() {
         return &MENU_SAMPLES;
     }
@@ -632,6 +670,12 @@ fn page_samples(page: usize) -> &'static [Sample] {
 }
 
 fn root_size(page: usize) -> (f32, f32) {
+    if page == geist_edge_page() {
+        return (
+            PAD + COLUMNS as f32 * (CELL_WIDTH + GAP) - GAP + PAD,
+            PAD + rows(page) as f32 * (CELL_HEIGHT + GAP) - GAP + PAD,
+        );
+    }
     if page == menu_page() {
         let width = MENU_SAMPLES.iter().map(|s| s.width + GAP).sum::<f32>() - GAP;
         let height = MENU_SAMPLES.iter().map(|s| s.height).fold(0., f32::max);
@@ -668,6 +712,18 @@ fn root_size(page: usize) -> (f32, f32) {
 }
 
 fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
+    if page == geist_edge_page() {
+        let samples = &GEIST_EDGE_SAMPLES;
+        let mut rects = Vec::with_capacity(samples.len());
+        for (i, sample) in samples.iter().enumerate() {
+            let column = i % COLUMNS;
+            let row = i / COLUMNS;
+            let x = PAD + column as f32 * (CELL_WIDTH + GAP) + (CELL_WIDTH - sample.width) / 2.0;
+            let y = PAD + row as f32 * (CELL_HEIGHT + GAP);
+            rects.push((sample.id, x, y, sample.width, sample.height));
+        }
+        return rects;
+    }
     if page == menu_page() {
         let mut x = PAD;
         return MENU_SAMPLES
@@ -1584,6 +1640,108 @@ impl CaptureView {
                 .edited(true)
                 .child(frame_body())
                 .into_any_element(),
+            // Geist-only edge cases on the appended page. These never render
+            // for Aqua, so no accepted Aqua golden is touched.
+            "geist-search-field" => {
+                let field = cx.new(|cx| {
+                    let mut field = TextField::new(window, cx);
+                    field.set_placeholder("Find a setting", cx);
+                    field.set_search(true, cx);
+                    field
+                });
+                div()
+                    .size_full()
+                    .flex()
+                    .items_center()
+                    .child(field)
+                    .into_any_element()
+            }
+            "geist-button-states" => div()
+                .size_full()
+                .flex()
+                .items_center()
+                .gap(px(6.))
+                .children([
+                    Button::new("geist-state-normal", "Normal").into_any_element(),
+                    Button::new("geist-state-selected", "Selected")
+                        .selected(true)
+                        .into_any_element(),
+                    Button::new("geist-state-default", "Default")
+                        .default_button(true)
+                        .throb(false)
+                        .into_any_element(),
+                    Button::new("geist-state-disabled", "Disabled")
+                        .disabled(true)
+                        .into_any_element(),
+                ])
+                .into_any_element(),
+            "geist-scroll-horizontal" => {
+                let handle = gpui::ScrollHandle::new();
+                let content = silvestris::convert::hsla(self.content);
+                ScrollView::new("geist-horizontal-scroll", &handle)
+                    .axes(ScrollAxes::Horizontal)
+                    .autohide(false)
+                    .child(
+                        div()
+                            .id("geist-horizontal-content")
+                            .size_full()
+                            .flex()
+                            .overflow_x_scroll()
+                            .track_scroll(&handle)
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .w(px(600.))
+                                    .h(px(40.))
+                                    .bg(content)
+                                    .child("A row wider than its viewport"),
+                            ),
+                    )
+                    .into_any_element()
+            }
+            "geist-long-text" => {
+                let theme = cx.theme().clone();
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .gap(px(8.))
+                    .child(
+                        div()
+                            .text_size(px(theme.type_.size_regular))
+                            .line_height(px(theme.type_.size_regular + 3.0))
+                            .child(
+                                "A long setting description that wraps across several lines \
+                                 without being clipped by a fixed-height control.",
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(theme.type_.size_small))
+                            .line_height(px(16.))
+                            .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                            .child("Secondary note on the second line"),
+                    )
+                    .into_any_element()
+            }
+            "geist-pictograms" => {
+                let theme = cx.theme().clone();
+                let state = PictorialState::normal();
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(6.))
+                    .children(GeistPictogram::all().iter().copied().map(|role| {
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(32.))
+                            .child(role.themed_element(20.0, state, &theme))
+                    }))
+                    .into_any_element()
+            }
             other => unreachable!("unknown sample {other}"),
         }
     }
