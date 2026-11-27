@@ -41,6 +41,8 @@ pub struct Segment {
     pub label: SharedString,
     pub disabled: bool,
     pub icon: Option<SharedString>,
+    /// Typed monochrome glyph rendered with the segment's current ink.
+    pub glyph: Option<crate::toolbar::ToolbarGlyph>,
     pub show_label: bool,
 }
 impl Segment {
@@ -50,6 +52,7 @@ impl Segment {
             label: label.into(),
             disabled: false,
             icon: None,
+            glyph: None,
             show_label: true,
         }
     }
@@ -63,9 +66,19 @@ impl Segment {
         self.icon = Some(role.into());
         self
     }
+    /// A typed monochrome glyph, global or application-provided. Rendered with
+    /// the segment's current ink in the 13 px segmented slot.
+    pub fn glyph(mut self, glyph: impl Into<crate::toolbar::ToolbarGlyph>) -> Self {
+        self.glyph = Some(glyph.into());
+        self
+    }
     pub fn show_label(mut self, show: bool) -> Self {
         self.show_label = show;
         self
+    }
+
+    fn has_glyph(&self) -> bool {
+        self.glyph.is_some() || self.icon.is_some()
     }
 }
 
@@ -226,10 +239,10 @@ impl RenderOnce for SegmentedControl {
                 .iter()
                 .zip(labels.iter())
                 .map(|(segment, w)| {
-                    if segment.icon.is_some() && !segment.show_label {
+                    if segment.has_glyph() && !segment.show_label {
                         height.max(self.min_segment_width)
                     } else {
-                        let icon = if segment.icon.is_some() { 16.0 } else { 0.0 };
+                        let icon = if segment.has_glyph() { 16.0 } else { 0.0 };
                         (w + icon + 2. * margin).ceil().max(self.min_segment_width)
                     }
                 })
@@ -240,10 +253,10 @@ impl RenderOnce for SegmentedControl {
                     .iter()
                     .zip(labels.iter())
                     .map(|(segment, w)| {
-                        if segment.icon.is_some() && !segment.show_label {
+                        if segment.has_glyph() && !segment.show_label {
                             height
                         } else {
-                            let icon = if segment.icon.is_some() { 16.0 } else { 0.0 };
+                            let icon = if segment.has_glyph() { 16.0 } else { 0.0 };
                             w + icon + 2. * t.metrics.push_padding[0]
                         }
                     })
@@ -251,7 +264,7 @@ impl RenderOnce for SegmentedControl {
                 self.segments
                     .iter()
                     .map(|segment| {
-                        if segment.icon.is_some() && !segment.show_label {
+                        if segment.has_glyph() && !segment.show_label {
                             height.max(self.min_segment_width)
                         } else {
                             w
@@ -340,6 +353,15 @@ impl RenderOnce for SegmentedControl {
                     }
                 });
             };
+            let glyph = segment
+                .glyph
+                .as_ref()
+                .map(|glyph| glyph.element(crate::icons::TemplateImageSlot::Segmented, base.text))
+                .or_else(|| {
+                    segment.icon.as_ref().and_then(|role| {
+                        icon_renderer.as_ref().map(|render| render(role, base.text))
+                    })
+                });
             group = group.child(
                 div()
                     .id(segment.id.clone())
@@ -384,7 +406,7 @@ impl RenderOnce for SegmentedControl {
                                 ),
                         )
                     })
-                    .when_some(segment.icon.as_ref(), |el, role| {
+                    .when_some(glyph, |el, glyph| {
                         el.child(
                             div()
                                 .id("icon")
@@ -397,9 +419,7 @@ impl RenderOnce for SegmentedControl {
                                 // A text glyph's line box is taller than the
                                 // 16 px slot; pin it so the glyph centres.
                                 .line_height(px(16.0))
-                                .when_some(icon_renderer.as_ref(), |el, render| {
-                                    el.child(render(role, base.text))
-                                }),
+                                .child(glyph),
                         )
                     })
                     .when(segment.show_label, |el| {
@@ -407,13 +427,13 @@ impl RenderOnce for SegmentedControl {
                             div()
                                 .id("label")
                                 .relative()
-                                .when(segment.icon.is_some(), |el| el.ml(px(4.0)))
+                                .when(segment.has_glyph(), |el| el.ml(px(4.0)))
                                 .when(active, |el| {
                                     el.group_active("silvestris-segment", |s| {
                                         s.text_color(hsla(pressed.text))
                                     })
                                 })
-                                .child(segment.label),
+                                .child(segment.label.clone()),
                         )
                     })
                     .when(active, |el| {

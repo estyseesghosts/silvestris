@@ -11,20 +11,23 @@ use crate::{
         segmented::{Segment, SegmentMode, SegmentStyle, SegmentedControl},
         text_field::TextField,
     },
-    icons::{TemplateImage, TemplateImageSlot},
+    icons::{
+        ConsumerArtwork, ConsumerTemplateImage, PictorialImage, PictorialState, TemplateImage,
+        TemplateImageSlot,
+    },
     menu::PopupMenu,
     responder::ResponderChain,
     theme::ActiveTheme,
 };
 use gpui::{
     canvas, container_query, deferred, div, prelude::*, px, AnyElement, App, Bounds, ElementId,
-    Entity, Pixels, RenderOnce, SharedString, Window,
+    Entity, Pixels, RenderOnce, SharedString, TextRun, Window,
 };
 use silvestris_core::{
     command::{CommandId, MenuEntry, MenuModel},
     layout::{fit_toolbar, ToolbarSlot},
 };
-use std::{cell::RefCell, collections::BTreeMap, collections::HashMap, rc::Rc};
+use std::{cell::Cell, cell::RefCell, collections::BTreeMap, collections::HashMap, rc::Rc};
 
 type SegmentAction = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 type OverflowAction = (String, Rc<dyn Fn(&mut Window, &mut App)>);
@@ -121,11 +124,119 @@ pub enum ToolbarItemStyle {
     Capsule,
 }
 
+/// A monochrome glyph accepted by textured/capsule controls and segmented
+/// controls. Both origins receive the host's state ink and the fixed 19 px
+/// toolbar or 13 px segmented slot.
+#[derive(Clone)]
+pub enum ToolbarGlyph {
+    /// A Silvestris-provided template image.
+    Silvestris(TemplateImage),
+    /// Application-provided artwork, painted with host ink.
+    Consumer(ConsumerTemplateImage),
+}
+
+impl ToolbarGlyph {
+    /// Render in the fixed host slot with the control's current ink.
+    pub fn element(&self, slot: TemplateImageSlot, ink: silvestris_core::Rgba8) -> AnyElement {
+        match self {
+            Self::Silvestris(image) => image.element(slot, ink),
+            Self::Consumer(image) => image.element(slot, ink),
+        }
+    }
+
+    /// Renderer callback for `Button::icon`/`CommandButton::icon`.
+    pub fn button_renderer(
+        &self,
+        slot: TemplateImageSlot,
+    ) -> impl Fn(gpui::Rgba) -> AnyElement + 'static {
+        let render: Rc<dyn Fn(gpui::Rgba) -> AnyElement> = match self {
+            Self::Silvestris(image) => {
+                let image = *image;
+                Rc::new(move |ink| image.element(slot, rgba8(ink)))
+            }
+            Self::Consumer(image) => {
+                let image = image.clone();
+                Rc::new(move |ink| image.element(slot, rgba8(ink)))
+            }
+        };
+        move |ink| render(ink)
+    }
+}
+
+fn rgba8(ink: gpui::Rgba) -> silvestris_core::Rgba8 {
+    silvestris_core::Rgba8 {
+        r: (ink.r * 255.0).round().clamp(0.0, 255.0) as u8,
+        g: (ink.g * 255.0).round().clamp(0.0, 255.0) as u8,
+        b: (ink.b * 255.0).round().clamp(0.0, 255.0) as u8,
+        a: (ink.a * 255.0).round().clamp(0.0, 255.0) as u8,
+    }
+}
+
+impl From<TemplateImage> for ToolbarGlyph {
+    fn from(image: TemplateImage) -> Self {
+        Self::Silvestris(image)
+    }
+}
+
+impl From<ConsumerTemplateImage> for ToolbarGlyph {
+    fn from(image: ConsumerTemplateImage) -> Self {
+        Self::Consumer(image)
+    }
+}
+
+/// Full-colour artwork accepted only by the standalone toolbar icon-button
+/// presentation. A 32 px pictorial image is never valid in a 19 px textured
+/// slot.
+#[derive(Clone)]
+pub enum ToolbarPictorial {
+    /// Silvestris-provided pictorial artwork.
+    Silvestris(PictorialImage),
+    /// Application-provided pictorial artwork.
+    Consumer(ConsumerArtwork),
+}
+
+impl ToolbarPictorial {
+    /// Render the artwork at the fixed 32 px slot for a state.
+    pub fn element(&self, state: PictorialState, window: &mut Window, cx: &mut App) -> AnyElement {
+        match self {
+            Self::Silvestris(image) => image.element(state),
+            Self::Consumer(artwork) => artwork.stateful_toolbar_element(state, window, cx),
+        }
+    }
+
+    /// The artwork's own descriptive name, when it has one.
+    #[must_use]
+    pub fn label(&self) -> Option<&SharedString> {
+        match self {
+            Self::Silvestris(_) => None,
+            Self::Consumer(artwork) => Some(artwork.label()),
+        }
+    }
+}
+
+impl From<PictorialImage> for ToolbarPictorial {
+    fn from(image: PictorialImage) -> Self {
+        Self::Silvestris(image)
+    }
+}
+
+impl From<ConsumerArtwork> for ToolbarPictorial {
+    fn from(artwork: ConsumerArtwork) -> Self {
+        Self::Consumer(artwork)
+    }
+}
+
 #[derive(Clone)]
 enum ToolbarItemKind {
     Command {
         command: CommandId,
-        image: Option<TemplateImage>,
+        glyph: Option<ToolbarGlyph>,
+        toggle_help: Option<(SharedString, SharedString)>,
+    },
+    /// Standalone pictorial command: the label sits below the artwork.
+    PictorialCommand {
+        command: CommandId,
+        artwork: ToolbarPictorial,
         toggle_help: Option<(SharedString, SharedString)>,
     },
     Segmented {
@@ -135,7 +246,7 @@ enum ToolbarItemKind {
     },
     PopDown {
         menu: MenuModel,
-        image: Option<TemplateImage>,
+        glyph: Option<ToolbarGlyph>,
     },
     Search(Entity<TextField>),
     Group(Vec<ToolbarItem>),
@@ -148,7 +259,7 @@ enum ToolbarItemKind {
 pub struct ToolbarSegment {
     pub id: SharedString,
     pub label: SharedString,
-    pub image: Option<TemplateImage>,
+    pub glyph: Option<ToolbarGlyph>,
     pub disabled: bool,
     pub command: Option<CommandId>,
 }
@@ -159,15 +270,23 @@ impl ToolbarSegment {
         Self {
             id: id.into(),
             label: label.into(),
-            image: None,
+            glyph: None,
             disabled: false,
             command: None,
         }
     }
 
-    /// Set the template image; if any segment lacks an image, all segments use labels.
+    /// Set a Silvestris template image; if any segment lacks a glyph, all
+    /// segments use labels.
     pub fn image(mut self, image: TemplateImage) -> Self {
-        self.image = Some(image);
+        self.glyph = Some(ToolbarGlyph::Silvestris(image));
+        self
+    }
+
+    /// Set a monochrome glyph, global or application-provided. If any segment
+    /// lacks a glyph, all segments use labels.
+    pub fn glyph(mut self, glyph: impl Into<ToolbarGlyph>) -> Self {
+        self.glyph = Some(glyph.into());
         self
     }
 
@@ -214,10 +333,44 @@ impl ToolbarItem {
             optional: false,
             kind: ToolbarItemKind::Command {
                 command: command.into(),
-                image: None,
+                glyph: None,
                 toggle_help: None,
             },
         }
+    }
+
+    /// A standalone pictorial command: 32 px artwork with the external label
+    /// below it in Icon & Label mode. Uses the same command registry and
+    /// responder chain as a rectangular command.
+    pub fn pictorial_command(
+        id: impl Into<SharedString>,
+        label: impl Into<SharedString>,
+        command: impl Into<CommandId>,
+        artwork: impl Into<ToolbarPictorial>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            priority: 128,
+            style: ToolbarItemStyle::default(),
+            optional: false,
+            kind: ToolbarItemKind::PictorialCommand {
+                command: command.into(),
+                artwork: artwork.into(),
+                toggle_help: None,
+            },
+        }
+    }
+
+    /// A standalone pictorial toggle. Checked state remains owned by the
+    /// command descriptor.
+    pub fn pictorial_toggle(
+        id: impl Into<SharedString>,
+        label: impl Into<SharedString>,
+        command: impl Into<CommandId>,
+        artwork: impl Into<ToolbarPictorial>,
+    ) -> Self {
+        Self::pictorial_command(id, label, command, artwork)
     }
 
     /// A command toggle. Checked state remains owned by the command descriptor.
@@ -236,8 +389,12 @@ impl ToolbarItem {
         when_on: impl Into<SharedString>,
         when_off: impl Into<SharedString>,
     ) -> Self {
-        if let ToolbarItemKind::Command { toggle_help, .. } = &mut self.kind {
-            *toggle_help = Some((when_on.into(), when_off.into()));
+        match &mut self.kind {
+            ToolbarItemKind::Command { toggle_help, .. }
+            | ToolbarItemKind::PictorialCommand { toggle_help, .. } => {
+                *toggle_help = Some((when_on.into(), when_off.into()));
+            }
+            _ => {}
         }
         self
     }
@@ -276,7 +433,7 @@ impl ToolbarItem {
             priority: 128,
             style: ToolbarItemStyle::default(),
             optional: false,
-            kind: ToolbarItemKind::PopDown { menu, image: None },
+            kind: ToolbarItemKind::PopDown { menu, glyph: None },
         }
     }
 
@@ -361,11 +518,21 @@ impl ToolbarItem {
         self.optional
     }
 
-    /// Use a monochrome template image in the fixed toolbar slot.
+    /// Use a Silvestris monochrome template image in the fixed toolbar slot.
+    /// Convenience wrapper around [`Self::glyph`].
     pub fn image(mut self, image: TemplateImage) -> Self {
+        self = self.glyph(ToolbarGlyph::Silvestris(image));
+        self
+    }
+
+    /// Use a monochrome glyph, global or application-provided. Valid for
+    /// rectangular/capsule commands, pop-downs and segments; not for pictorial
+    /// items.
+    pub fn glyph(mut self, glyph: impl Into<ToolbarGlyph>) -> Self {
+        let glyph = Some(glyph.into());
         match &mut self.kind {
-            ToolbarItemKind::Command { image: slot, .. }
-            | ToolbarItemKind::PopDown { image: slot, .. } => *slot = Some(image),
+            ToolbarItemKind::Command { glyph: slot, .. }
+            | ToolbarItemKind::PopDown { glyph: slot, .. } => *slot = glyph,
             _ => {}
         }
         self
@@ -848,9 +1015,282 @@ impl RenderOnce for Toolbar {
     }
 }
 
+/// Standalone toolbar icon button: the 32 px pictorial artwork with the
+/// external label centred below in Icon & Label mode. There is no visible
+/// bezel at rest; the control occludes the titlebar drag area, takes Tab focus
+/// and dispatches the same command as the menu and shortcut paths.
+#[derive(IntoElement)]
+pub struct ToolbarIconButton {
+    id: ElementId,
+    label: SharedString,
+    command: CommandId,
+    registry: Entity<CommandRegistry>,
+    chain: Option<Entity<ResponderChain>>,
+    artwork: ToolbarPictorial,
+    show_icon: bool,
+    show_label: bool,
+    tooltip: Option<SharedString>,
+}
+
+impl ToolbarIconButton {
+    /// Create a pictorial command button for an existing command descriptor.
+    pub fn new(
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        command: impl Into<CommandId>,
+        registry: Entity<CommandRegistry>,
+        artwork: impl Into<ToolbarPictorial>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            command: command.into(),
+            registry,
+            chain: None,
+            artwork: artwork.into(),
+            show_icon: true,
+            show_label: true,
+            tooltip: None,
+        }
+    }
+
+    /// Choose the artwork/label combination for the toolbar display mode.
+    pub fn presentation(mut self, show_icon: bool, show_label: bool) -> Self {
+        self.show_icon = show_icon;
+        self.show_label = show_label;
+        self
+    }
+
+    /// Resolve and dispatch through the window's responder chain.
+    pub fn chain(mut self, chain: Entity<ResponderChain>) -> Self {
+        self.chain = Some(chain);
+        self
+    }
+
+    /// Override the command descriptor's help text for this presentation.
+    pub fn tooltip(mut self, text: impl Into<SharedString>) -> Self {
+        self.tooltip = Some(text.into());
+        self
+    }
+}
+
+/// HIG p. 270: at least 10 px of hit target around the icon or label.
+const ICON_BUTTON_MARGIN: f32 = 10.0;
+/// HIG p. 270: standalone toolbar icon buttons use a 32×32 px image.
+const ICON_BUTTON_SLOT: f32 = 32.0;
+
+impl RenderOnce for ToolbarIconButton {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let descriptor = match &self.chain {
+            Some(chain) => chain
+                .read(cx)
+                .present(&self.registry, &self.command, window, cx),
+            None => self
+                .registry
+                .read(cx)
+                .descriptors()
+                .get(&self.command)
+                .cloned(),
+        };
+        let enabled = descriptor.as_ref().is_some_and(|d| d.enabled);
+        let checked = descriptor.as_ref().is_some_and(|d| d.checked);
+        let tooltip = self.tooltip.or_else(|| {
+            descriptor
+                .as_ref()
+                .and_then(|descriptor| descriptor.tooltip.clone().map(Into::into))
+        });
+
+        let feedback = window.use_keyed_state(self.id.clone(), cx, |_, cx| {
+            (cx.focus_handle().tab_stop(true), Rc::new(Cell::new(false)))
+        });
+        let (focus, pressed) = {
+            let state = feedback.read(cx);
+            (state.0.clone(), state.1.clone())
+        };
+        if !enabled {
+            pressed.set(false);
+        }
+
+        let label_size = theme.type_.size_regular;
+        let label_run = TextRun {
+            len: self.label.len(),
+            font: gpui::font(theme.type_.ui),
+            color: crate::convert::hsla(theme.colors.text),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let label_width = window
+            .text_system()
+            .shape_line(self.label.clone(), px(label_size), &[label_run], None)
+            .width
+            .as_f32();
+        let content_width = match (self.show_icon, self.show_label) {
+            (true, true) => ICON_BUTTON_SLOT.max(label_width),
+            (true, false) => ICON_BUTTON_SLOT,
+            (false, true) => label_width,
+            (false, false) => ICON_BUTTON_SLOT,
+        };
+        let width = (content_width + 2.0 * ICON_BUTTON_MARGIN).ceil();
+        let height = if self.show_label {
+            theme.metrics.toolbar_labelled_height
+        } else {
+            theme.metrics.toolbar_height
+        };
+        // The 49 px labelled envelope leaves this row under the 32 px image;
+        // the artwork is top-aligned, never stretched.
+        let label_row = (height - ICON_BUTTON_SLOT).max(0.0);
+
+        let state = PictorialState {
+            enabled,
+            active_window: window.is_window_active(),
+            pressed: pressed.get(),
+            selected: checked,
+        };
+        let artwork = self.artwork.element(state, window, cx);
+        let selector = self.id.to_string();
+        let icon_selector = format!("{selector}-icon");
+        let label_selector = format!("{selector}-label");
+        let aria_label = if checked {
+            format!("{}, selected", self.label)
+        } else {
+            self.label.to_string()
+        };
+
+        let registry = self.registry.clone();
+        let command = self.command.clone();
+        let chain = self.chain.clone();
+        let click_focus = focus.clone();
+        let click_pressed = pressed.clone();
+        let key_pressed = pressed.clone();
+        let up_pressed = pressed.clone();
+        let release_pressed = pressed.clone();
+        let ring_focus = focus.clone();
+        let ring = theme.colors.focus_ring;
+        let profile = theme.metrics.focus_ring;
+        let radius = theme.metrics.textured_radius;
+
+        div()
+            .debug_selector(|| selector)
+            .id(self.id)
+            .role(gpui::Role::Button)
+            .aria_label(aria_label)
+            // Controls must stop an enclosing native titlebar drag hitbox.
+            .occlude()
+            .relative()
+            .flex()
+            .flex_col()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .h(px(height))
+            .w(px(width))
+            .when_some(tooltip, crate::controls::tooltip::attach)
+            .font_family(theme.type_.ui)
+            .text_size(px(label_size))
+            .text_color(crate::convert::hsla(theme.colors.text))
+            .when(enabled, |el| el.track_focus(&focus))
+            .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+                if enabled {
+                    window.focus(&click_focus, cx);
+                    click_pressed.set(true);
+                    window.refresh();
+                }
+                cx.stop_propagation();
+            })
+            .on_mouse_up(gpui::MouseButton::Left, move |_, window, _| {
+                if up_pressed.get() {
+                    up_pressed.set(false);
+                    window.refresh();
+                }
+            })
+            .when_some(enabled.then(|| focus.clone()), |el, key_focus| {
+                el.on_key_down(move |event, window, _| {
+                    if !key_focus.is_focused(window) {
+                        return;
+                    }
+                    if !window.default_prevented()
+                        && !event.keystroke.modifiers.modified()
+                        && matches!(event.keystroke.key.as_str(), "enter" | "space")
+                    {
+                        key_pressed.set(true);
+                        window.refresh();
+                    }
+                })
+            })
+            .on_key_up(move |_, window, _| {
+                if release_pressed.get() {
+                    release_pressed.set(false);
+                    window.refresh();
+                }
+            })
+            .when(enabled, |el| {
+                el.on_click(move |_, window, cx| {
+                    pressed.set(false);
+                    window.refresh();
+                    cx.stop_propagation();
+                    match &chain {
+                        Some(chain) => {
+                            let chain = chain.read(cx).clone();
+                            chain.dispatch(&registry, &command, window, cx);
+                        }
+                        None => {
+                            CommandRegistry::invoke(&registry, &command, window, cx);
+                        }
+                    }
+                })
+            })
+            .when(self.show_icon, |el| {
+                el.child(
+                    div()
+                        .id(SharedString::from(icon_selector.clone()))
+                        .debug_selector(move || icon_selector)
+                        .flex()
+                        .flex_none()
+                        .items_center()
+                        .justify_center()
+                        .w(px(ICON_BUTTON_SLOT))
+                        .h(px(ICON_BUTTON_SLOT))
+                        .child(artwork),
+                )
+            })
+            .when(self.show_label, |el| {
+                el.child(
+                    div()
+                        .id(SharedString::from(label_selector.clone()))
+                        .debug_selector(move || label_selector)
+                        .flex()
+                        .flex_none()
+                        .items_center()
+                        .justify_center()
+                        .w_full()
+                        .h(px(label_row))
+                        .line_height(px(label_row))
+                        .text_align(gpui::TextAlign::Center)
+                        .whitespace_nowrap()
+                        .child(self.label),
+                )
+            })
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, _| {
+                        if ring_focus.is_focused(window) && window.last_input_was_keyboard() {
+                            crate::paint::focus_ring(window, bounds, radius, ring, profile);
+                        }
+                    },
+                )
+                .absolute()
+                .inset_0(),
+            )
+    }
+}
+
 /// Lets the user add, remove and restore optional toolbar items. Host it in
 /// the application's customization surface; it renders the external labels,
-/// not a second copy of the toolbar.
+/// not a second copy of the toolbar. Pictorial items keep the palette's
+/// labelled-chip preview rather than a 32 px image.
 #[derive(IntoElement)]
 pub struct ToolbarPalette {
     id: ElementId,
@@ -1095,10 +1535,10 @@ fn render_item(
     match &item.kind {
         ToolbarItemKind::Command {
             command,
-            image,
+            glyph,
             toggle_help,
         } => {
-            let image = image.filter(|_| show_icon);
+            let glyph = glyph.as_ref().filter(|_| show_icon).cloned();
             let descriptor = registry.read(cx).descriptors().get(command).cloned();
             let mut button = CommandButton::new(item.id.clone(), command.clone(), registry.clone())
                 .external_label(item.label.clone())
@@ -1106,7 +1546,7 @@ fn render_item(
                     ToolbarItemStyle::Rectangular => ButtonStyle::Textured,
                     ToolbarItemStyle::Capsule => ButtonStyle::Round,
                 })
-                .presentation(image.is_some(), show_label || image.is_none());
+                .presentation(glyph.is_some(), show_label || glyph.is_none());
             if let Some((on, off)) = toggle_help {
                 let help = if descriptor
                     .as_ref()
@@ -1123,8 +1563,52 @@ fn render_item(
             if let Some(chain) = chain {
                 button = button.chain(chain.clone());
             }
-            if let Some(image) = image {
-                button = button.template_image(image);
+            if let Some(glyph) = glyph {
+                button = button.icon(glyph.button_renderer(TemplateImageSlot::Toolbar));
+            }
+            button.into_any_element()
+        }
+        ToolbarItemKind::PictorialCommand {
+            command,
+            artwork,
+            toggle_help,
+        } => {
+            let mut button = ToolbarIconButton::new(
+                item.id.clone(),
+                item.label.clone(),
+                command.clone(),
+                registry.clone(),
+                artwork.clone(),
+            )
+            .presentation(show_icon, show_label);
+            let help = toggle_help.as_ref().map_or_else(
+                || {
+                    registry
+                        .read(cx)
+                        .descriptors()
+                        .get(command)
+                        .and_then(|descriptor| descriptor.tooltip.clone())
+                },
+                |(on, off)| {
+                    Some(
+                        if registry
+                            .read(cx)
+                            .descriptors()
+                            .get(command)
+                            .is_some_and(|descriptor| descriptor.checked)
+                        {
+                            on.to_string()
+                        } else {
+                            off.to_string()
+                        },
+                    )
+                },
+            );
+            if let Some(help) = help {
+                button = button.tooltip(help);
+            }
+            if let Some(chain) = chain {
+                button = button.chain(chain.clone());
             }
             button.into_any_element()
         }
@@ -1134,7 +1618,7 @@ fn render_item(
             on_select,
         } => {
             let show_segment_icons =
-                show_icon && segments.iter().all(|segment| segment.image.is_some());
+                show_icon && segments.iter().all(|segment| segment.glyph.is_some());
             let show_segment_labels = show_label || !show_segment_icons;
             let selected = if segments.iter().any(|segment| segment.command.is_some()) {
                 segments.iter().find_map(|segment| {
@@ -1163,8 +1647,13 @@ fn render_item(
                     let mut value = Segment::new(segment.id.clone(), segment.label.clone())
                         .disabled(segment.disabled || command_disabled)
                         .show_label(show_segment_labels);
-                    if let Some(image) = segment.image.filter(|_| show_segment_icons) {
-                        value = value.icon(image.role());
+                    if let Some(glyph) = segment
+                        .glyph
+                        .as_ref()
+                        .filter(|_| show_segment_icons)
+                        .cloned()
+                    {
+                        value = value.glyph(glyph);
                     }
                     value
                 })
@@ -1208,10 +1697,10 @@ fn render_item(
             }
             control.into_any_element()
         }
-        ToolbarItemKind::PopDown { menu, image } => render_pop_down(
+        ToolbarItemKind::PopDown { menu, glyph } => render_pop_down(
             item,
             menu.clone(),
-            image.filter(|_| show_icon),
+            glyph.as_ref().filter(|_| show_icon).cloned(),
             item.style,
             pop_down_menus
                 .get(item.id.as_ref())
@@ -1250,7 +1739,7 @@ fn render_item(
 fn render_pop_down(
     item: &ToolbarItem,
     model: MenuModel,
-    image: Option<TemplateImage>,
+    glyph: Option<ToolbarGlyph>,
     style: ToolbarItemStyle,
     menu: Entity<PopupMenu>,
     window: &mut Window,
@@ -1273,8 +1762,8 @@ fn render_pop_down(
                 });
             }
         });
-    if let Some(image) = image {
-        button = button.icon(image.button_icon_renderer(TemplateImageSlot::Toolbar));
+    if let Some(glyph) = glyph {
+        button = button.icon(glyph.button_renderer(TemplateImageSlot::Toolbar));
     }
     div()
         .relative()
@@ -1327,7 +1816,8 @@ fn overflow_menu_entries(items: &[ToolbarItem], visible: &[bool]) -> Vec<MenuEnt
             continue;
         }
         match &item.kind {
-            ToolbarItemKind::Command { command, .. } => {
+            ToolbarItemKind::Command { command, .. }
+            | ToolbarItemKind::PictorialCommand { command, .. } => {
                 entries.push(MenuEntry::Command(command.clone()));
             }
             ToolbarItemKind::Segmented { segments, .. } => {
@@ -1364,7 +1854,10 @@ fn overflow_menu_entries(items: &[ToolbarItem], visible: &[bool]) -> Vec<MenuEnt
 
 fn overflow_entries_for_item(item: &ToolbarItem) -> Vec<MenuEntry> {
     match &item.kind {
-        ToolbarItemKind::Command { command, .. } => vec![MenuEntry::Command(command.clone())],
+        ToolbarItemKind::Command { command, .. }
+        | ToolbarItemKind::PictorialCommand { command, .. } => {
+            vec![MenuEntry::Command(command.clone())]
+        }
         ToolbarItemKind::Segmented { segments, .. } => segments
             .iter()
             .map(|segment| match &segment.command {

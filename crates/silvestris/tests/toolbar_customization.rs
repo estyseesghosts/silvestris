@@ -11,6 +11,7 @@ use gpui::{
 };
 use silvestris::command::CommandRegistry;
 use silvestris::core::command::CommandDescriptor;
+use silvestris::icons::PictorialImage;
 use silvestris::toolbar::{
     MemoryToolbars, Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarLayout, ToolbarPalette,
     ToolbarStore,
@@ -75,6 +76,8 @@ fn items() -> Vec<ToolbarItem> {
         ToolbarItem::command("keep", "Keep", "test.keep"),
         ToolbarItem::command("opt-a", "Option A", "test.opt-a").optional(true),
         ToolbarItem::command("opt-b", "Option B", "test.opt-b").optional(true),
+        ToolbarItem::pictorial_command("art", "Art", "test.art", PictorialImage::New)
+            .optional(true),
     ]
 }
 
@@ -97,7 +100,7 @@ fn open(
     let (view, cx) = app.add_window_view(move |_, cx| {
         let registry = cx.new(|_| CommandRegistry::default());
         registry.update(cx, |registry, cx| {
-            for id in ["test.keep", "test.opt-a", "test.opt-b"] {
+            for id in ["test.keep", "test.opt-a", "test.opt-b", "test.art"] {
                 registry
                     .register(CommandDescriptor::action(id, id), |_, _, _| {}, cx)
                     .expect("unique command");
@@ -144,6 +147,10 @@ fn the_palette_toggles_optional_items_and_restores_the_default_set() {
         true,
     );
     assert!(cx.debug_bounds("opt-a").is_none());
+    assert!(
+        cx.debug_bounds("art").is_some(),
+        "pictorial item visible by default"
+    );
     click(cx, "palette-opt-a");
     assert!(!state.borrow().hidden.iter().any(|id| id == "opt-a"));
     cx.update(|window, cx| {
@@ -154,10 +161,11 @@ fn the_palette_toggles_optional_items_and_restores_the_default_set() {
 
     click(cx, "palette-opt-a");
     assert!(state.borrow().hidden.iter().any(|id| id == "opt-a"));
-
+    click(cx, "palette-art");
+    assert!(state.borrow().hidden.iter().any(|id| id == "art"));
     click(cx, "custom-palette-default");
     assert!(state.borrow().hidden.is_empty(), "Default Set restores all");
-    assert_eq!(state.borrow().order, ["keep", "opt-a", "opt-b"]);
+    assert_eq!(state.borrow().order, ["keep", "opt-a", "opt-b", "art"]);
 }
 
 #[test]
@@ -170,7 +178,7 @@ fn autosave_loads_the_stored_arrangement() {
     let (view, cx) = app.add_window_view(move |_, cx| {
         let registry = cx.new(|_| CommandRegistry::default());
         registry.update(cx, |registry, cx| {
-            for id in ["test.keep", "test.opt-a", "test.opt-b"] {
+            for id in ["test.keep", "test.opt-a", "test.opt-b", "test.art"] {
                 registry
                     .register(CommandDescriptor::action(id, id), |_, _, _| {}, cx)
                     .expect("unique command");

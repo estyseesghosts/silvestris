@@ -5,7 +5,8 @@ use crate::controls::{Button, ButtonStyle, ControlSize};
 use crate::icons::{TemplateImage, TemplateImageSlot};
 use crate::responder::ResponderChain;
 use gpui::{
-    prelude::*, App, Context, ElementId, Entity, KeyBinding, KeyBindingContextPredicate, Window,
+    prelude::*, AnyElement, App, Context, ElementId, Entity, KeyBinding,
+    KeyBindingContextPredicate, Window,
 };
 use silvestris_core::command::{CommandDescriptor, CommandId, CommandSet};
 use std::{collections::BTreeMap, rc::Rc};
@@ -368,7 +369,7 @@ pub struct CommandButton {
     style: ButtonStyle,
     size: ControlSize,
     external_label: Option<gpui::SharedString>,
-    template_image: Option<TemplateImage>,
+    icon: Option<Rc<dyn Fn(gpui::Rgba) -> AnyElement>>,
     show_icon: bool,
     show_label: bool,
     tooltip: Option<gpui::SharedString>,
@@ -387,7 +388,7 @@ impl CommandButton {
             style: ButtonStyle::Textured,
             size: ControlSize::Regular,
             external_label: None,
-            template_image: None,
+            icon: None,
             show_icon: true,
             show_label: true,
             tooltip: None,
@@ -415,7 +416,16 @@ impl CommandButton {
 
     /// Present the command with a template image in the fixed toolbar slot.
     pub fn template_image(mut self, image: TemplateImage) -> Self {
-        self.template_image = Some(image);
+        self.icon = Some(Rc::new(
+            image.button_icon_renderer(TemplateImageSlot::Toolbar),
+        ));
+        self
+    }
+
+    /// Present the command with any monochrome glyph renderer that receives
+    /// the button's current ink.
+    pub fn icon(mut self, render: impl Fn(gpui::Rgba) -> AnyElement + 'static) -> Self {
+        self.icon = Some(Rc::new(render));
         self
     }
 
@@ -473,8 +483,9 @@ impl RenderOnce for CommandButton {
             button = button.tooltip(tooltip);
         }
         if self.show_icon {
-            if let Some(image) = self.template_image {
-                button = button.icon(image.button_icon_renderer(TemplateImageSlot::Toolbar));
+            if let Some(icon) = self.icon {
+                let icon = icon.clone();
+                button = button.icon(move |ink| icon(ink));
             }
         }
         button.on_click(move |_, window, cx| {

@@ -4,6 +4,16 @@
 //! and disabled rendering. Template images are monochrome and receive control
 //! state ink from their host. Consumer artwork is supplied by the application
 //! as a renderer and is constrained to the documented 32 px pictorial family.
+//!
+//! The artwork matrix is deliberate:
+//!
+//! |  | Silvestris-provided | Application-provided |
+//! |---|---|---|
+//! | Monochrome/template | [`TemplateImage`] | [`ConsumerTemplateImage`] |
+//! | Full-colour/pictorial | [`PictorialImage`] | [`ConsumerArtwork`] |
+//!
+//! [`FileArtwork`] is a separate vocabulary: a file icon is full-colour, but it
+//! is not generic toolbar pictorial artwork and the two are never exchanged.
 
 use gpui::{
     canvas, div, prelude::*, px, AnyElement, App, Bounds, PathBuilder, Pixels, Point, SharedString,
@@ -78,13 +88,83 @@ impl TemplateImageSlot {
     }
 }
 
-type ArtworkRenderer = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
+/// The state a full-colour pictorial artwork receives. The consumer chooses
+/// how `pressed` and `selected` look, but must not recolour artwork with the
+/// control ink: colour artwork keeps its designed colours in every state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PictorialState {
+    /// The command is available.
+    pub enabled: bool,
+    /// The window is key.
+    pub active_window: bool,
+    /// The control is pressed by pointer or keyboard.
+    pub pressed: bool,
+    /// A toggle or segment is on.
+    pub selected: bool,
+}
+
+impl PictorialState {
+    #[must_use]
+    pub const fn normal() -> Self {
+        Self {
+            enabled: true,
+            active_window: true,
+            pressed: false,
+            selected: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn disabled() -> Self {
+        Self {
+            enabled: false,
+            ..Self::normal()
+        }
+    }
+
+    #[must_use]
+    pub const fn inactive() -> Self {
+        Self {
+            active_window: false,
+            ..Self::normal()
+        }
+    }
+
+    /// Common Silvestris dimming for disabled and inactive windows. Pressed
+    /// darkens the artwork; selected is the consumer's decision.
+    fn dim(self) -> f32 {
+        if !self.enabled {
+            0.55
+        } else if !self.active_window {
+            0.22
+        } else {
+            0.0
+        }
+    }
+
+    fn shade(self) -> f32 {
+        if self.pressed {
+            0.12
+        } else {
+            0.0
+        }
+    }
+}
+
+impl Default for PictorialState {
+    fn default() -> Self {
+        Self::normal()
+    }
+}
+
+type ArtworkRenderer = Rc<dyn Fn(PictorialState, &mut Window, &mut App) -> AnyElement>;
 
 /// Original pictorial artwork supplied by a consuming application.
 ///
 /// This adapter deliberately accepts a renderer instead of a Silvestris
 /// application-specific icon name. Toolbar and preference-category hosts
-/// constrain the artwork to the documented 32×32 px family.
+/// constrain the artwork to the documented 32×32 px family. [`Self::new`]
+/// ignores the pictorial state; [`Self::with_state`] receives it.
 #[derive(Clone)]
 pub struct ConsumerArtwork {
     label: SharedString,
@@ -97,9 +177,17 @@ impl ConsumerArtwork {
         label: impl Into<SharedString>,
         render: impl Fn(&mut Window, &mut App) -> E + 'static,
     ) -> Self {
+        Self::with_state(label, move |_, window, cx| render(window, cx))
+    }
+
+    /// Registers state-aware artwork for a standalone toolbar command.
+    pub fn with_state<E: IntoElement>(
+        label: impl Into<SharedString>,
+        render: impl Fn(PictorialState, &mut Window, &mut App) -> E + 'static,
+    ) -> Self {
         Self {
             label: label.into(),
-            render: Rc::new(move |window, cx| render(window, cx).into_any_element()),
+            render: Rc::new(move |state, window, cx| render(state, window, cx).into_any_element()),
         }
     }
 
@@ -109,14 +197,24 @@ impl ConsumerArtwork {
         &self.label
     }
 
-    /// Pictorial toolbar artwork in the standard 32×32 px slot.
+    /// Pictorial toolbar artwork in the standard 32×32 px slot at rest.
     pub fn toolbar_element(&self, window: &mut Window, cx: &mut App) -> AnyElement {
-        self.sized_element(32.0, window, cx)
+        self.stateful_toolbar_element(PictorialState::normal(), window, cx)
+    }
+
+    /// Pictorial toolbar artwork in the standard 32×32 px slot for a state.
+    pub fn stateful_toolbar_element(
+        &self,
+        state: PictorialState,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> AnyElement {
+        self.sized_element(32.0, state, window, cx)
     }
 
     /// Preference-category artwork in the standard 32×32 px slot.
     pub fn category_element(&self, window: &mut Window, cx: &mut App) -> AnyElement {
-        self.sized_element(32.0, window, cx)
+        self.sized_element(32.0, PictorialState::normal(), window, cx)
     }
 
     /// Renderer callback for views that collect artwork before rendering.
@@ -125,15 +223,76 @@ impl ConsumerArtwork {
         move |window, cx| artwork.category_element(window, cx)
     }
 
-    fn sized_element(&self, size: f32, window: &mut Window, cx: &mut App) -> AnyElement {
+    fn sized_element(
+        &self,
+        size: f32,
+        state: PictorialState,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> AnyElement {
         div()
             .flex()
             .items_center()
             .justify_center()
             .flex_none()
             .size(px(size))
-            .child((self.render)(window, cx))
+            .child((self.render)(state, window, cx))
             .into_any_element()
+    }
+}
+
+type TemplatePainter = Rc<dyn Fn(Bounds<Pixels>, Rgba8, &mut Window)>;
+
+/// Monochrome artwork supplied by a consuming application.
+///
+/// The painter receives the fixed host slot's bounds and the control ink for
+/// the current state. Silvestris owns the 19 px toolbar / 13 px segmented
+/// slots, enabled/disabled/selected/inactive ink, scaling and alignment; the
+/// application owns only the silhouette.
+#[derive(Clone)]
+pub struct ConsumerTemplateImage {
+    label: SharedString,
+    paint: TemplatePainter,
+}
+
+impl ConsumerTemplateImage {
+    /// Registers an application-owned silhouette that paints with host ink.
+    pub fn new(
+        label: impl Into<SharedString>,
+        paint: impl Fn(Bounds<Pixels>, Rgba8, &mut Window) + 'static,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            paint: Rc::new(paint),
+        }
+    }
+
+    /// Descriptive name for tests and gallery presentation.
+    #[must_use]
+    pub fn label(&self) -> &SharedString {
+        &self.label
+    }
+
+    /// Render in the fixed slot for a toolbar or segmented control.
+    pub fn element(&self, slot: TemplateImageSlot, color: Rgba8) -> AnyElement {
+        let size = slot.logical_size();
+        let paint = self.paint.clone();
+        canvas(
+            |_, _, _| (),
+            move |bounds, _, window, _| paint(bounds, color, window),
+        )
+        .flex_none()
+        .size(px(size))
+        .into_any_element()
+    }
+
+    /// Renderer callback for `Button::icon`, preserving the button's state ink.
+    pub fn button_icon_renderer(
+        &self,
+        slot: TemplateImageSlot,
+    ) -> impl Fn(gpui::Rgba) -> AnyElement + 'static {
+        let image = self.clone();
+        move |ink| image.element(slot, rgba8(ink))
     }
 }
 
@@ -185,6 +344,7 @@ impl FileArtwork {
         let f = Frame {
             b: bounds,
             dim: state.dim(),
+            shade: 0.0,
         };
         match self {
             FileArtwork::Folder => f.folder(window),
@@ -244,6 +404,75 @@ impl FileArtwork {
     }
 }
 
+/// Original, reusable full-colour toolbar artwork. Deliberately small: add a
+/// variant only when a Silvestris consumer or reference application needs it.
+/// No Apple artwork is traced or recoloured.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum PictorialImage {
+    /// A new document/item.
+    New,
+    /// Open an existing document/item.
+    Open,
+    /// Save the current document.
+    Save,
+    /// Preferences/general settings.
+    Preferences,
+}
+
+impl PictorialImage {
+    /// Stable role string for tests and gallery labels.
+    #[must_use]
+    pub fn role(self) -> &'static str {
+        match self {
+            Self::New => "new",
+            Self::Open => "open",
+            Self::Save => "save",
+            Self::Preferences => "preferences",
+        }
+    }
+
+    /// Fixed 32 px slot; the host never lets the application resize it.
+    pub const SLOT: f32 = 32.0;
+
+    /// Paint the artwork into `bounds` with the common pictorial state
+    /// treatment.
+    pub fn paint(self, window: &mut Window, bounds: Bounds<Pixels>, state: PictorialState) {
+        let frame = Frame {
+            b: bounds,
+            dim: state.dim(),
+            shade: state.shade(),
+        };
+        match self {
+            Self::New => frame.pictorial_new(window),
+            Self::Open => frame.pictorial_open(window),
+            Self::Save => frame.pictorial_save(window),
+            Self::Preferences => frame.pictorial_preferences(window),
+        }
+    }
+
+    /// A sized pictorial element for a standalone toolbar icon button.
+    pub fn element(self, state: PictorialState) -> AnyElement {
+        canvas(
+            |_, _, _| (),
+            move |bounds, _, window, _| self.paint(window, bounds, state),
+        )
+        .flex_none()
+        .size(px(Self::SLOT))
+        .into_any_element()
+    }
+}
+
+/// Convert GPUI ink to the core colour type used by painters.
+fn rgba8(ink: gpui::Rgba) -> Rgba8 {
+    Rgba8 {
+        r: (ink.r * 255.0).round().clamp(0.0, 255.0) as u8,
+        g: (ink.g * 255.0).round().clamp(0.0, 255.0) as u8,
+        b: (ink.b * 255.0).round().clamp(0.0, 255.0) as u8,
+        a: (ink.a * 255.0).round().clamp(0.0, 255.0) as u8,
+    }
+}
+
 impl TemplateImage {
     /// Stable role string accepted by `SegmentedControl::icon`.
     #[must_use]
@@ -296,6 +525,7 @@ impl TemplateImage {
         let frame = Frame {
             b: bounds,
             dim: 0.0,
+            shade: 0.0,
         };
         match self {
             Self::Back => frame.chevron(color, false, window),
@@ -398,17 +628,7 @@ impl TemplateImage {
         self,
         slot: TemplateImageSlot,
     ) -> impl Fn(gpui::Rgba) -> AnyElement + 'static {
-        move |ink| {
-            self.element(
-                slot,
-                Rgba8 {
-                    r: (ink.r * 255.0).round().clamp(0.0, 255.0) as u8,
-                    g: (ink.g * 255.0).round().clamp(0.0, 255.0) as u8,
-                    b: (ink.b * 255.0).round().clamp(0.0, 255.0) as u8,
-                    a: (ink.a * 255.0).round().clamp(0.0, 255.0) as u8,
-                },
-            )
-        }
+        move |ink| self.element(slot, rgba8(ink))
     }
 }
 
@@ -416,6 +636,8 @@ struct Frame {
     b: Bounds<Pixels>,
     /// 0 is full colour, 1 is the inactive grey.
     dim: f32,
+    /// Darkening for a pressed pictorial control.
+    shade: f32,
 }
 
 // Original designed palette. No Apple artwork is sampled or traced.
@@ -442,6 +664,13 @@ const METAL_DARK: Rgba8 = Rgba8::hex(0x8c939a);
 const LED: Rgba8 = Rgba8::hex(0x4fc35a);
 const GLOBE: Rgba8 = Rgba8::hex(0x2f8fc4);
 const GLOBE_LIGHT: Rgba8 = Rgba8::hex(0x86d4f2);
+const BADGE_DARK: Rgba8 = Rgba8::hex(0x1f5f9e);
+const BADGE_LIGHT: Rgba8 = Rgba8::hex(0x64b6ee);
+const SAVE_BLUE: Rgba8 = Rgba8::hex(0x3679b8);
+const SAVE_LIGHT: Rgba8 = Rgba8::hex(0x8cc6ee);
+const SLATE: Rgba8 = Rgba8::hex(0x7c878f);
+const SLATE_LIGHT: Rgba8 = Rgba8::hex(0xc6cdd2);
+const SLATE_DARK: Rgba8 = Rgba8::hex(0x4a545c);
 
 fn mix(color: Rgba8, grey: u8, amount: f32) -> Rgba8 {
     let blend = |channel: u8| {
@@ -466,10 +695,15 @@ impl Frame {
     }
 
     fn colour(&self, color: Rgba8) -> Rgba8 {
-        if self.dim <= 0.0 {
+        let dimmed = if self.dim <= 0.0 {
             color
         } else {
             mix(color, 0xb8, self.dim)
+        };
+        if self.shade > 0.0 {
+            mix(dimmed, 0x00, self.shade)
+        } else {
+            dimmed
         }
     }
 
@@ -689,6 +923,130 @@ impl Frame {
             INK,
             window,
         );
+    }
+
+    /// Pictorial "new document": a sheet with a folded corner and a blue badge.
+    fn pictorial_new(&self, window: &mut Window) {
+        self.poly(
+            &[
+                (0.18, 0.05),
+                (0.60, 0.05),
+                (0.80, 0.25),
+                (0.80, 0.90),
+                (0.18, 0.90),
+            ],
+            PAPER_EDGE,
+            window,
+        );
+        self.poly(
+            &[
+                (0.21, 0.08),
+                (0.59, 0.08),
+                (0.77, 0.27),
+                (0.77, 0.87),
+                (0.21, 0.87),
+            ],
+            PAPER,
+            window,
+        );
+        self.poly(
+            &[(0.59, 0.08), (0.59, 0.27), (0.77, 0.27)],
+            PAPER_EDGE,
+            window,
+        );
+        for row in 0..3 {
+            self.rect(
+                0.27,
+                0.36 + row as f32 * 0.11,
+                0.36,
+                0.035,
+                0.0,
+                INK_LIGHT,
+                window,
+            );
+        }
+        self.rect(0.54, 0.55, 0.36, 0.36, 3.6, BADGE_DARK, window);
+        self.rect(0.56, 0.55, 0.32, 0.24, 3.2, BADGE_LIGHT, window);
+        self.rect(0.67, 0.59, 0.10, 0.28, 0.4, WINDOW_WHITE, window);
+        self.rect(0.58, 0.68, 0.28, 0.10, 0.4, WINDOW_WHITE, window);
+    }
+
+    /// Pictorial "open": a front-facing open folder.
+    fn pictorial_open(&self, window: &mut Window) {
+        self.poly(
+            &[
+                (0.06, 0.18),
+                (0.44, 0.18),
+                (0.52, 0.28),
+                (0.94, 0.28),
+                (0.94, 0.44),
+                (0.06, 0.44),
+            ],
+            FOLDER_BACK,
+            window,
+        );
+        self.rect(0.08, 0.26, 0.84, 0.20, 1.4, FOLDER_BODY, window);
+        self.rect(0.10, 0.28, 0.80, 0.07, 1.0, FOLDER_LIGHT, window);
+        self.poly(
+            &[(0.04, 0.42), (0.96, 0.42), (0.86, 0.84), (0.14, 0.84)],
+            FOLDER_BODY,
+            window,
+        );
+        self.poly(
+            &[(0.10, 0.46), (0.90, 0.46), (0.82, 0.62), (0.18, 0.62)],
+            FOLDER_LIGHT,
+            window,
+        );
+        self.rect(0.12, 0.82, 0.72, 0.04, 0.8, FOLDER_EDGE, window);
+    }
+
+    /// Pictorial "save": a blue floppy disk with a white label.
+    fn pictorial_save(&self, window: &mut Window) {
+        self.rect(0.10, 0.08, 0.80, 0.84, 1.6, FOLDER_EDGE, window);
+        self.rect(0.13, 0.08, 0.74, 0.78, 1.2, SAVE_BLUE, window);
+        self.rect(0.14, 0.09, 0.72, 0.30, 1.0, SAVE_LIGHT, window);
+        self.rect(0.30, 0.08, 0.40, 0.26, 0.4, METAL, window);
+        self.rect(0.52, 0.10, 0.14, 0.22, 0.3, METAL_DARK, window);
+        self.rect(0.18, 0.48, 0.64, 0.40, 0.6, PAPER, window);
+        for row in 0..3 {
+            self.rect(
+                0.24,
+                0.56 + row as f32 * 0.08,
+                0.52,
+                0.025,
+                0.0,
+                INK_LIGHT,
+                window,
+            );
+        }
+        self.rect(0.13, 0.86, 0.74, 0.03, 0.4, FOLDER_EDGE, window);
+    }
+
+    /// Pictorial "preferences": a single slate gear with a top-left highlight.
+    fn pictorial_preferences(&self, window: &mut Window) {
+        const TEETH: usize = 8;
+        for tooth in 0..TEETH {
+            let angle = tooth as f32 * std::f32::consts::TAU / TEETH as f32;
+            let near = 0.30;
+            let far = 0.47;
+            let half = 0.13;
+            let point = |radius: f32, offset: f32| {
+                let a = angle + offset;
+                (0.50 + radius * a.cos(), 0.50 + radius * a.sin())
+            };
+            let points = [
+                point(near, -half),
+                point(far, -half * 0.6),
+                point(far, half * 0.6),
+                point(near, half),
+            ];
+            self.poly(&points, SLATE_DARK, window);
+        }
+        self.rect(0.14, 0.14, 0.72, 0.72, 9.0, SLATE_DARK, window);
+        self.rect(0.16, 0.15, 0.68, 0.60, 8.0, SLATE, window);
+        self.rect(0.18, 0.16, 0.64, 0.24, 7.0, SLATE_LIGHT, window);
+        self.rect(0.34, 0.34, 0.32, 0.32, 4.0, SLATE_DARK, window);
+        self.rect(0.37, 0.37, 0.26, 0.22, 3.2, PAPER, window);
     }
 }
 
