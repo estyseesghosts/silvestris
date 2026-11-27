@@ -1,13 +1,10 @@
 //! Geist tokens.
 //!
-//! Geist Dark keeps Lotus's pre-Silvestris palette exactly (lotus
-//! crates/desktop/src/theme.rs, from the Geist dark scale in workspace
-//! vercel.md: black, gray 100 #1a1a1a ... gray 1000 #ededed, blue #0095ff,
-//! green #279447, amber #d99327, red #e34646). Geist Light is a new design
-//! (#126) using the same 100-1000 role scale from vercel.md §4 (100 default
-//! background ... 1000 primary text); Vercel's light values are not
-//! published in the reference material, so docs/themes.md lists them as
-//! designed. Geist surfaces are flat: bevels have equal stops and no emboss.
+//! Both appearances are resolved from one private [`GeistPalette`]. The
+//! palette follows the semantic hierarchy in docs/geist.txt: document,
+//! window, raised surface, control, border, text, selection and accent. No
+//! renderer reads the palette directly; all routes go through `Theme`'s
+//! public token structs. Aqua's tokens are defined separately in `aqua.rs`.
 
 use crate::color::{Gradient, Rgba8};
 use crate::theme::ThemeId;
@@ -17,6 +14,112 @@ const fn c(rgb: u32) -> Rgba8 {
     Rgba8::hex(rgb)
 }
 const T: Rgba8 = Rgba8::TRANSPARENT;
+
+/// The private Geist colour contract. Roles are shared by Dark and Light so
+/// both appearances have identical component recipes.
+#[derive(Clone, Copy)]
+struct GeistPalette {
+    /// Document and text-input interior.
+    document: Rgba8,
+    /// Window, titlebar, toolbar, bottom bar and sidebar.
+    window: Rgba8,
+    /// Raised preference groups and inset surfaces.
+    raised: Rgba8,
+    /// Ordinary control fill, and its hover and pressed states.
+    control: Rgba8,
+    control_hover: Rgba8,
+    control_pressed: Rgba8,
+    border: Rgba8,
+    border_hover: Rgba8,
+    border_strong: Rgba8,
+    text: Rgba8,
+    text_secondary: Rgba8,
+    text_disabled: Rgba8,
+    /// Focus, links, progress and meaningful selected states.
+    focus: Rgba8,
+    /// Distinct list/table selection band.
+    selection: Rgba8,
+    /// High-contrast primary action and its inverted label.
+    action: Rgba8,
+    action_text: Rgba8,
+    success: Rgba8,
+    warning: Rgba8,
+    error: Rgba8,
+    /// Tooltip is a high-contrast floating surface in both appearances.
+    tooltip: Rgba8,
+    tooltip_text: Rgba8,
+    /// Flat scrollbar thumb: active, hover and inactive-window tones.
+    thumb: Rgba8,
+    thumb_hover: Rgba8,
+    thumb_inactive: Rgba8,
+    /// Alpha is used only for shadows and scrims.
+    shadow_alpha: u8,
+    scrim_alpha: u8,
+}
+
+impl GeistPalette {
+    fn dark() -> Self {
+        Self {
+            document: c(0x000000),
+            window: c(0x0a0a0a),
+            raised: c(0x111111),
+            control: c(0x171717),
+            control_hover: c(0x1f1f1f),
+            control_pressed: c(0x292929),
+            border: c(0x262626),
+            border_hover: c(0x393939),
+            border_strong: c(0x505050),
+            text: c(0xededed),
+            text_secondary: c(0xa1a1a1),
+            text_disabled: c(0x878787),
+            focus: c(0x0095ff),
+            selection: c(0x0b3a5c),
+            action: c(0xededed),
+            action_text: c(0x000000),
+            success: c(0x279447),
+            warning: c(0xd99327),
+            error: c(0xe34646),
+            tooltip: c(0x292929),
+            tooltip_text: c(0xededed),
+            thumb: c(0x555555),
+            thumb_hover: c(0x666666),
+            thumb_inactive: c(0x393939),
+            shadow_alpha: 160,
+            scrim_alpha: 120,
+        }
+    }
+
+    fn light() -> Self {
+        Self {
+            document: c(0xffffff),
+            window: c(0xfafafa),
+            raised: c(0xffffff),
+            control: c(0xffffff),
+            control_hover: c(0xfafafa),
+            control_pressed: c(0xf2f2f2),
+            border: c(0xe6e6e6),
+            border_hover: c(0xc9c9c9),
+            border_strong: c(0x8f8f8f),
+            text: c(0x171717),
+            text_secondary: c(0x666666),
+            text_disabled: c(0x8f8f8f),
+            focus: c(0x0070f3),
+            selection: c(0xe6f1fe),
+            action: c(0x171717),
+            action_text: c(0xffffff),
+            success: c(0x1a7f37),
+            warning: c(0xa35200),
+            error: c(0xcb2a2f),
+            tooltip: c(0x171717),
+            tooltip_text: c(0xfafafa),
+            thumb: c(0xa0a0a0),
+            thumb_hover: c(0x7b7b7b),
+            thumb_inactive: c(0xc9c9c9),
+            shadow_alpha: 40,
+            scrim_alpha: 50,
+        }
+    }
+}
 
 fn flat(border: Rgba8, fill: Rgba8, text: Rgba8) -> Bevel {
     Bevel::plain(Gradient::flat(border), Gradient::flat(fill), T, text)
@@ -56,15 +159,14 @@ fn typography() -> Typography {
     }
 }
 
-/// Geist geometry: flatter and slightly roomier; the shell layout is shared.
+/// Geist geometry: the HIG layout is unchanged; only radii and corner rules
+/// differ from the measured Aqua capsule controls.
 fn metrics() -> Metrics {
     Metrics {
-        window_radius: 8.0,
+        window_radius: 6.0,
         titlebar_height: 32.0,
         toolbar_height: 40.0,
         toolbar_labelled_height: 52.0,
-        // designed: Geist keeps the same HIG layout rules around its taller
-        // controls (4 + 28 + 8 regular, 2 + 24 + 4 small).
         bottom_bar_height: 40.0,
         bottom_bar_small_height: 30.0,
         traffic_diameter: 12.0,
@@ -74,20 +176,19 @@ fn metrics() -> Metrics {
         push_height: 28.0,
         push_small_height: 24.0,
         push_mini_height: 20.0,
-        push_radius: 6.0,
+        push_radius: 4.0,
         installer_continue_diameter: 30.0,
-        // designed: cap scales with the 28 px Geist control height.
         popup_cap: [18.0, 16.0, 14.0],
-        // designed: 12/10/8 px, 4 px grid.
         push_padding: [12.0, 10.0, 8.0],
-        // designed: flex centring.
         push_label_dy: [0.0, 0.0, 0.0],
         textured_height: 28.0,
-        textured_radius: 6.0,
+        textured_radius: 4.0,
         segment_height: 28.0,
+        segment_corner: CornerRule::Fixed(4.0),
         field_height: 28.0,
         field_small_height: 24.0,
-        // designed: 8 px text inset, 1 px caret with 6 px clear above and below.
+        field_corner: CornerRule::Fixed(4.0),
+        search_corner: CornerRule::Fixed(6.0),
         field_text_inset: 8.0,
         caret_width: 1.0,
         caret_inset_top: 6.0,
@@ -96,7 +197,7 @@ fn metrics() -> Metrics {
         checkbox_small_size: 14.0,
         checkbox_mini_size: 12.0,
         checkbox_label_gap: 6.0,
-        checkbox_radius: 4.0,
+        checkbox_radius: 3.0,
         radio_size: [16.0, 14.0, 12.0],
         radio_dot_fraction: 0.3,
         radio_label_gap: 8.0,
@@ -108,10 +209,8 @@ fn metrics() -> Metrics {
         menu_item_height: 28.0,
         menu_separator_height: 9.0,
         menu_padding: 4.0,
-        menu_radius: 8.0,
-        // designed: Geist's scroller and its small and mini steps.
+        menu_radius: 6.0,
         scroller_width: [10.0, 8.0, 6.0],
-        // designed: 2 px solid accent ring just outside the edge.
         focus_ring: &[(2.0, 1.0), (1.0, 1.0)],
         disclosure_size: 13.0,
         disclosure_width: 4.5,
@@ -133,7 +232,7 @@ fn metrics() -> Metrics {
         splitter_hot_zone: 3.0,
         control_spacing: 8.0,
         tab_label_margin: 12.0,
-        panel_radius: 8.0,
+        panel_radius: 6.0,
     }
 }
 
@@ -166,34 +265,30 @@ fn traffic(idle_ring: Rgba8, idle_body: Rgba8) -> TrafficLights {
             glyph: c(0x000000).alpha(120),
         },
         emboss: T,
-        // designed: flat discs (Geist has no gloss).
         shape: SphereShape::FLAT,
     }
 }
 
-/// Geist Dark: Lotus's existing look.
-pub fn geist_dark() -> Theme {
-    // lotus theme.rs names: background 000, panel 1a1a1a, surface_hover 1f1f1f,
-    // surface_active 292929, border 2e2e2e, border_strong 454545, text ededed,
-    // text_secondary a1a1a1, text_muted 878787.
-    let normal = flat(c(0x2e2e2e), c(0x1f1f1f), c(0xededed));
-    let pressed = flat(c(0x454545), c(0x292929), c(0xededed));
-    let disabled = flat(c(0x2e2e2e), c(0x1a1a1a), c(0x878787));
-    let selected = flat(c(0x0095ff), c(0x0b3a5c), c(0xededed));
+/// Resolve one palette into the public token contract shared by every control.
+fn resolve(id: ThemeId, p: GeistPalette) -> Theme {
+    let normal = flat(p.border, p.control, p.text);
+    let pressed = flat(p.border_strong, p.control_pressed, p.text);
+    let disabled = flat(p.border, p.raised, p.text_disabled);
+    let hover = flat(p.border_hover, p.control_hover, p.text);
+    let selected = pressed;
     let field = Field {
-        border_top: c(0x2e2e2e),
-        border: c(0x2e2e2e),
-        border_bottom: c(0x2e2e2e),
-        inner_shadow: c(0x0a0a0a),
-        fill: c(0x0a0a0a),
-        fill_disabled: c(0x1a1a1a),
-        text: c(0xededed),
-        placeholder: c(0x878787),
-        caret: c(0xededed),
-        selection: c(0x0b3a5c),
+        border_top: p.border,
+        border: p.border,
+        border_bottom: p.border,
+        inner_shadow: p.document,
+        fill: p.document,
+        fill_disabled: p.raised,
+        text: p.text,
+        placeholder: p.text_disabled,
+        caret: p.text,
+        selection: p.selection,
     };
-    // designed: Geist is flat; the pop-up keeps the same neutral body and a
-    // blue accent cap so the affordance stays legible.
+    // The popup is one neutral control; its cap is not a blue accent.
     let popup = PopUp {
         body: BevelStates {
             normal,
@@ -202,48 +297,50 @@ pub fn geist_dark() -> Theme {
             selected: normal,
         },
         cap: BevelStates {
-            normal: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
-            pressed: flat(c(0x0070f3), c(0x0b3a5c), c(0xededed)),
+            normal,
+            pressed,
             disabled,
-            selected: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+            selected: normal,
         },
-        divider: c(0x0b3a5c),
-        arrow: c(0xededed),
+        divider: p.border,
+        arrow: p.text,
     };
     let radio = Radio {
         states: BevelStates {
-            normal: flat(c(0x454545), c(0x0a0a0a), c(0xededed)),
+            normal: flat(p.border_strong, p.document, p.text),
             pressed,
             disabled,
-            selected: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+            selected: flat(p.focus, p.focus, p.action_text),
         },
-        dot: c(0x0a0a0a),
+        dot: p.action_text,
     };
     let slider = Slider {
-        track: flat(c(0x2e2e2e), c(0x292929), c(0xededed)),
-        track_disabled: flat(c(0x2e2e2e), c(0x1a1a1a), c(0x878787)),
+        track: flat(p.border, p.control_pressed, p.text),
+        track_disabled: flat(p.border, p.raised, p.text_disabled),
         round: BevelStates {
-            normal: flat(c(0x454545), c(0xededed), c(0x000000)),
+            normal: flat(p.border_strong, p.action, p.action_text),
             pressed,
             disabled,
             selected: pressed,
         },
         pointed: BevelStates {
-            normal: flat(c(0x0095ff), c(0x0b3a5c), c(0xededed)),
+            normal: flat(p.focus, p.control_pressed, p.text),
             pressed,
             disabled,
             selected: pressed,
         },
-        tick: c(0x878787),
+        tick: p.text_secondary,
     };
     let progress = Progress {
-        track: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xededed)),
-        fill: flat(c(0x0095ff), c(0x0095ff), c(0xededed)),
-        barber_light: flat(c(0x3a3a3a), c(0x3a3a3a), c(0xededed)),
-        barber_dark: flat(c(0x4f9df0), c(0x4f9df0), c(0xededed)),
-        radius: f32::MAX,
-        spinner: c(0xd0d0d0),
-        spinner_dim: c(0xffffff).alpha(40),
+        track: flat(p.border, p.raised, p.text),
+        fill: flat(p.focus, p.focus, p.action_text),
+        // Flat presentation: the indeterminate animation uses these two
+        // materials but no Aqua barber-pole gloss.
+        barber_light: flat(p.control, p.control, p.text),
+        barber_dark: flat(p.control_hover, p.control_hover, p.text),
+        radius: 4.0,
+        spinner: p.text,
+        spinner_dim: p.text_secondary,
     };
     let help = Help {
         states: BevelStates {
@@ -252,69 +349,72 @@ pub fn geist_dark() -> Theme {
             disabled,
             selected: pressed,
         },
-        glyph: c(0xededed),
+        glyph: p.text,
     };
     Theme {
-        id: ThemeId::GEIST_DARK,
-        provenance: Provenance::Inherited,
+        id,
+        provenance: if id.appearance == crate::Appearance::Dark {
+            Provenance::Inherited
+        } else {
+            Provenance::Designed
+        },
         type_: typography(),
         colors: Colors {
-            window: c(0x1a1a1a),
-            content: c(0x0a0a0a),
-            canvas: c(0x000000),
-            text: c(0xededed),
-            text_secondary: c(0xa1a1a1),
-            text_disabled: c(0x878787),
-            text_on_accent: c(0xffffff),
-            title: c(0xededed),
-            title_inactive: c(0x878787),
+            window: p.window,
+            content: p.document,
+            canvas: p.document,
+            text: p.text,
+            text_secondary: p.text_secondary,
+            text_disabled: p.text_disabled,
+            text_on_accent: p.action_text,
+            title: p.text,
+            title_inactive: p.text_disabled,
             title_engrave: T,
-            separator: c(0x2e2e2e),
-            divider: c(0x2e2e2e),
-            focus_ring: c(0x0095ff),
-            accent: c(0x0095ff),
-            link: c(0x0095ff),
-            success: c(0x279447),
-            warning: c(0xd99327),
-            error: c(0xe34646),
-            info: c(0x0095ff),
-            sidebar: c(0x1a1a1a),
-            sidebar_inactive: c(0x1a1a1a),
-            sidebar_heading: c(0x878787),
-            source_secondary: c(0x111111),
-            source_secondary_heading: c(0x878787),
-            row_alternate: c(0x111111),
-            group_fill: c(0x1a1a1a),
-            group_border: c(0x2e2e2e),
-            group_border_top: c(0x2e2e2e),
-            // Geist boxes are flat: one border colour, no inner shading.
-            group_border_bottom: c(0x2e2e2e),
-            group_highlight: c(0x1a1a1a),
-            group_highlight_bottom: c(0x1a1a1a),
-            group_shadow: [c(0x1a1a1a); 3],
-            well_fill: c(0x111111),
-            well_border: c(0x2e2e2e),
-            well_shadow: c(0x0a0a0a),
-            band_rule: c(0x2e2e2e),
-            menu: c(0x1a1a1a),
-            menu_text: c(0xededed),
-            menu_text_disabled: c(0x878787),
-            menu_separator: c(0x2e2e2e),
+            separator: p.border,
+            divider: p.border,
+            focus_ring: p.focus,
+            accent: p.focus,
+            link: p.focus,
+            success: p.success,
+            warning: p.warning,
+            error: p.error,
+            info: p.focus,
+            sidebar: p.window,
+            sidebar_inactive: p.window,
+            sidebar_heading: p.text_secondary,
+            source_secondary: p.raised,
+            source_secondary_heading: p.text_secondary,
+            row_alternate: p.raised,
+            group_fill: p.raised,
+            group_border: p.border,
+            group_border_top: p.border,
+            group_border_bottom: p.border,
+            group_highlight: p.raised,
+            group_highlight_bottom: p.raised,
+            group_shadow: [p.raised; 3],
+            well_fill: p.document,
+            well_border: p.border,
+            well_shadow: p.document,
+            band_rule: p.border,
+            menu: p.control,
+            menu_text: p.text,
+            menu_text_disabled: p.text_disabled,
+            menu_separator: p.border,
             menu_separator_highlight: T,
-            menu_border: c(0x2e2e2e),
-            menu_shadow: c(0x000000).alpha(160),
-            tooltip: c(0x292929),
-            tooltip_border: c(0x454545),
-            tooltip_text: c(0xededed),
-            shadow: c(0x000000).alpha(160),
-            scrim: c(0x000000).alpha(120),
+            menu_border: p.border_hover,
+            menu_shadow: c(0x000000).alpha(p.shadow_alpha),
+            tooltip: p.tooltip,
+            tooltip_border: p.border_hover,
+            tooltip_text: p.tooltip_text,
+            shadow: c(0x000000).alpha(p.shadow_alpha),
+            scrim: c(0x000000).alpha(p.scrim_alpha),
         },
         metrics: metrics(),
         chrome: ChromeSet {
-            active: chrome(c(0x1a1a1a), c(0x1a1a1a), c(0x2e2e2e)),
-            inactive: chrome(c(0x141414), c(0x141414), c(0x2e2e2e)),
-            bottom_active: chrome(c(0x1a1a1a), c(0x1a1a1a), c(0x2e2e2e)),
-            bottom_inactive: chrome(c(0x141414), c(0x141414), c(0x2e2e2e)),
+            active: chrome(p.window, p.window, p.border),
+            inactive: chrome(p.document, p.window, p.border),
+            bottom_active: chrome(p.window, p.window, p.border),
+            bottom_inactive: chrome(p.document, p.window, p.border),
         },
         controls: Controls {
             push: BevelStates {
@@ -323,18 +423,17 @@ pub fn geist_dark() -> Theme {
                 disabled,
                 selected,
             },
-            push_default: flat(c(0xededed), c(0xededed), c(0x000000)),
-            // designed: installer Continue with Geist's default-action
-            // material; the geometry and glyph are shared with Aqua.
+            hover,
+            push_default: flat(p.action, p.action, p.action_text),
             installer_continue: InstallerContinue {
                 normal,
-                default: flat(c(0xededed), c(0xededed), c(0x000000)),
+                default: flat(p.action, p.action, p.action_text),
                 pressed,
                 disabled,
-                glyph: c(0xededed),
-                glyph_default: c(0x000000),
-                glyph_pressed: c(0xededed),
-                glyph_disabled: c(0x878787),
+                glyph: p.text,
+                glyph_default: p.action_text,
+                glyph_pressed: p.text,
+                glyph_disabled: p.text_disabled,
             },
             textured: BevelStates {
                 normal,
@@ -364,13 +463,13 @@ pub fn geist_dark() -> Theme {
                 normal,
                 pressed,
                 disabled,
-                selected: flat(c(0x454545), c(0x292929), c(0xededed)),
+                selected,
             },
             checkbox: BevelStates {
-                normal: flat(c(0x454545), c(0x0a0a0a), c(0xededed)),
+                normal: flat(p.border_strong, p.document, p.text),
                 pressed,
                 disabled,
-                selected: flat(c(0xededed), c(0xededed), c(0x000000)),
+                selected: flat(p.action, p.action, p.action_text),
             },
             radio,
             field,
@@ -378,19 +477,18 @@ pub fn geist_dark() -> Theme {
             scroller: Scroller {
                 track: Gradient::flat(T),
                 track_border: T,
-                thumb: flat(c(0x454545), c(0x454545), c(0xededed)),
-                thumb_inactive: flat(c(0x2e2e2e), c(0x2e2e2e), c(0xededed)),
-                arrow: c(0x878787),
+                thumb: flat(p.thumb, p.thumb, T),
+                thumb_hover: flat(p.thumb_hover, p.thumb_hover, T),
+                thumb_inactive: flat(p.thumb_inactive, p.thumb_inactive, T),
+                arrow: p.text_disabled,
                 track_rows: &[],
                 arrow_rows: &[],
-                // designed: Geist's flat track has no cap shading.
                 cap_shadow: T,
             },
-            table_header: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xa1a1a1)),
-            // designed: Geist marks the sort column with stronger text only.
-            table_header_sorted: flat(c(0x2e2e2e), c(0x1a1a1a), c(0xededed)),
-            sort_arrow: c(0xededed),
-            table_grid: c(0x2e2e2e),
+            table_header: flat(p.border, p.window, p.text_secondary),
+            table_header_sorted: flat(p.border, p.window, p.text),
+            sort_arrow: p.text,
+            table_grid: p.border,
             popup,
             popup_textured: popup,
             progress,
@@ -398,17 +496,16 @@ pub fn geist_dark() -> Theme {
             help,
         },
         lists: Lists {
-            source_active: selection(c(0x292929), c(0xededed)),
-            source_inactive: selection(c(0x1f1f1f), c(0xa1a1a1)),
-            source_unfocused: selection(c(0x232323), c(0xededed)),
-            source_secondary_active: selection(c(0x292929), c(0xededed)),
-            source_secondary_inactive: selection(c(0x1f1f1f), c(0xa1a1a1)),
-            table_active: selection(c(0x0b3a5c), c(0xededed)),
-            table_inactive: selection(c(0x292929), c(0xededed)),
-            menu: selection(c(0x292929), c(0xededed)),
+            source_active: selection(p.control_pressed, p.text),
+            source_inactive: selection(p.control_hover, p.text_secondary),
+            source_unfocused: selection(p.control, p.text),
+            source_secondary_active: selection(p.control_pressed, p.text),
+            source_secondary_inactive: selection(p.control_hover, p.text_secondary),
+            table_active: selection(p.selection, p.text),
+            table_inactive: selection(p.control_pressed, p.text),
+            menu: selection(p.control_pressed, p.text),
         },
-        traffic: traffic(c(0x454545), c(0x2e2e2e)),
-        // designed: no drawn grip (flat chrome); the corner still resizes.
+        traffic: traffic(p.border_strong, p.control),
         grip: ResizeGrip {
             visible: false,
             bar: GRIP_NONE,
@@ -418,246 +515,97 @@ pub fn geist_dark() -> Theme {
     }
 }
 
-/// Geist Light: designed on the same role scale.
+/// Geist Dark: a black foundation with subtle surface separation.
+pub fn geist_dark() -> Theme {
+    resolve(ThemeId::GEIST_DARK, GeistPalette::dark())
+}
+
+/// Geist Light: the same component recipes with the light palette.
 pub fn geist_light() -> Theme {
-    // Role scale (vercel.md §4): 100 #ffffff bg, 200 #fafafa hover, 300 #f2f2f2
-    // active, 400 #e6e6e6 border, 500 #c9c9c9 strong border, 600 #8f8f8f
-    // muted text, 900 #666666 secondary text, 1000 #171717 primary text.
-    let normal = flat(c(0xe6e6e6), c(0xffffff), c(0x171717));
-    let pressed = flat(c(0xc9c9c9), c(0xf2f2f2), c(0x171717));
-    let disabled = flat(c(0xebebeb), c(0xfafafa), c(0x8f8f8f));
-    let selected = flat(c(0x0070f3), c(0xe6f1fe), c(0x171717));
-    let field = Field {
-        border_top: c(0xe6e6e6),
-        border: c(0xe6e6e6),
-        border_bottom: c(0xe6e6e6),
-        inner_shadow: c(0xffffff),
-        fill: c(0xffffff),
-        fill_disabled: c(0xfafafa),
-        text: c(0x171717),
-        placeholder: c(0x8f8f8f),
-        caret: c(0x171717),
-        selection: c(0xcce3fd),
-    };
-    let popup = PopUp {
-        body: BevelStates {
-            normal,
-            pressed,
-            disabled,
-            selected: normal,
-        },
-        cap: BevelStates {
-            normal: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
-            pressed: flat(c(0x005bb5), c(0xe6f1fe), c(0x171717)),
-            disabled,
-            selected: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
-        },
-        divider: c(0xc9c9c9),
-        arrow: c(0x171717),
-    };
-    let radio = Radio {
-        states: BevelStates {
-            normal: flat(c(0xc9c9c9), c(0xffffff), c(0x171717)),
-            pressed,
-            disabled,
-            selected: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
-        },
-        dot: c(0x171717),
-    };
-    let slider = Slider {
-        track: flat(c(0xe6e6e6), c(0xebebeb), c(0x171717)),
-        track_disabled: flat(c(0xebebeb), c(0xfafafa), c(0x8f8f8f)),
-        round: BevelStates {
-            normal: flat(c(0xc9c9c9), c(0xffffff), c(0x171717)),
-            pressed,
-            disabled,
-            selected: pressed,
-        },
-        pointed: BevelStates {
-            normal: flat(c(0x0070f3), c(0xe6f1fe), c(0x171717)),
-            pressed,
-            disabled,
-            selected: pressed,
-        },
-        tick: c(0x8f8f8f),
-    };
-    let progress = Progress {
-        track: flat(c(0xe6e6e6), c(0xf2f2f2), c(0x171717)),
-        fill: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
-        barber_light: flat(c(0xf2f2f2), c(0xf2f2f2), c(0x171717)),
-        barber_dark: flat(c(0x0070f3), c(0x0070f3), c(0xffffff)),
-        radius: f32::MAX,
-        spinner: c(0x666666),
-        spinner_dim: c(0xc9c9c9),
-    };
-    let help = Help {
-        states: BevelStates {
-            normal,
-            pressed,
-            disabled,
-            selected: pressed,
-        },
-        glyph: c(0x171717),
-    };
-    Theme {
-        id: ThemeId::GEIST_LIGHT,
-        provenance: Provenance::Designed,
-        type_: typography(),
-        colors: Colors {
-            window: c(0xfafafa),
-            content: c(0xffffff),
-            canvas: c(0x000000),
-            text: c(0x171717),
-            text_secondary: c(0x666666),
-            text_disabled: c(0x8f8f8f),
-            text_on_accent: c(0xffffff),
-            title: c(0x171717),
-            title_inactive: c(0x8f8f8f),
-            title_engrave: T,
-            separator: c(0xebebeb),
-            divider: c(0xe6e6e6),
-            focus_ring: c(0x0070f3),
-            accent: c(0x0070f3),
-            link: c(0x0062d1),
-            success: c(0x1a7f37),
-            warning: c(0xa35200),
-            error: c(0xcb2a2f),
-            info: c(0x0062d1),
-            sidebar: c(0xfafafa),
-            sidebar_inactive: c(0xfafafa),
-            sidebar_heading: c(0x666666),
-            source_secondary: c(0xfafafa),
-            source_secondary_heading: c(0x666666),
-            row_alternate: c(0xfafafa),
-            group_fill: c(0xffffff),
-            group_border: c(0xe6e6e6),
-            group_border_top: c(0xe6e6e6),
-            // Geist boxes are flat: one border colour, no inner shading.
-            group_border_bottom: c(0xe6e6e6),
-            group_highlight: c(0xffffff),
-            group_highlight_bottom: c(0xffffff),
-            group_shadow: [c(0xffffff); 3],
-            well_fill: c(0xfafafa),
-            well_border: c(0xe6e6e6),
-            well_shadow: c(0xc9c9c9),
-            band_rule: c(0xebebeb),
-            menu: c(0xffffff),
-            menu_text: c(0x171717),
-            menu_text_disabled: c(0x8f8f8f),
-            menu_separator: c(0xebebeb),
-            menu_separator_highlight: T,
-            menu_border: c(0xc9c9c9),
-            menu_shadow: c(0x000000).alpha(40),
-            tooltip: c(0x171717),
-            tooltip_border: c(0x171717),
-            tooltip_text: c(0xfafafa),
-            shadow: c(0x000000).alpha(40),
-            scrim: c(0x000000).alpha(50),
-        },
-        metrics: metrics(),
-        chrome: ChromeSet {
-            active: chrome(c(0xffffff), c(0xffffff), c(0xe6e6e6)),
-            inactive: chrome(c(0xfafafa), c(0xfafafa), c(0xebebeb)),
-            bottom_active: chrome(c(0xffffff), c(0xffffff), c(0xe6e6e6)),
-            bottom_inactive: chrome(c(0xfafafa), c(0xfafafa), c(0xebebeb)),
-        },
-        controls: Controls {
-            push: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected,
-            },
-            push_default: flat(c(0x171717), c(0x171717), c(0xffffff)),
-            // designed: installer Continue with Geist's default-action
-            // material; the geometry and glyph are shared with Aqua.
-            installer_continue: InstallerContinue {
-                normal,
-                default: flat(c(0x171717), c(0x171717), c(0xffffff)),
-                pressed,
-                disabled,
-                glyph: c(0x171717),
-                glyph_default: c(0xffffff),
-                glyph_pressed: c(0x171717),
-                glyph_disabled: c(0x8f8f8f),
-            },
-            textured: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected: pressed,
-            },
-            gradient: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected: pressed,
-            },
-            round: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected: pressed,
-            },
-            recessed: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected: pressed,
-            },
-            segment: BevelStates {
-                normal,
-                pressed,
-                disabled,
-                selected: flat(c(0xc9c9c9), c(0xf2f2f2), c(0x171717)),
-            },
-            checkbox: BevelStates {
-                normal: flat(c(0xc9c9c9), c(0xffffff), c(0xffffff)),
-                pressed,
-                disabled,
-                selected: flat(c(0x171717), c(0x171717), c(0xffffff)),
-            },
-            radio,
-            field,
-            search: field,
-            scroller: Scroller {
-                track: Gradient::flat(T),
-                track_border: T,
-                thumb: flat(c(0xc9c9c9), c(0xc9c9c9), c(0x171717)),
-                thumb_inactive: flat(c(0xe6e6e6), c(0xe6e6e6), c(0x171717)),
-                arrow: c(0x8f8f8f),
-                track_rows: &[],
-                arrow_rows: &[],
-                // designed: Geist's flat track has no cap shading.
-                cap_shadow: T,
-            },
-            table_header: flat(c(0xebebeb), c(0xfafafa), c(0x666666)),
-            table_header_sorted: flat(c(0xebebeb), c(0xfafafa), c(0x171717)),
-            sort_arrow: c(0x171717),
-            table_grid: c(0xebebeb),
-            popup,
-            popup_textured: popup,
-            progress,
-            slider,
-            help,
-        },
-        lists: Lists {
-            source_active: selection(c(0xebebeb), c(0x171717)),
-            source_inactive: selection(c(0xf2f2f2), c(0x666666)),
-            source_unfocused: selection(c(0xe6e6e6), c(0x171717)),
-            source_secondary_active: selection(c(0xebebeb), c(0x171717)),
-            source_secondary_inactive: selection(c(0xf2f2f2), c(0x666666)),
-            table_active: selection(c(0xe6f1fe), c(0x171717)),
-            table_inactive: selection(c(0xf2f2f2), c(0x171717)),
-            menu: selection(c(0xf2f2f2), c(0x171717)),
-        },
-        traffic: traffic(c(0xc9c9c9), c(0xe6e6e6)),
-        // designed: no drawn grip (flat chrome); the corner still resizes.
-        grip: ResizeGrip {
-            visible: false,
-            bar: GRIP_NONE,
-            body: GRIP_NONE,
-            hit: 15.0,
-        },
+    resolve(ThemeId::GEIST_LIGHT, GeistPalette::light())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dark_and_light_resolve_the_documented_palette_roles() {
+        let dark = GeistPalette::dark();
+        assert_eq!(dark.document, c(0x000000));
+        assert_eq!(dark.window, c(0x0a0a0a));
+        assert_eq!(dark.raised, c(0x111111));
+        assert_eq!(dark.control, c(0x171717));
+        assert_eq!(dark.control_hover, c(0x1f1f1f));
+        assert_eq!(dark.control_pressed, c(0x292929));
+        assert_eq!(dark.border, c(0x262626));
+        assert_eq!(dark.border_hover, c(0x393939));
+        assert_eq!(dark.border_strong, c(0x505050));
+        assert_eq!(dark.text, c(0xededed));
+        assert_eq!(dark.text_secondary, c(0xa1a1a1));
+        assert_eq!(dark.text_disabled, c(0x878787));
+        assert_eq!(dark.focus, c(0x0095ff));
+        assert_eq!(dark.selection, c(0x0b3a5c));
+        assert_eq!(dark.action, c(0xededed));
+        assert_eq!(dark.action_text, c(0x000000));
+
+        let light = GeistPalette::light();
+        assert_eq!(light.document, c(0xffffff));
+        assert_eq!(light.window, c(0xfafafa));
+        assert_eq!(light.control, c(0xffffff));
+        assert_eq!(light.control_hover, c(0xfafafa));
+        assert_eq!(light.control_pressed, c(0xf2f2f2));
+        assert_eq!(light.border, c(0xe6e6e6));
+        assert_eq!(light.border_hover, c(0xc9c9c9));
+        assert_eq!(light.text, c(0x171717));
+        assert_eq!(light.text_secondary, c(0x666666));
+        assert_eq!(light.focus, c(0x0070f3));
+        assert_eq!(light.action, c(0x171717));
+        assert_eq!(light.action_text, c(0xffffff));
+    }
+
+    #[test]
+    fn both_appearances_share_geometry_and_component_roles() {
+        let dark = geist_dark();
+        let light = geist_light();
+        assert_eq!(dark.metrics, light.metrics);
+        assert_eq!(dark.type_, light.type_);
+        assert_eq!(dark.controls.push.normal.upper.from, c(0x171717));
+        assert_eq!(light.controls.push.normal.upper.from, c(0xffffff));
+        assert_eq!(dark.controls.popup.cap.normal, dark.controls.popup.body.normal);
+        assert_eq!(light.controls.popup.cap.normal, light.controls.popup.body.normal);
+        assert_eq!(dark.controls.progress.radius, 4.0);
+        assert_eq!(light.controls.progress.radius, 4.0);
+    }
+
+    #[test]
+    fn control_states_and_selection_are_distinct() {
+        for theme in [geist_dark(), geist_light()] {
+            let states = theme.controls.push;
+            assert_ne!(states.normal.upper.from, theme.controls.hover.upper.from);
+            assert_ne!(
+                theme.controls.hover.upper.from,
+                states.pressed.upper.from
+            );
+            assert_ne!(states.pressed.upper.from, states.disabled.upper.from);
+            assert_ne!(states.normal.text, states.disabled.text);
+            assert_ne!(
+                theme.lists.table_active.fill.from,
+                theme.lists.table_inactive.fill.from,
+                "selected rows must not look like pressed neutral controls"
+            );
+            assert_ne!(theme.colors.focus_ring, theme.colors.menu_border);
+        }
+    }
+
+    #[test]
+    fn corner_rules_keep_aqua_capsules_and_geist_fixed_radii() {
+        assert_eq!(CornerRule::Capsule.radius(21.0), 10.5);
+        assert_eq!(CornerRule::Fixed(4.0).radius(28.0), 4.0);
+        assert_eq!(CornerRule::Fixed(6.0).radius(6.0), 3.0);
+        let metrics = geist_dark().metrics;
+        assert_eq!(metrics.segment_corner, CornerRule::Fixed(4.0));
+        assert_eq!(metrics.field_corner, CornerRule::Fixed(4.0));
+        assert_eq!(metrics.search_corner, CornerRule::Fixed(6.0));
     }
 }

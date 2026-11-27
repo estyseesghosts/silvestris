@@ -153,3 +153,39 @@ line box, leaving 5.5 px above and below inside a 28px push button. The
 values are logical and scale linearly; the JSON records both logical and
 device pixels. Headless GPUI tests use a no-op text system, so native font
 registration is verified by the real capture path, not by those tests.
+
+## Checkpoint: palette, surfaces and control states
+
+`crates/silvestris-core/src/geist.rs` now contains one private `GeistPalette`.
+`dark()` and `light()` hold the documented values; `resolve()` maps both through
+the same component recipe, so Light is not a separate collection of recipes.
+Nothing in a GPUI renderer reads palette values directly.
+
+| Palette role | Dark | Light | Token destinations |
+| --- | --- | --- | --- |
+| document | `#000000` | `#FFFFFF` | `content`, `canvas`, field wells |
+| window | `#0A0A0A` | `#FAFAFA` | `window`, chrome, toolbar, sidebar |
+| raised | `#111111` | `#FFFFFF` | preference groups, inset surfaces |
+| control / hover / pressed | `#171717` / `#1F1F1F` / `#292929` | `#FFFFFF` / `#FAFAFA` / `#F2F2F2` | bevel states and `Controls::hover` |
+| border / hover / strong | `#262626` / `#393939` / `#505050` | `#E6E6E6` / `#C9C9C9` / `#8F8F8F` | bevel borders, menu border, focus separation |
+| text / secondary / disabled | `#EDEDED` / `#A1A1A1` / `#878787` | `#171717` / `#666666` / `#8F8F8F` | text, headings, placeholders |
+| focus | `#0095FF` | `#0070F3` | `accent`, `link`, `focus_ring`, progress |
+| selection | `#0B3A5C` | `#E6F1FE` | table selection, text selection |
+| action / action text | `#EDEDED` / `#000000` | `#171717` / `#FFFFFF` | default button and selected checkbox |
+| thumb / hover / inactive | `#555555` / `#666666` / `#393939` | `#A0A0A0` / `#7B7B7B` / `#C9C9C9` | scrollbar thumb materials |
+
+Shadows and scrims are the only palette values with alpha. Selected table
+rows use the selection role and stay distinct from a pressed neutral control.
+Popup caps, segmented selections and ordinary controls use neutral surfaces;
+blue is limited to focus, links, selection, progress and meaningful selected
+states. The popup cap no longer has a blue fill.
+
+Aqua retains its measured capsule geometry through the new GPUI-free
+`CornerRule`: `Capsule` for segments and fields, with hover and scrollbar
+fields set to the existing Aqua materials. Geist uses `Fixed(4)` for segments
+and ordinary fields, `Fixed(6)` for search fields, a 4px push and textured
+radius, a 6px menu and panel radius, a 3px checkbox radius, and a 4px
+progress radius. The installer Continue control and radio buttons stay
+circular. These shared-type additions are mechanical and are covered by
+explicit assertions in `crates/silvestris-core/tests/aqua_isolation.rs`; the
+Aqua fixtures were regenerated only to include the new fields.

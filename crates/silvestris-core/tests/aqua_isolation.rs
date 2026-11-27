@@ -4,6 +4,7 @@
 //! change. They are literal files, not values computed from the implementation
 //! under test, so a Geist or shared-constructor regression fails this suite.
 
+use silvestris_core::tokens::CornerRule;
 use silvestris_core::{theme, theme_with_font_overrides, FontOverrides, ThemeId};
 
 #[path = "support/snapshot.rs"]
@@ -42,6 +43,21 @@ fn every_theme_resolves_and_keeps_its_identity_after_resolving_other_themes() {
             let _ = theme(other);
         }
         assert_eq!(theme(id), expected, "{id:?} changed after other themes");
+    }
+}
+
+#[test]
+fn mechanical_shared_fields_keep_aqua_capsules_and_materials() {
+    for id in [ThemeId::AQUA_LIGHT, ThemeId::AQUA_DARK] {
+        let theme = theme(id);
+        assert_eq!(theme.metrics.segment_corner, CornerRule::Capsule);
+        assert_eq!(theme.metrics.field_corner, CornerRule::Capsule);
+        assert_eq!(theme.metrics.search_corner, CornerRule::Capsule);
+        assert_eq!(theme.controls.hover, theme.controls.push.normal);
+        assert_eq!(
+            theme.controls.scroller.thumb_hover,
+            theme.controls.scroller.thumb
+        );
     }
 }
 

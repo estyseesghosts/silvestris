@@ -189,6 +189,28 @@ pub struct ChromeSet {
     pub bottom_inactive: Chrome,
 }
 
+/// How a rounded control derives its corner radius from its height.
+///
+/// Aqua's capsule controls keep the measured half-height rule; Geist uses
+/// fixed radii. Painters clamp both variants to the control's half height so
+/// short controls never invert their corners.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CornerRule {
+    Capsule,
+    Fixed(f32),
+}
+
+impl CornerRule {
+    #[must_use]
+    pub fn radius(self, height: f32) -> f32 {
+        let half = (height / 2.0).max(0.0);
+        match self {
+            CornerRule::Capsule => half,
+            CornerRule::Fixed(value) => value.clamp(0.0, half),
+        }
+    }
+}
+
 /// A bezel painted as stacked layers, outer to inner (handbook 10 paint
 /// stack): emboss line below, 1 px border ring, then an upper and a lower
 /// fill band split at `split` of the inner height. Two bands of two-stop
@@ -254,6 +276,8 @@ pub struct Scroller {
     pub track_border: Rgba8,
     /// Thumb drawn across the bar; `upper` is the leading half.
     pub thumb: Bevel,
+    /// Pointer-hover thumb material. Aqua's painter keeps using `thumb`.
+    pub thumb_hover: Bevel,
     pub thumb_inactive: Bevel,
     pub arrow: Rgba8,
     /// Measured track cross-section, leading edge first, painted row by row
@@ -347,6 +371,8 @@ pub struct InstallerContinue {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Controls {
     pub push: BevelStates,
+    /// Pointer-hover material. Aqua has no hover bevel, so it uses push.normal.
+    pub hover: Bevel,
     /// Blue default button (Return).
     pub push_default: Bevel,
     /// Rectangular toolbar/bottom-bar control (NSTexturedRoundedBezelStyle).
@@ -523,8 +549,13 @@ pub struct Metrics {
     pub textured_height: f32,
     pub textured_radius: f32,
     pub segment_height: f32,
+    /// Theme-resolved corner policy for rounded segments.
+    pub segment_corner: CornerRule,
     pub field_height: f32,
     pub field_small_height: f32,
+    /// Theme-resolved corner policy for ordinary and search fields.
+    pub field_corner: CornerRule,
+    pub search_corner: CornerRule,
     /// Bezel border to the text origin.
     pub field_text_inset: f32,
     /// Caret: width, and rows kept clear above and below it inside the borders.

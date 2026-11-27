@@ -104,8 +104,13 @@ fn metrics() -> Metrics {
         textured_radius: 4.0,
         // M: segmented.selected: 21 rows border to border.
         segment_height: 21.0,
+        // M: segment corners are half-height capsules.
+        segment_corner: CornerRule::Capsule,
         // HIG p. 322-325 (hig-09 controls.md): text fields 22/19/15; M: toolbar.search.column = 22.
         field_height: 22.0,
+        // M: field.geometry and toolbar.search.column are capsule ends.
+        field_corner: CornerRule::Capsule,
+        search_corner: CornerRule::Capsule,
         field_small_height: 19.0,
         // M: field.geometry: first ink 5 px right of the border; with the bundled
         // font the text origin sits 4 px in (checked against a capture, like
@@ -681,6 +686,8 @@ pub fn aqua_light() -> Theme {
                 disabled: push_disabled,
                 selected: push_default,
             },
+            // Measured Aqua has no hover bevel; the resting material is kept.
+            hover: push_normal,
             push_default,
             // M: Snow Leopard installer Continue. Rim near 676767,
             // upper 5187e2->71abec, split 15 of 27, lower 52aaed->88e9fc,
@@ -797,6 +804,15 @@ pub fn aqua_light() -> Theme {
                 // 88b4e5..98c3ef, 7 rows 5da5e9..a4e0ff, grey trailing edge
                 // 5e5e5e (finder.png agrees on both axes).
                 thumb: Bevel {
+                    border: g(0x0751c0, 0x5e5e5e),
+                    upper: g(0x88b4e5, 0x98c3ef),
+                    lower: g(0x5da5e9, 0xa4e0ff),
+                    split: 4.0 / 11.0,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: BLACK,
+                },
+                // Aqua has no hover thumb material; the painter keeps `thumb`.
+                thumb_hover: Bevel {
                     border: g(0x0751c0, 0x5e5e5e),
                     upper: g(0x88b4e5, 0x98c3ef),
                     lower: g(0x5da5e9, 0xa4e0ff),
@@ -1258,6 +1274,8 @@ pub fn aqua_dark() -> Theme {
                 disabled: push_disabled,
                 selected: push_default,
             },
+            // Measured Aqua has no hover bevel; the resting material is kept.
+            hover: push_normal,
             push_default,
             // designed: Dark Aqua adaptation of the installer Continue blue.
             installer_continue: InstallerContinue {
@@ -1397,6 +1415,14 @@ pub fn aqua_dark() -> Theme {
                 track: g(0x1a1a1a, 0x2a2a2a),
                 track_border: c(0x0e0e0e),
                 thumb: Bevel {
+                    border: g(0x0b2a6b, 0x14365e),
+                    upper: g(0x6c9ad6, 0x5786c8),
+                    lower: g(0x2f6cc4, 0x5c9be0),
+                    split: 5.0 / 12.0,
+                    emboss: Rgba8::TRANSPARENT,
+                    text: WHITE,
+                },
+                thumb_hover: Bevel {
                     border: g(0x0b2a6b, 0x14365e),
                     upper: g(0x6c9ad6, 0x5786c8),
                     lower: g(0x2f6cc4, 0x5c9be0),
