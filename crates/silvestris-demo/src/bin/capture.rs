@@ -497,6 +497,27 @@ const TOOLBAR_SAMPLES: [Sample; 3] = [
     },
 ];
 
+/// The installer Continue samples get their own page after the toolbar pages
+/// so the control-grid pages keep their existing height, sample positions and
+/// hover-free capture state.
+const INSTALLER_SAMPLES: [Sample; 3] = [
+    Sample {
+        id: "button-installer-continue",
+        width: 120.,
+        height: 40.,
+    },
+    Sample {
+        id: "button-installer-continue-normal",
+        width: 120.,
+        height: 40.,
+    },
+    Sample {
+        id: "button-installer-continue-disabled",
+        width: 120.,
+        height: 40.,
+    },
+];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -561,6 +582,18 @@ fn toolbar_index(page: usize) -> usize {
     page - toolbar_page_start()
 }
 
+fn installer_page_start() -> usize {
+    toolbar_page_start() + TOOLBAR_SAMPLES.len()
+}
+
+fn on_installer_page(page: usize) -> bool {
+    (installer_page_start()..installer_page_start() + INSTALLER_SAMPLES.len()).contains(&page)
+}
+
+fn installer_index(page: usize) -> usize {
+    page - installer_page_start()
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
@@ -588,6 +621,10 @@ fn page_samples(page: usize) -> &'static [Sample] {
     if on_toolbar_page(page) {
         let index = toolbar_index(page);
         return &TOOLBAR_SAMPLES[index..index + 1];
+    }
+    if on_installer_page(page) {
+        let index = installer_index(page);
+        return &INSTALLER_SAMPLES[index..index + 1];
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -618,6 +655,10 @@ fn root_size(page: usize) -> (f32, f32) {
     }
     if on_toolbar_page(page) {
         let sample = &TOOLBAR_SAMPLES[toolbar_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
+    }
+    if on_installer_page(page) {
+        let sample = &INSTALLER_SAMPLES[installer_index(page)];
         return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
     (
@@ -656,6 +697,10 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
     }
     if on_toolbar_page(page) {
         let sample = &TOOLBAR_SAMPLES[toolbar_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
+    }
+    if on_installer_page(page) {
+        let sample = &INSTALLER_SAMPLES[installer_index(page)];
         return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
     let samples = page_samples(page);
@@ -989,6 +1034,19 @@ impl CaptureView {
                 .into_any_element(),
             "button-help" => button("Help").style(ButtonStyle::Help).into_any_element(),
             "button-bevel" => button("Bevel").style(ButtonStyle::Bevel).into_any_element(),
+            "button-installer-continue" => button("Continue")
+                .style(ButtonStyle::InstallerContinue)
+                .default_button(true)
+                .throb(false)
+                .into_any_element(),
+            "button-installer-continue-normal" => button("Continue")
+                .style(ButtonStyle::InstallerContinue)
+                .into_any_element(),
+            "button-installer-continue-disabled" => button("Continue")
+                .style(ButtonStyle::InstallerContinue)
+                .default_button(true)
+                .disabled(true)
+                .into_any_element(),
             "checkbox-on" => Checkbox::new("golden-checkbox-on", "Show hidden files")
                 .checked(true)
                 .into_any_element(),
@@ -2347,6 +2405,10 @@ fn capture(window: &mut Window, cx: &mut App, out: &Path, scale: f32, page: usiz
     // The platform may have reset a chosen scale after a DPI change; force
     // the requested scale and redraw before readback.
     window.set_scale_factor(scale);
+    // Park the pointer outside the window. The real OS cursor can otherwise
+    // hover a traffic light when the window's size or position changes, which
+    // would make an unrelated sample depend on where the pointer happens to be.
+    window.simulate_mouse_move(point(px(-64.), px(-64.)), cx);
     window.draw(cx).clear(cx);
     let image = window.render_to_image().expect("frame readback");
     eprintln!(

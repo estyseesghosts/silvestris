@@ -711,6 +711,26 @@
       ],
       "subject_guess": "System Preferences, Appearance pane",
       "verified": true
+    },
+    "install-mac-os-x-language.png": {
+      "index": null,
+      "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+      "size": [
+        1442,
+        955
+      ],
+      "subject_guess": "Snow Leopard installer language selection",
+      "verified": true
+    },
+    "continue-arrow-glyph.png": {
+      "index": null,
+      "sha256": "d9051cfee405aff2263b1ec621beafcdb19c41d0126bdda49b132f038df91796",
+      "size": [
+        66,
+        61
+      ],
+      "subject_guess": "Close-up of the installer Continue button on #ededed",
+      "verified": true
     }
   },
   "crops": [
@@ -960,6 +980,44 @@
       "scale": null,
       "scale_note": "The corpus does not record a reliable capture scale for the gallery capture (PNG resolution is 168 dpi). The rectangle is in the capture's physical pixels.",
       "sha256": "52542ba6e6a272ca2a922901adccf95a04e5076289de7b66dd9202ef347d0030"
+    },
+    {
+      "id": "button.installer_continue",
+      "control": "button",
+      "state": "regular, default, enabled (one breathing phase)",
+      "capture": "continue-arrow-glyph.png",
+      "rect": [
+        16,
+        19,
+        31,
+        30
+      ],
+      "size": [
+        31,
+        30
+      ],
+      "scale": 1.0,
+      "scale_note": "The close-up and the full language capture both measure 31 x 30 px for the bezel, so this is a 1x capture; one extra row at y 49 is the light emboss line.",
+      "sha256": "d9051cfee405aff2263b1ec621beafcdb19c41d0126bdda49b132f038df91796"
+    },
+    {
+      "id": "button.installer_continue.language",
+      "control": "button",
+      "state": "regular, default, enabled (same phase in the full screen)",
+      "capture": "install-mac-os-x-language.png",
+      "rect": [
+        911,
+        753,
+        31,
+        30
+      ],
+      "size": [
+        31,
+        30
+      ],
+      "scale": 1.0,
+      "scale_note": "Bezel measures 31 x 30 px in the 1442 x 955 full capture; the pixel data matches the close-up exactly.",
+      "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4"
     }
   ]
 }

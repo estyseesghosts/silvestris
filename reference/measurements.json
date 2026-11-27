@@ -7477,6 +7477,332 @@
     ],
     "divider_px": 376
    }
+  },
+  {
+   "id": "button.installer_continue.geometry",
+   "what": "Snow Leopard installer Continue button: 31 x 30 px blue bezel (1 px rim, 1 px light emboss row below) on #EDEDED; glyph is two 4 x 4 px dots at x 7 and 13 and a 5.5 x 10 px triangle from x 19 to the apex at x 24.5, rows 10..19",
+   "capture": "docs/continue-arrow-glyph.png",
+   "sha256": "d9051cfee405aff2263b1ec621beafcdb19c41d0126bdda49b132f038df91796",
+   "kind": "geometry",
+   "value": {
+    "capture_px": [
+     66,
+     61
+    ],
+    "button_rect": [
+     16,
+     19,
+     31,
+     30
+    ],
+    "emboss_row_y": 49,
+    "background": "#ededed",
+    "rim_px": 1,
+    "diameter_logical": 30,
+    "glyph_rect": [
+     23,
+     29,
+     17,
+     10
+    ],
+    "glyph_dots": [
+     [
+      23,
+      32,
+      4,
+      4
+     ],
+     [
+      29,
+      32,
+      4,
+      4
+     ]
+    ],
+    "glyph_triangle": [
+     [
+      35,
+      29
+     ],
+     [
+      40,
+      34
+     ],
+     [
+      35,
+      39
+     ]
+    ],
+    "glyph_gaps_px": [
+     2,
+     2
+    ],
+    "scale": 1.0
+   }
+  },
+  {
+   "id": "button.installer_continue.language_geometry",
+   "what": "Same button inside the full language-selection capture; identical 31 x 30 px footprint, so the close-up is not a separately scaled asset",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "geometry",
+   "value": {
+    "capture_px": [
+     1442,
+     955
+    ],
+    "button_rect": [
+     911,
+     753,
+     31,
+     30
+    ],
+    "emboss_row_y": 783,
+    "background": "#ededed",
+    "scale": 1.0
+   }
+  },
+  {
+   "id": "button.installer_continue.column.centre",
+   "what": "centre column of the bezel (x 926); the triangle and its antialiasing interrupt rows 766..772",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "column",
+   "x": 926,
+   "y": [
+    753,
+    782
+   ],
+   "srgb": [
+    "#919191",
+    "#666666",
+    "#5187e2",
+    "#5389e4",
+    "#558be4",
+    "#578fe5",
+    "#5b92e6",
+    "#5e96e7",
+    "#6199e8",
+    "#659ee9",
+    "#69a2ea",
+    "#6da7eb",
+    "#71abec",
+    "#334d68",
+    "#1e2d3c",
+    "#12273b",
+    "#214767",
+    "#52aaed",
+    "#58b2ef",
+    "#5eb9f1",
+    "#64c0f2",
+    "#69c6f4",
+    "#6eccf6",
+    "#73d2f7",
+    "#79d8f8",
+    "#7eddfa",
+    "#81e2fb",
+    "#85e6fc",
+    "#88e9fc",
+    "#676767"
+   ]
+  },
+  {
+   "id": "button.installer_continue.column.unobstructed",
+   "what": "unobstructed interior column (x 916, 5 px from the left edge); upper band ends near row 771, lower band starts near row 772",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "column",
+   "x": 916,
+   "y": [
+    753,
+    782
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#cacaca",
+    "#919191",
+    "#727579",
+    "#607da9",
+    "#5e96e6",
+    "#6199e8",
+    "#659ee9",
+    "#69a2ea",
+    "#6ca6eb",
+    "#71abec",
+    "#75b0ee",
+    "#7ab5ef",
+    "#7dbbf0",
+    "#82bff1",
+    "#86c4f3",
+    "#88c8f4",
+    "#75c2f3",
+    "#64bff3",
+    "#69c6f4",
+    "#6fccf6",
+    "#74d2f6",
+    "#70a1b2",
+    "#878b8d",
+    "#cececf",
+    "#eeeeee",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
+   "id": "button.installer_continue.row.rim",
+   "what": "horizontal line through the top rim (y 754); the 1 px rim is #666666 and antialiases against #ededed",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "row",
+   "y": 754,
+   "x": [
+    911,
+    941
+   ],
+   "srgb": [
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#e8e8e8",
+    "#cacaca",
+    "#adadad",
+    "#898989",
+    "#7f7e7e",
+    "#757575",
+    "#6e6e6e",
+    "#686868",
+    "#666666",
+    "#686868",
+    "#6e6e6e",
+    "#757575",
+    "#7e7e7e",
+    "#898989",
+    "#adaead",
+    "#cacaca",
+    "#e8e8e8",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed",
+    "#ededed"
+   ]
+  },
+  {
+   "id": "button.installer_continue.row.glyph",
+   "what": "horizontal line through the glyph (y 768, triangle mid-height): dot cores, 2 px gaps, triangle from x 930 (rel 19) to x 935 (rel 24)",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "row",
+   "y": 768,
+   "x": [
+    911,
+    941
+   ],
+   "srgb": [
+    "#c3c4c4",
+    "#676767",
+    "#7ebaef",
+    "#7dbbf0",
+    "#7dbbf0",
+    "#7dbbf0",
+    "#7ebaf0",
+    "#375168",
+    "#1f2f3c",
+    "#1f2f3c",
+    "#324f68",
+    "#67afee",
+    "#5ba8ec",
+    "#244766",
+    "#12283b",
+    "#12273b",
+    "#1e4466",
+    "#459ce9",
+    "#469cea",
+    "#11273a",
+    "#11273b",
+    "#11273b",
+    "#12273b",
+    "#245078",
+    "#469cea",
+    "#459cea",
+    "#469dea",
+    "#459cea",
+    "#459ce9",
+    "#676767",
+    "#c3c3c4"
+   ]
+  },
+  {
+   "id": "button.installer_continue.upper_stops",
+   "what": "upper blue band sampled on the unobstructed column: the first row is the antialiased rim blend (#607da9), then #5e96e6 at the top edge through #88c8f4 just above the split",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "column",
+   "x": 916,
+   "y": [
+    759,
+    771
+   ],
+   "srgb": [
+    "#607da9",
+    "#5e96e6",
+    "#6199e8",
+    "#659ee9",
+    "#69a2ea",
+    "#6ca6eb",
+    "#71abec",
+    "#75b0ee",
+    "#7ab5ef",
+    "#7dbbf0",
+    "#82bff1",
+    "#86c4f3",
+    "#88c8f4"
+   ]
+  },
+  {
+   "id": "button.installer_continue.lower_stops",
+   "what": "lower blue band sampled on the unobstructed column: #75c2f3 just below the split to #74d2f6 near the bottom",
+   "capture": "install-mac-os-x-language.png",
+   "sha256": "f4d61d1ad5f9e95a20553990d7c830794b618350333ec7fa8f6b487e234522e4",
+   "kind": "column",
+   "x": 916,
+   "y": [
+    772,
+    779
+   ],
+   "srgb": [
+    "#75c2f3",
+    "#64bff3",
+    "#69c6f4",
+    "#6fccf6",
+    "#74d2f6",
+    "#70a1b2",
+    "#878b8d",
+    "#cececf"
+   ]
+  },
+  {
+   "id": "button.installer_continue.glyph_ink",
+   "what": "glyph core colour on the reference: #10253a to #1e2d3c, a near-black blue; rendered as #1c2737",
+   "capture": "docs/continue-arrow-glyph.png",
+   "sha256": "d9051cfee405aff2263b1ec621beafcdb19c41d0126bdda49b132f038df91796",
+   "kind": "geometry",
+   "value": {
+    "core_srgb": [
+     "#10253a",
+     "#12273b",
+     "#1e2d3c"
+    ],
+    "token_srgb": "#1c2737"
+   }
   }
  ]
 }

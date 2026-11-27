@@ -1537,6 +1537,54 @@ impl Render for Gallery {
                     .expanded(true)
                     .into_any_element(),
             ));
+        let installer_continue = div()
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap(px(24.))
+            .child(cell(
+                "Installer Continue (default, breathing)",
+                Button::new("fidelity-installer-continue", "Continue")
+                    .style(ButtonStyle::InstallerContinue)
+                    .default_button(true)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Installer Continue (static)",
+                Button::new("fidelity-installer-continue-static", "Continue")
+                    .style(ButtonStyle::InstallerContinue)
+                    .default_button(true)
+                    .throb(false)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Installer Continue (non-default)",
+                Button::new("fidelity-installer-continue-normal", "Continue")
+                    .style(ButtonStyle::InstallerContinue)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Installer Continue (disabled)",
+                Button::new("fidelity-installer-continue-disabled", "Continue")
+                    .style(ButtonStyle::InstallerContinue)
+                    .default_button(true)
+                    .disabled(true)
+                    .into_any_element(),
+            ))
+            .child(cell(
+                "Reference comparison on #EDEDED",
+                div()
+                    .bg(gpui::rgb(0xededed))
+                    .p(px(10.))
+                    .child(
+                        Button::new("fidelity-installer-continue-reference", "Continue")
+                            .style(ButtonStyle::InstallerContinue)
+                            .default_button(true)
+                            .throb(false)
+                            .into_any_element(),
+                    )
+                    .into_any_element(),
+            ));
         let popups = div()
             .flex()
             .flex_wrap()
@@ -2754,7 +2802,8 @@ impl Render for Gallery {
                                             .flex_col()
                                             .gap(px(16.))
                                             .child(buttons)
-                                            .child(push_styles),
+                                            .child(push_styles)
+                                            .child(installer_continue),
                                     ))
                                     .child(section(
                                         "Pop-ups and combo boxes",
