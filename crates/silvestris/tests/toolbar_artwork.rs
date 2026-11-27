@@ -113,7 +113,11 @@ fn draw(cx: &mut VisualTestContext) {
 fn setup(
     app: &mut TestAppContext,
     mode: ToolbarDisplayMode,
-) -> (Rc<Cell<usize>>, &mut VisualTestContext) {
+) -> (
+    Rc<Cell<usize>>,
+    Entity<CommandRegistry>,
+    &mut VisualTestContext,
+) {
     app.update(|cx| {
         silvestris::theme::install(ThemePreference::explicit(ThemeId::AQUA_LIGHT), cx);
         cx.bind_keys([
@@ -123,7 +127,7 @@ fn setup(
     });
     let hits = Rc::new(Cell::new(0));
     let hit_count = hits.clone();
-    let (_view, cx) = app.add_window_view(move |_, cx| {
+    let (view, cx) = app.add_window_view(move |_, cx| {
         let registry = cx.new(|_| CommandRegistry::default());
         for (id, label, enabled, checked) in [
             ("test.pictorial", "New", true, false),
@@ -152,7 +156,8 @@ fn setup(
         Host { registry, mode }
     });
     draw(cx);
-    (hits, cx)
+    let registry = cx.update(|_, cx| view.read(cx).registry.clone());
+    (hits, registry, cx)
 }
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
@@ -166,7 +171,7 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
 #[test]
 fn pictorial_icon_and_label_geometry_is_stacked_and_centred() {
     let mut app = TestAppContext::single();
-    let (_hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (_hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     let item = cx.debug_bounds("pictorial").expect("pictorial item");
     let icon = cx
         .debug_bounds("pictorial-icon")
@@ -193,17 +198,17 @@ fn pictorial_icon_and_label_geometry_is_stacked_and_centred() {
 #[test]
 fn display_modes_switch_the_pictorial_presentation() {
     let mut app = TestAppContext::single();
-    let (_hits, cx) = setup(&mut app, ToolbarDisplayMode::IconOnly);
+    let (_hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconOnly);
     assert!(cx.debug_bounds("pictorial-icon").is_some());
     assert!(cx.debug_bounds("pictorial-label").is_none());
 
     let mut app = TestAppContext::single();
-    let (_hits, cx) = setup(&mut app, ToolbarDisplayMode::TextOnly);
+    let (_hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::TextOnly);
     assert!(cx.debug_bounds("pictorial-icon").is_none());
     assert!(cx.debug_bounds("pictorial-label").is_some());
 
     let mut app = TestAppContext::single();
-    let (_hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (_hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     assert!(cx.debug_bounds("pictorial-icon").is_some());
     assert!(cx.debug_bounds("pictorial-label").is_some());
 }
@@ -211,7 +216,7 @@ fn display_modes_switch_the_pictorial_presentation() {
 #[test]
 fn global_and_consumer_artwork_dispatch_the_same_commands() {
     let mut app = TestAppContext::single();
-    let (hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     click(cx, "pictorial");
     assert_eq!(hits.get(), 1, "global pictorial command");
     click(cx, "pictorial-consumer");
@@ -227,7 +232,7 @@ fn global_and_consumer_artwork_dispatch_the_same_commands() {
 #[test]
 fn space_activates_a_focused_pictorial_command() {
     let mut app = TestAppContext::single();
-    let (hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     let bounds = cx.debug_bounds("pictorial").expect("pictorial item");
     cx.simulate_click(bounds.center(), Modifiers::default());
     draw(cx);
@@ -243,7 +248,7 @@ fn space_activates_a_focused_pictorial_command() {
 #[test]
 fn a_checked_pictorial_toggle_dispatches_like_any_command() {
     let mut app = TestAppContext::single();
-    let (hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     assert!(cx.debug_bounds("checked").is_some());
     click(cx, "checked");
     assert_eq!(hits.get(), 1, "checked pictorial toggle dispatches");
@@ -252,7 +257,7 @@ fn a_checked_pictorial_toggle_dispatches_like_any_command() {
 #[test]
 fn overflow_uses_the_pictorial_command_label_and_dispatches() {
     let mut app = TestAppContext::single();
-    let (hits, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    let (hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
     cx.simulate_resize(size(px(150.), px(480.)));
     draw(cx);
     assert!(cx.debug_bounds("toolbar-overflow").is_some());
@@ -327,4 +332,45 @@ fn consumer_glyphs_render_in_a_toolbar_segmented_control() {
     cx.simulate_click(primary.center(), Modifiers::default());
     draw(cx);
     assert_eq!(selections.get(), 2);
+}
+
+#[test]
+fn a_disabled_pictorial_command_re_enables_through_the_registry() {
+    let mut app = TestAppContext::single();
+    let (hits, registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    click(cx, "unavailable");
+    assert_eq!(hits.get(), 0, "disabled command is inert");
+    cx.update(|_, cx| {
+        registry.update(cx, |registry, cx| {
+            registry
+                .publish(
+                    CommandDescriptor::action("test.unavailable", "Unavailable"),
+                    cx,
+                )
+                .expect("publish enabled state");
+        });
+    });
+    draw(cx);
+    click(cx, "unavailable");
+    assert_eq!(hits.get(), 1, "re-enabled command dispatches");
+}
+
+#[test]
+fn tab_moves_focus_between_pictorial_commands_and_space_activates_the_next() {
+    let mut app = TestAppContext::single();
+    let (hits, _registry, cx) = setup(&mut app, ToolbarDisplayMode::IconAndLabel);
+    click(cx, "stop");
+    assert_eq!(hits.get(), 1, "pointer focuses and activates Stop");
+    cx.simulate_keystrokes("tab");
+    draw(cx);
+    cx.simulate_keystrokes("space");
+    cx.simulate_event(gpui::KeyUpEvent {
+        keystroke: gpui::Keystroke::parse("space").expect("space key"),
+    });
+    draw(cx);
+    assert_eq!(
+        hits.get(),
+        2,
+        "Tab reaches the next pictorial control and Space activates it"
+    );
 }
