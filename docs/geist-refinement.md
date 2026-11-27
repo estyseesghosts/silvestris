@@ -257,3 +257,41 @@ host and are a documented verification limitation, not a passing gate.
   and reported by `tools/metrology/gate.py`. Aqua differences are reported as
   forbidden; Geist differences are reported as awaiting review. Final golden
   acceptance is deliberately left to the user after visual inspection.
+
+## Consumer integration and retained differences
+
+Lotus, Pain and Chaus are separate repositories and are not present in this
+workspace, so no consumer was built or modified. Their integration contract is
+unchanged: they continue to call `silvestris::init`, compose windows through
+`chrome`, and supply `ConsumerArtwork`/`ConsumerTemplateImage`. To use the new
+pictograms a consumer maps its own category names to `GeistPictogram` roles in
+its own code; no application name is recognised by Silvestris. A consumer with
+a fixed-height preferences window can opt into the Geist scrollbar with
+`pane_viewport_with_scroll`; consumers that already pass their own scroll
+handle keep their current behaviour. Font overrides still work globally and
+per `ThemeId`.
+
+Intentional differences from Vercel's web design system: this is a presentation
+theme for the 2009 HIG window roles, preferences navigation, toolbar structure,
+source-list hierarchy, menu behaviour and responder chain. Compact 13 px
+interface text, 28 px source rows and 24 px table rows stay. No React
+components, web layout patterns, CSS theming engine or web scrollbar is used.
+The Geist colours are the documented Silvestris adaptation, not every Vercel
+token. Geist Mono remains for genuinely monospaced content.
+
+## Task status and remaining checks
+
+Tasks 1–21, 23–25 and the toolkit portion of 26 are implemented. Task 22's
+native corner defect could not be reproduced or captured here: the headless
+capture path has no DWM compositor. The code keeps Aqua's native frame path,
+requests `DWMWCP_ROUNDSMALL` for Geist, and matches the GPUI root radius to
+`metrics.window_radius`; interactive Windows 11 corner captures remain an
+open verification item. Final golden acceptance (Task 27) is intentionally
+deferred until the user reviews the candidate Geist images. No Aqua golden was
+regenerated or accepted.
+
+The palette is built when a theme resolves, not on each component render.
+Pictogram geometry is static and generated at development time. Flat paint
+paths add no offscreen textures or animation loops. Theme switching refreshes
+windows without rebuilding views; the added tests cover focus, field contents
+and scroll position across switches.
