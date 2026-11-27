@@ -93,6 +93,41 @@ Required items ignore a hidden entry, so a stored layout cannot remove a fixed
 command. `.customizable(false)` fixes the composition; `PreferencesToolbar` is
 the canonical fixed host.
 
+Toolbar artwork keeps four combinations separate. `ToolbarGlyph` is
+`Silvestris(TemplateImage)` or `Consumer(ConsumerTemplateImage)` and is the only
+glyph accepted by rectangular/capsule commands, pop-downs and segmented
+controls. `ToolbarPictorial` is `Silvestris(PictorialImage)` or
+`Consumer(ConsumerArtwork)` and is accepted only by standalone pictorial
+commands. Passing a 32 px colour artwork into a 19 px textured slot is not
+expressible. `FileArtwork` remains a separate file-panel vocabulary.
+
+```rust
+let items = vec![
+    ToolbarItem::pictorial_command("new", "New", "file.new", PictorialImage::New),
+    ToolbarItem::command("stop", "Stop", "task.stop").image(TemplateImage::Stop),
+    ToolbarItem::command("details", "Details", "view.details")
+        .glyph(ToolbarGlyph::Consumer(my_glyph())),
+];
+```
+
+`ToolbarIconButton` (the pictorial path) renders the fixed 32 px artwork with
+the external label centred below it in Icon & Label, hides the label in Icon
+Only and omits the art in Text Only. It paints no bezel at rest, keeps Tab focus
+and Space activation, announces the checked state, and occludes the titlebar
+drag area like every other toolbar control. `ConsumerTemplateImage` receives
+the control's ink in a fixed 19/13 px slot; it must not choose a colour.
+`ConsumerArtwork::with_state` receives `PictorialState` for application-drawn
+pictorial art.
+
+| | Silvestris-provided | Application-provided |
+|---|---|---|
+| Monochrome/template | `TemplateImage` | `ConsumerTemplateImage` |
+| Full-colour/pictorial | `PictorialImage` | `ConsumerArtwork` |
+
+Only the monochrome column is valid in textured/capsule and segmented slots;
+only the colour row is valid in the standalone 32 px icon-button slot.
+`FileArtwork` is a third, separate vocabulary.
+
 Build a bottom bar from status values, fixed/flexible spaces, and small
 rectangular or square gradient controls, then mount it through
 `WindowFrame::bottom_bar_component`. A bottom bar is not a second toolbar:

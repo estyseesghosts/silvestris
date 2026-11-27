@@ -116,7 +116,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Window frame | `WindowFrame`, `WindowRole`, `RoleSpec`, `FrameCapabilities` | functional | four | `window-frame` | #20 |
-| Toolbar | `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode, ToolbarItemStyle, ToolbarLayout, ToolbarStore, MemoryToolbars, ToolbarPalette, ToolbarItemDrag}` | functional | four | `toolbar-rectangular`, `toolbar-capsule`, `toolbar-disabled`, `toolbar-icon-only`, `toolbar-text-only` | #26 |
+| Toolbar | `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode, ToolbarItemStyle, ToolbarLayout, ToolbarStore, MemoryToolbars, ToolbarPalette, ToolbarItemDrag, ToolbarGlyph, ToolbarPictorial, ToolbarIconButton, SEARCH_WIDTH}` | functional | four | `toolbar-rectangular`, `toolbar-capsule`, `toolbar-disabled`, `toolbar-icon-only`, `toolbar-text-only`, `toolbar-artwork-matrix`, `toolbar-artwork-states`, `toolbar-composition` | #26 |
 | Bottom bar | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus, BottomBarSize, BottomBarControlStyle}` | provisional | four | `bottom-bar-regular`, `bottom-bar-small` | #75 |
 | Shell layout | `Shell`, `ShellContent` | functional | four | — | #13 |
 | Forms | `Form`, `FormRow`, `FormRowState` | functional | four | `preferences-general` | #54 |
@@ -146,7 +146,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Modal sessions | `modal::ModalSession`, `ModalScope`, `ModalResult`; `ConfirmationFocus` | functional | four | — | #21 |
 | Drag and drop | `drag::{DragSession, DragOperation, DragImage, DropTarget, DropTargets, DropFeedback, Insertion, DragPhase, DropResult, Autoscroll}` | provisional | — | — | #36 |
 | Undo and redo | `undo::UndoManager`, `TextHistory`, `undo::entry` | functional | four | — | #39 |
-| System images and icons | `sprites`; `icons::FileArtwork`, `TemplateImage`, `ConsumerArtwork` | functional | four | `artwork-file-states`, `artwork-template-states`, `artwork-consumer` | #48 |
+| System images and icons | `sprites`; `icons::{FileArtwork, TemplateImage, PictorialImage, ConsumerArtwork, ConsumerTemplateImage, PictorialState}` | functional | four | `artwork-file-states`, `artwork-template-states`, `artwork-consumer`, `toolbar-artwork-matrix`, `toolbar-artwork-states` | #48 |
 | Cursors | GPUI cursor styles | provisional | four | — | #48 |
 
 ## Active, inactive and focus audit
@@ -187,3 +187,4 @@ commit that adds the control. A row is `functional` only when the gallery
 shows the control and a test covers its behaviour. A control that exists but
 is absent from the gallery, or has no test, stays `provisional`, which is a
 reminder rather than a claim of completeness.
+

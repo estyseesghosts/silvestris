@@ -92,7 +92,23 @@ repeated here; they are listed in place next to the token.
   measured hosts (small textured buttons, the group border and the standard
   toolbar height) and is meant to sit inside the consumer's own customization
   surface. Drag-out removal uses the palette's explicit remove target instead
-  of a smoke/poof animation, which the corpus does not measure.
+  of a smoke/poof animation, which the corpus does not measure. The palette
+  keeps textual labelled chips for pictorial items instead of a second 32 px
+  artwork preview; the measured chip geometry has no room for the pictorial
+  slot and mixing artwork and text previews would be inconsistent.
+- Standalone toolbar icon buttons have no measured 10.6 capture. The 32×32 px
+  image and the ≥10 px hit-target margin come from HIG p. 270; the label row is
+  the remainder of the measured 49 px labelled toolbar under the fixed 32 px
+  image (49 − 32 = 17 px), so the artwork is top-aligned rather than stretched.
+  Pressed artwork darkens by 12%, keyboard focus uses the measured
+  `textured_radius` focus ring, and the selected toggle reuses the measured
+  textured selected bevel behind the pictorial item. Those three treatments are
+  estimates recorded here; the HIG leaves icon-button pressed/selected artwork
+  unquantified.
+- The toolbar search item uses the measured 108 px search-field width from the
+  Open/Save panel (`file_panel::chrome::SEARCH_WIDTH`). No separate 10.6 toolbar
+  search-field capture is indexed, so the toolbar reuses that measured width
+  rather than deriving one from text.
 - Toolbar rectangular/textured is the default, with capsule style available as
   an explicit item choice. The HIG recommends consistency within a toolbar;
   exact 10.6 toolbar height/bezel measurements still come from captures, not
@@ -103,6 +119,17 @@ repeated here; they are listed in place next to the token.
   with approved original artwork before claiming fidelity. The host slots are
   the 19 px rectangular toolbar maximum (HIG p. 153) and the existing 13 px
   segmented-control slot.
+- `PictorialImage::{New, Open, Save, Preferences}` are original layered vector
+  compositions authored in `icons.rs` from the repository's own palette; no
+  Apple asset is sampled, traced or recoloured. Provenance is the source itself
+  and the repository licence applies. Their shared perspective, 32 px slot and
+  common disabled/inactive dimming follow HIG pp. 152-155; exact 10.6 pictorial
+  fidelity is not claimed.
+- The capture harness has no keyboard-input modality, so it cannot render a
+  visible keyboard focus ring or a pointer-pressed icon button. Scenario tests
+  cover Tab/Space activation, disables and overflow; the state page renders the
+  pressed artwork treatment directly, and the focus ring remains covered by the
+  control test rather than a golden.
 - Aqua Light pressed push button (`aqua_pressed` in aqua.rs): a per-channel
   linear map `pressed = a * default + b` fitted from the default to the
   pressed bevel in the post-10.6 capture "Screenshot 2026-11-19 020811.png",

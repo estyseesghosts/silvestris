@@ -1078,6 +1078,10 @@ impl ToolbarIconButton {
 const ICON_BUTTON_MARGIN: f32 = 10.0;
 /// HIG p. 270: standalone toolbar icon buttons use a 32×32 px image.
 const ICON_BUTTON_SLOT: f32 = 32.0;
+/// A toolbar search field uses the measured 10.6 search-field width from the
+/// Open/Save panel (`file_panel::chrome::SEARCH_WIDTH`); toolbar search itself
+/// has no separate capture, recorded in docs/exceptions.md.
+pub const SEARCH_WIDTH: f32 = 108.0;
 
 impl RenderOnce for ToolbarIconButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
@@ -1148,6 +1152,11 @@ impl RenderOnce for ToolbarIconButton {
             pressed: pressed.get(),
             selected: checked,
         };
+        let label_ink = if enabled && state.active_window {
+            theme.colors.text
+        } else {
+            theme.colors.text_disabled
+        };
         let artwork = self.artwork.element(state, window, cx);
         let selector = self.id.to_string();
         let icon_selector = format!("{selector}-icon");
@@ -1189,7 +1198,7 @@ impl RenderOnce for ToolbarIconButton {
             .when_some(tooltip, crate::controls::tooltip::attach)
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
-            .text_color(crate::convert::hsla(theme.colors.text))
+            .text_color(crate::convert::hsla(label_ink))
             .when(enabled, |el| el.track_focus(&focus))
             .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
                 if enabled {
@@ -1240,6 +1249,19 @@ impl RenderOnce for ToolbarIconButton {
                         }
                     }
                 })
+            })
+            .when(checked && enabled, |el| {
+                let selected = theme.controls.textured.selected;
+                el.child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            crate::paint::bevel(window, bounds, radius, &selected);
+                        },
+                    )
+                    .absolute()
+                    .inset_0(),
+                )
             })
             .when(self.show_icon, |el| {
                 el.child(
@@ -1714,7 +1736,11 @@ fn render_item(
                 field.set_label(item.label.clone(), cx);
                 field.set_search(true, cx);
             });
-            field.clone().into_any_element()
+            div()
+                .flex_none()
+                .w(px(SEARCH_WIDTH))
+                .child(field.clone())
+                .into_any_element()
         }
         ToolbarItemKind::Group(items) => {
             let mut group = div().flex().flex_none().items_center().gap(px(8.0));

@@ -24,6 +24,7 @@ use silvestris::controls::{
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
+use silvestris::icons::{ConsumerArtwork, ConsumerTemplateImage, PictorialImage, TemplateImage};
 use silvestris::menu::PopupMenu;
 use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
 use silvestris::preferences::{
@@ -34,8 +35,8 @@ use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
 use silvestris::toolbar::{
-    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarLayout, ToolbarPalette,
-    ToolbarSegment,
+    Toolbar, ToolbarDisplayMode, ToolbarGlyph, ToolbarItem, ToolbarItemStyle, ToolbarLayout,
+    ToolbarPalette, ToolbarPictorial, ToolbarSegment,
 };
 use silvestris::transient::TransientLayer;
 use silvestris::window_role::FrameStore;
@@ -254,6 +255,7 @@ struct Gallery {
     last_click: gpui::SharedString,
     fields: Vec<Entity<TextField>>,
     toolbar_search: Entity<TextField>,
+    artwork_search: Entity<TextField>,
     composer: Entity<TextArea>,
     last_field: gpui::SharedString,
     combo: Entity<TextField>,
@@ -558,6 +560,7 @@ impl Gallery {
         let search = field("Search", "Search", window, cx);
         search.update(cx, |field, cx| field.set_search(true, cx));
         let toolbar_search = field("Toolbar Search", "Search", window, cx);
+        let artwork_search = field("Artwork Search", "Search", window, cx);
         let combo = field("Location", "Location", window, cx);
         let mut collection =
             silvestris::core::source_list::SourceNode::new("collection", "Collection");
@@ -718,6 +721,25 @@ impl Gallery {
                     cx,
                 )
                 .unwrap()
+        });
+        commands.update(cx, |registry, cx| {
+            for (id, label, checked) in [
+                ("gallery.new", "New", false),
+                ("gallery.stop", "Stop", false),
+                ("gallery.details", "Details", true),
+                ("gallery.primary", "Primary", false),
+                ("gallery.info", "Info", false),
+                ("gallery.glyph", "Details", false),
+            ] {
+                let descriptor = if checked {
+                    CommandDescriptor::toggle(id, label, true)
+                } else {
+                    CommandDescriptor::action(id, label)
+                };
+                registry
+                    .register(descriptor, |_, _, _| {}, cx)
+                    .expect("unique gallery command");
+            }
         });
         commands.update(cx, |registry, cx| {
             // Demonstrates the mixed (dash) menu state, HIG pp. 170-171.
@@ -1019,6 +1041,7 @@ impl Gallery {
             last_click: "none".into(),
             fields: vec![name, password, small, disabled, search],
             toolbar_search,
+            artwork_search,
             composer,
             combo,
             radio: 0,
@@ -2112,6 +2135,149 @@ impl Render for Gallery {
                         ))
                         .into_any_element()
                 },
+            ))
+            .child(cell(
+                "Toolbar artwork: Silvestris/consumer templates and pictorial artwork",
+                {
+                    let height = theme.metrics.toolbar_labelled_height;
+                    let glyph = ConsumerTemplateImage::new("Details", |bounds, ink, window| {
+                        let unit = bounds.size.width.as_f32() / 16.0;
+                        let at = |x: f32, y: f32| {
+                            gpui::point(
+                                bounds.origin.x + px(x * unit),
+                                bounds.origin.y + px(y * unit),
+                            )
+                        };
+                        let mut bar = |x: f32, y: f32, w: f32, h: f32| {
+                            window.paint_quad(gpui::fill(
+                                gpui::Bounds::new(
+                                    at(x, y),
+                                    size(px(w * unit), px(h * unit)),
+                                ),
+                                silvestris::convert::hsla(ink),
+                            ));
+                        };
+                        bar(3.0, 4.0, 10.0, 2.0);
+                        bar(3.0, 8.0, 10.0, 2.0);
+                        bar(3.0, 12.0, 6.0, 2.0);
+                    });
+                    let artwork = ConsumerArtwork::with_state("Primary", |state, _, _| {
+                        let fill = if !state.enabled {
+                            0xa8b0b7
+                        } else if state.pressed {
+                            0x1f5f9e
+                        } else {
+                            0x3f8fcc
+                        };
+                        div()
+                            .size(px(32.))
+                            .rounded(px(7.))
+                            .bg(silvestris::convert::hsla(
+                                silvestris::core::Rgba8::hex(fill),
+                            ))
+                    });
+                    let strips = [
+                        ToolbarItem::command("gallery-art-template", "Stop", "gallery.stop")
+                            .image(TemplateImage::Stop),
+                        ToolbarItem::command("gallery-art-glyph", "Details", "gallery.glyph")
+                            .glyph(ToolbarGlyph::Consumer(glyph)),
+                        ToolbarItem::pictorial_command(
+                            "gallery-art-pictorial",
+                            "New",
+                            "gallery.new",
+                            PictorialImage::New,
+                        ),
+                        ToolbarItem::pictorial_command(
+                            "gallery-art-consumer",
+                            "Primary",
+                            "gallery.primary",
+                            ToolbarPictorial::from(artwork),
+                        ),
+                    ];
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(4.))
+                        .w_full()
+                        .children(strips.into_iter().enumerate().map(|(index, item)| {
+                            div().w_full().h(px(height)).child(
+                                Toolbar::new(
+                                    format!("gallery-artwork-{index}"),
+                                    "Artwork",
+                                    self.commands.clone(),
+                                    vec![item],
+                                )
+                                .display_mode(ToolbarDisplayMode::IconAndLabel),
+                            )
+                        }))
+                        .into_any_element()
+                },
+            ))
+            .child(cell(
+                "Toolbar composition: pictorial New, view switch, Details toggle, Sidebar/Inspector/Search",
+                div()
+                    .w_full()
+                    .h(px(theme.metrics.toolbar_labelled_height))
+                    .child(
+                        Toolbar::new(
+                            "gallery-artwork-composition",
+                            "Composition",
+                            self.commands.clone(),
+                            vec![
+                                ToolbarItem::pictorial_command(
+                                    "gallery-compose-new",
+                                    "New",
+                                    "gallery.new",
+                                    PictorialImage::New,
+                                ),
+                                ToolbarItem::command(
+                                    "gallery-compose-stop",
+                                    "Stop",
+                                    "gallery.stop",
+                                )
+                                .image(TemplateImage::Stop),
+                                ToolbarItem::flexible_space("gallery-compose-gap-a"),
+                                ToolbarItem::segmented(
+                                    "gallery-compose-view",
+                                    "View",
+                                    vec![
+                                        ToolbarSegment::new("primary", "Primary")
+                                            .image(TemplateImage::IconView),
+                                        ToolbarSegment::new("secondary", "Secondary")
+                                            .image(TemplateImage::ListView),
+                                    ],
+                                    None::<&str>,
+                                    |_, _, _| {},
+                                ),
+                                ToolbarItem::pictorial_toggle(
+                                    "gallery-compose-details",
+                                    "Details",
+                                    "gallery.details",
+                                    PictorialImage::Preferences,
+                                ),
+                                ToolbarItem::flexible_space("gallery-compose-gap-b"),
+                                ToolbarItem::command(
+                                    "gallery-compose-sidebar",
+                                    "Sidebar",
+                                    "view.sidebar",
+                                )
+                                .image(TemplateImage::Sidebar),
+                                ToolbarItem::command(
+                                    "gallery-compose-inspector",
+                                    "Inspector",
+                                    "gallery.info",
+                                )
+                                .image(TemplateImage::Inspector),
+                                ToolbarItem::search(
+                                    "gallery-compose-search",
+                                    "Search",
+                                    self.artwork_search.clone(),
+                                ),
+                            ],
+                        )
+                        .display_mode(ToolbarDisplayMode::IconAndLabel),
+                    )
+                    .into_any_element(),
             ))
             .child(cell(
                 "File panels: an Untitled document with File > Save As (sheet) and File > Open",

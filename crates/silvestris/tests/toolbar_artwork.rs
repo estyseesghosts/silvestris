@@ -174,6 +174,10 @@ fn pictorial_icon_and_label_geometry_is_stacked_and_centred() {
     let label = cx.debug_bounds("pictorial-label").expect("pictorial label");
     assert!((icon.center().x - item.center().x).as_f32().abs() <= 0.5);
     assert!(
+        (label.center().x - icon.center().x).as_f32().abs() <= 1.0,
+        "label horizontally centred under the artwork"
+    );
+    assert!(
         label.origin.y >= icon.bottom() - px(0.5),
         "label below artwork"
     );

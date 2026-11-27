@@ -13,8 +13,8 @@
 use std::path::{Path, PathBuf};
 
 use gpui::{
-    deferred, div, point, prelude::*, px, size, App, Bounds, Context, Entity, Render, SharedString,
-    Window,
+    deferred, div, point, prelude::*, px, size, AnyElement, App, Bounds, Context, Entity, Render,
+    SharedString, Window,
 };
 use silvestris::binding::ListController;
 use silvestris::bottom_bar::{
@@ -38,7 +38,8 @@ use silvestris::file_panel::{
     PlaceSection,
 };
 use silvestris::icons::{
-    ConsumerArtwork, FileArtwork, FileIconState, Icon, TemplateImage, TemplateImageSlot,
+    ConsumerArtwork, ConsumerTemplateImage, FileArtwork, FileIconState, Icon, PictorialImage,
+    PictorialState, TemplateImage, TemplateImageSlot,
 };
 use silvestris::menu::PopupMenu;
 use silvestris::preferences::{
@@ -46,7 +47,8 @@ use silvestris::preferences::{
 };
 use silvestris::split::SplitView;
 use silvestris::toolbar::{
-    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarLayout, ToolbarPalette,
+    Toolbar, ToolbarDisplayMode, ToolbarGlyph, ToolbarItem, ToolbarItemStyle, ToolbarLayout,
+    ToolbarPalette, ToolbarPictorial, ToolbarSegment,
 };
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
@@ -474,6 +476,27 @@ const ACTION_SAMPLES: [Sample; 1] = [Sample {
     height: 260.,
 }];
 
+/// The toolbar artwork matrix, its state row, and one generic Sandcat-shaped
+/// composition. Each gets its own page after the action page so existing
+/// sample positions do not move.
+const TOOLBAR_SAMPLES: [Sample; 3] = [
+    Sample {
+        id: "toolbar-artwork-matrix",
+        width: 760.,
+        height: 300.,
+    },
+    Sample {
+        id: "toolbar-artwork-states",
+        width: 700.,
+        height: 230.,
+    },
+    Sample {
+        id: "toolbar-composition",
+        width: 900.,
+        height: 150.,
+    },
+];
+
 fn menu_page() -> usize {
     SAMPLES.len().div_ceil(PAGE_SIZE)
 }
@@ -526,6 +549,18 @@ fn action_index(page: usize) -> usize {
     page - action_page_start()
 }
 
+fn toolbar_page_start() -> usize {
+    action_page_start() + ACTION_SAMPLES.len()
+}
+
+fn on_toolbar_page(page: usize) -> bool {
+    (toolbar_page_start()..toolbar_page_start() + TOOLBAR_SAMPLES.len()).contains(&page)
+}
+
+fn toolbar_index(page: usize) -> usize {
+    page - toolbar_page_start()
+}
+
 fn rows(page: usize) -> usize {
     page_samples(page).len().div_ceil(COLUMNS)
 }
@@ -549,6 +584,10 @@ fn page_samples(page: usize) -> &'static [Sample] {
     if on_action_page(page) {
         let index = action_index(page);
         return &ACTION_SAMPLES[index..index + 1];
+    }
+    if on_toolbar_page(page) {
+        let index = toolbar_index(page);
+        return &TOOLBAR_SAMPLES[index..index + 1];
     }
     let start = (page * PAGE_SIZE).min(SAMPLES.len());
     let end = (start + PAGE_SIZE).min(SAMPLES.len());
@@ -575,6 +614,10 @@ fn root_size(page: usize) -> (f32, f32) {
     }
     if on_action_page(page) {
         let sample = &ACTION_SAMPLES[action_index(page)];
+        return (PAD + sample.width + PAD, PAD + sample.height + PAD);
+    }
+    if on_toolbar_page(page) {
+        let sample = &TOOLBAR_SAMPLES[toolbar_index(page)];
         return (PAD + sample.width + PAD, PAD + sample.height + PAD);
     }
     (
@@ -611,6 +654,10 @@ fn sample_rects(page: usize) -> Vec<(&'static str, f32, f32, f32, f32)> {
         let sample = &ACTION_SAMPLES[action_index(page)];
         return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
     }
+    if on_toolbar_page(page) {
+        let sample = &TOOLBAR_SAMPLES[toolbar_index(page)];
+        return vec![(sample.id, PAD, PAD, sample.width, sample.height)];
+    }
     let samples = page_samples(page);
     let mut rects = Vec::with_capacity(samples.len());
     for (i, sample) in samples.iter().enumerate() {
@@ -635,6 +682,7 @@ struct CaptureView {
     panels: Vec<Entity<FilePanel>>,
     menus: Vec<Entity<PopupMenu>>,
     toolbar_commands: Entity<CommandRegistry>,
+    toolbar_field: Entity<TextField>,
     // Finder content white under the Arrange By menu.
     content: silvestris::core::Rgba8,
     row_alternate: silvestris::core::Rgba8,
@@ -651,6 +699,8 @@ impl CaptureView {
     ) -> Self {
         let field = cx.new(|cx| TextField::new(window, cx));
         field.update(cx, |field, cx| field.set_text("Snow Leopard", cx));
+        let toolbar_field = cx.new(|cx| TextField::new(window, cx));
+        toolbar_field.update(cx, |field, cx| field.set_placeholder("Search", cx));
         let toolbar_commands = cx.new(|_| CommandRegistry::default());
         for (id, label, enabled, checked) in [
             ("golden.sidebar", "Sidebar", true, true),
@@ -659,6 +709,12 @@ impl CaptureView {
             ("golden.disabled", "Unavailable", false, false),
             ("golden.add", "Add", true, false),
             ("golden.remove", "Remove", true, false),
+            ("golden.new", "New", true, false),
+            ("golden.stop", "Stop", true, false),
+            ("golden.details", "Details", true, true),
+            ("golden.primary", "Primary", true, false),
+            ("golden.glyph", "Details", true, false),
+            ("golden.secondary", "Secondary", true, false),
         ] {
             toolbar_commands.update(cx, |registry, cx| {
                 let descriptor = if checked {
@@ -901,6 +957,7 @@ impl CaptureView {
             panels,
             menus,
             toolbar_commands,
+            toolbar_field,
             content: cx.theme().colors.content,
             row_alternate: cx.theme().colors.row_alternate,
             page,
@@ -1443,6 +1500,16 @@ impl CaptureView {
             "action-menu-scope-bar" => {
                 action_scope_sample(&self.toolbar_commands, cx).into_any_element()
             }
+            "toolbar-artwork-matrix" => {
+                toolbar_artwork_matrix(&self.toolbar_commands, cx).into_any_element()
+            }
+            "toolbar-artwork-states" => {
+                toolbar_artwork_states(&self.toolbar_commands, window, cx).into_any_element()
+            }
+            "toolbar-composition" => {
+                toolbar_composition(&self.toolbar_commands, &self.toolbar_field, cx)
+                    .into_any_element()
+            }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
             "source-list-secondary" => self.secondary.clone().into_any_element(),
@@ -1687,6 +1754,332 @@ fn action_scope_sample(registry: &Entity<CommandRegistry>, cx: &App) -> impl Int
                     layout,
                 ))
         })
+}
+
+/// Application-provided monochrome silhouette: two bars and a dot, painted
+/// with the host's ink. Original fixture art, not a system-image substitute.
+fn capture_consumer_glyph() -> ConsumerTemplateImage {
+    ConsumerTemplateImage::new("Details", |bounds, ink, window| {
+        let unit = bounds.size.width.as_f32() / 16.0;
+        let at = |x: f32, y: f32| {
+            gpui::point(
+                bounds.origin.x + px(x * unit),
+                bounds.origin.y + px(y * unit),
+            )
+        };
+        let mut bar = |x: f32, y: f32, w: f32, h: f32| {
+            window.paint_quad(gpui::fill(
+                gpui::Bounds::new(at(x, y), gpui::size(px(w * unit), px(h * unit))),
+                silvestris::convert::hsla(ink),
+            ));
+        };
+        bar(3.0, 4.0, 10.0, 2.0);
+        bar(3.0, 8.0, 10.0, 2.0);
+        bar(3.0, 12.0, 6.0, 2.0);
+    })
+}
+
+/// Application-provided pictorial artwork with state-aware treatment.
+fn capture_consumer_artwork() -> ConsumerArtwork {
+    ConsumerArtwork::with_state("Primary", |state, _, _| {
+        let fill = if !state.enabled {
+            0xa8b0b7
+        } else if !state.active_window {
+            0xbcc4ca
+        } else if state.pressed {
+            0x1f5f9e
+        } else {
+            0x3f8fcc
+        };
+        div()
+            .size(px(32.))
+            .rounded(px(7.))
+            .bg(silvestris::convert::hsla(silvestris::core::Rgba8::hex(
+                fill,
+            )))
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(div().w(px(14.)).h(px(4.)).bg(silvestris::convert::hsla(
+                silvestris::core::Rgba8::hex(0xf7fbff),
+            )))
+    })
+}
+
+fn toolbar_strip(
+    id: String,
+    label: &'static str,
+    item: ToolbarItem,
+    mode: ToolbarDisplayMode,
+    width: f32,
+    registry: &Entity<CommandRegistry>,
+    cx: &App,
+) -> AnyElement {
+    let height = if mode == ToolbarDisplayMode::IconOnly {
+        cx.theme().metrics.toolbar_height
+    } else {
+        cx.theme().metrics.toolbar_labelled_height
+    };
+    div()
+        .w(px(width))
+        .h(px(height))
+        .child(
+            Toolbar::new(SharedString::from(id), label, registry.clone(), vec![item])
+                .display_mode(mode),
+        )
+        .into_any_element()
+}
+
+fn toolbar_artwork_matrix(registry: &Entity<CommandRegistry>, cx: &App) -> impl IntoElement {
+    let theme = cx.theme().clone();
+    let caption = |text: &'static str| {
+        div()
+            .h(px(16.))
+            .text_size(px(theme.type_.size_small))
+            .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+            .child(text)
+    };
+    let row = |row_id: &'static str,
+               caption_text: &'static str,
+               make: &dyn Fn() -> ToolbarItem,
+               registry: &Entity<CommandRegistry>,
+               cx: &App| {
+        div()
+            .flex()
+            .items_center()
+            .gap(px(8.))
+            .child(div().w(px(150.)).child(caption(caption_text)))
+            .child(toolbar_strip(
+                format!("{row_id}-icon"),
+                caption_text,
+                make(),
+                ToolbarDisplayMode::IconOnly,
+                120.,
+                registry,
+                cx,
+            ))
+            .child(toolbar_strip(
+                format!("{row_id}-label"),
+                caption_text,
+                make(),
+                ToolbarDisplayMode::IconAndLabel,
+                200.,
+                registry,
+                cx,
+            ))
+            .child(toolbar_strip(
+                format!("{row_id}-text"),
+                caption_text,
+                make(),
+                ToolbarDisplayMode::TextOnly,
+                130.,
+                registry,
+                cx,
+            ))
+    };
+    let stop =
+        || ToolbarItem::command("matrix-stop", "Stop", "golden.stop").image(TemplateImage::Stop);
+    let details = || {
+        ToolbarItem::command("matrix-details", "Details", "golden.glyph")
+            .glyph(ToolbarGlyph::Consumer(capture_consumer_glyph()))
+    };
+    let new =
+        || ToolbarItem::pictorial_command("matrix-new", "New", "golden.new", PictorialImage::New);
+    let primary = || {
+        ToolbarItem::pictorial_command(
+            "matrix-primary",
+            "Primary",
+            "golden.primary",
+            ToolbarPictorial::from(capture_consumer_artwork()),
+        )
+    };
+    div()
+        .size_full()
+        .p(px(16.))
+        .flex()
+        .flex_col()
+        .gap(px(8.))
+        .child(
+            div()
+                .flex()
+                .gap(px(8.))
+                .child(div().w(px(150.)).child(caption("Artwork")))
+                .child(div().w(px(120.)).child(caption("Icon Only")))
+                .child(div().w(px(200.)).child(caption("Icon & Label")))
+                .child(div().w(px(130.)).child(caption("Text Only"))),
+        )
+        .child(row(
+            "row-template",
+            "Silvestris template",
+            &stop,
+            registry,
+            cx,
+        ))
+        .child(row(
+            "row-consumer-template",
+            "Consumer template",
+            &details,
+            registry,
+            cx,
+        ))
+        .child(row(
+            "row-pictorial",
+            "Silvestris pictorial",
+            &new,
+            registry,
+            cx,
+        ))
+        .child(row(
+            "row-consumer-pictorial",
+            "Consumer pictorial",
+            &primary,
+            registry,
+            cx,
+        ))
+}
+
+fn toolbar_artwork_states(
+    registry: &Entity<CommandRegistry>,
+    window: &mut Window,
+    cx: &mut App,
+) -> impl IntoElement {
+    let theme = cx.theme().clone();
+    let caption = |text: &'static str| {
+        div()
+            .h(px(16.))
+            .text_size(px(theme.type_.size_small))
+            .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+            .child(text)
+    };
+    let states = [
+        ("Normal", PictorialState::normal()),
+        ("Disabled", PictorialState::disabled()),
+        ("Inactive", PictorialState::inactive()),
+        (
+            "Pressed",
+            PictorialState {
+                pressed: true,
+                ..PictorialState::normal()
+            },
+        ),
+    ];
+    let global = states.iter().map(|(name, state)| {
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(6.))
+            .child(div().h(px(32.)).child(PictorialImage::New.element(*state)))
+            .child(caption(name))
+    });
+    let consumer = states.iter().map(|(name, state)| {
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(6.))
+            .child(
+                div()
+                    .h(px(32.))
+                    .child(capture_consumer_artwork().stateful_toolbar_element(*state, window, cx)),
+            )
+            .child(caption(name))
+    });
+    let items = vec![
+        ToolbarItem::pictorial_command(
+            "states-disabled",
+            "Unavailable",
+            "golden.disabled",
+            PictorialImage::Save,
+        )
+        .priority(9),
+        ToolbarItem::pictorial_toggle(
+            "states-checked",
+            "Details",
+            "golden.details",
+            PictorialImage::Preferences,
+        )
+        .priority(8),
+        ToolbarItem::command("states-glyph", "Glyph", "golden.glyph")
+            .glyph(ToolbarGlyph::Consumer(capture_consumer_glyph()))
+            .priority(7),
+        ToolbarItem::pictorial_command(
+            "states-consumer",
+            "Primary",
+            "golden.primary",
+            ToolbarPictorial::from(capture_consumer_artwork()),
+        )
+        .priority(6),
+    ];
+    div()
+        .size_full()
+        .p(px(16.))
+        .flex()
+        .flex_col()
+        .gap(px(12.))
+        .child(
+            div()
+                .flex()
+                .gap(px(24.))
+                .child(div().w(px(90.)).child(caption("Global pictorial")))
+                .children(global),
+        )
+        .child(
+            div()
+                .flex()
+                .gap(px(24.))
+                .child(div().w(px(90.)).child(caption("Consumer artwork")))
+                .children(consumer),
+        )
+        .child(
+            div().h(px(theme.metrics.toolbar_labelled_height)).child(
+                Toolbar::new("golden-state-toolbar", "States", registry.clone(), items)
+                    .display_mode(ToolbarDisplayMode::IconAndLabel),
+            ),
+        )
+}
+
+fn toolbar_composition(
+    registry: &Entity<CommandRegistry>,
+    field: &Entity<TextField>,
+    cx: &App,
+) -> impl IntoElement {
+    let toolbar = Toolbar::new(
+        "golden-composition-toolbar",
+        "Composition",
+        registry.clone(),
+        vec![
+            ToolbarItem::pictorial_command("compose-new", "New", "golden.new", PictorialImage::New),
+            ToolbarItem::command("compose-stop", "Stop", "golden.stop").image(TemplateImage::Stop),
+            ToolbarItem::flexible_space("compose-gap-a"),
+            ToolbarItem::segmented(
+                "compose-view",
+                "View",
+                vec![
+                    ToolbarSegment::new("primary", "Primary").image(TemplateImage::IconView),
+                    ToolbarSegment::new("secondary", "Secondary").image(TemplateImage::ListView),
+                ],
+                None::<&str>,
+                |_, _, _| {},
+            ),
+            ToolbarItem::pictorial_toggle(
+                "compose-details",
+                "Details",
+                "golden.details",
+                PictorialImage::Preferences,
+            ),
+            ToolbarItem::flexible_space("compose-gap-b"),
+            ToolbarItem::command("compose-sidebar", "Sidebar", "golden.sidebar")
+                .image(TemplateImage::Sidebar)
+                .toggle_help("Hide the sidebar", "Show the sidebar"),
+            ToolbarItem::command("compose-inspector", "Inspector", "golden.info")
+                .image(TemplateImage::Inspector),
+            ToolbarItem::search("compose-search", "Search", field.clone()),
+        ],
+    );
+    WindowFrame::new("Document")
+        .toolbar_component(toolbar, cx)
+        .child(div().size_full())
 }
 
 fn preferences_sample(

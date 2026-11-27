@@ -26,6 +26,16 @@ Action menus and scope bars (#46):
   optional items. Required items remain fixed; `PreferencesToolbar` is not
   customizable.
 
+Toolbar artwork matrix (#48): `ConsumerTemplateImage` paints application
+silhouettes with host ink in the fixed 19/13 px slots, `PictorialImage` adds
+four original 32 px pictorial roles, and `ConsumerArtwork::with_state` exposes
+`PictorialState`. `ToolbarGlyph`/`ToolbarPictorial` keep monochrome and
+pictorial artwork apart. `ToolbarIconButton` is the standalone pictorial
+presentation (32 px artwork, centred label below, no bezel at rest, selected
+bevel only when checked) with command state, Tab/Space, occlusion and focus
+ring. Segmented controls accept consumer glyphs, and the toolbar search item
+uses the measured 108 px search-field width.
+
 Finder content views (#33/#34/#35) and one file-view host:
 
 - `controls::OutlineView` (`OutlineRow`, `OutlineEvent`) renders a consumer's

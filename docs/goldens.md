@@ -17,7 +17,9 @@ regular and small families. Two preferences pages show the fitted pane and the
 pane that exceeds the fixed window. Two split-view pages show the vertical thin
 divider and the horizontal thick divider with its dimple. One action page shows
 the closed Action menu, command pop-down, small scope bar and the toolbar
-customization palette.
+customization palette. Three toolbar-artwork pages show the 2×2 artwork matrix
+in Icon Only / Icon & Label / Text Only, the artwork state row, and a generic
+pictorial-command composition.
 
 Committed:
 
