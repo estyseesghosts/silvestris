@@ -76,6 +76,23 @@ capsule treatment. Prefer a consistent bezel style within one toolbar. The
 display mode supports Icon Only, Icon & Label, and Text Only. Toolbar control
 spacing is 8 px.
 
+`ToolbarItem::search` is the single search-field host: the item sets the field's
+measured search presentation at render time, so the magnifier, rounded search
+bezel, clear action and search control metrics come from `TextField` rather than
+a painted toolbar text box. Give the search item the highest priority so it
+moves to overflow last.
+
+Customization is opt-in per item and per toolbar. Mark removable items with
+`.optional(true)`, pass a stored `ToolbarLayout` with `.layout(...)` (or
+`.autosave(store, key)`), and host `ToolbarPalette` in the application's
+customization surface. The palette toggles optional items, accepts a dragged
+item on its remove zone, and restores the declaration order with Default Set.
+Items drag within the toolbar to reorder; the insertion caret appears at the
+drop position. `ToolbarItemDrag { id, from_palette }` is the shared drag value.
+Required items ignore a hidden entry, so a stored layout cannot remove a fixed
+command. `.customizable(false)` fixes the composition; `PreferencesToolbar` is
+the canonical fixed host.
+
 Build a bottom bar from status values, fixed/flexible spaces, and small
 rectangular or square gradient controls, then mount it through
 `WindowFrame::bottom_bar_component`. A bottom bar is not a second toolbar:

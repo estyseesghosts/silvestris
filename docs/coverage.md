@@ -116,7 +116,7 @@ The matching 10.6 reference is `<id>.<state>` in `reference/crops.json`; see
 | Component | Silvestris | Status | Appearances | Golden | Issue |
 | --- | --- | --- | --- | --- | --- |
 | Window frame | `WindowFrame`, `WindowRole`, `RoleSpec`, `FrameCapabilities` | functional | four | `window-frame` | #20 |
-| Toolbar | `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode, ToolbarItemStyle}` | provisional | four | `toolbar-rectangular`, `toolbar-capsule`, `toolbar-disabled`, `toolbar-icon-only`, `toolbar-text-only` | #26 |
+| Toolbar | `toolbar::{Toolbar, ToolbarItem, ToolbarSegment, ToolbarDisplayMode, ToolbarItemStyle, ToolbarLayout, ToolbarStore, MemoryToolbars, ToolbarPalette, ToolbarItemDrag}` | functional | four | `toolbar-rectangular`, `toolbar-capsule`, `toolbar-disabled`, `toolbar-icon-only`, `toolbar-text-only` | #26 |
 | Bottom bar | `bottom_bar::{BottomBar, BottomBarItem, BottomBarStatus, BottomBarSize, BottomBarControlStyle}` | provisional | four | `bottom-bar-regular`, `bottom-bar-small` | #75 |
 | Shell layout | `Shell`, `ShellContent` | functional | four | — | #13 |
 | Forms | `Form`, `FormRow`, `FormRowState` | functional | four | `preferences-general` | #54 |

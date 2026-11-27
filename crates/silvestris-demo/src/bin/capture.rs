@@ -45,7 +45,9 @@ use silvestris::preferences::{
     pane_body, pane_viewport, Form, FormRow, PreferencesNavigator, PreferencesToolbar,
 };
 use silvestris::split::SplitView;
-use silvestris::toolbar::{Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle};
+use silvestris::toolbar::{
+    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarLayout, ToolbarPalette,
+};
 use silvestris::window_role::WindowRole;
 use silvestris::{ActiveTheme, ThemeId, ThemePreference};
 
@@ -469,7 +471,7 @@ const SPLIT_SAMPLES: [Sample; 2] = [
 const ACTION_SAMPLES: [Sample; 1] = [Sample {
     id: "action-menu-scope-bar",
     width: 460.,
-    height: 96.,
+    height: 260.,
 }];
 
 fn menu_page() -> usize {
@@ -1439,7 +1441,7 @@ impl CaptureView {
                     .into_any_element()
             }
             "action-menu-scope-bar" => {
-                action_scope_sample(&self.toolbar_commands).into_any_element()
+                action_scope_sample(&self.toolbar_commands, cx).into_any_element()
             }
             "text-field" => self.field.clone().into_any_element(),
             "source-list" => self.list.clone().into_any_element(),
@@ -1600,7 +1602,8 @@ fn split_sample(
     }
 }
 
-fn action_scope_sample(registry: &Entity<CommandRegistry>) -> impl IntoElement {
+fn action_scope_sample(registry: &Entity<CommandRegistry>, cx: &App) -> impl IntoElement {
+    let toolbar_height = cx.theme().metrics.toolbar_labelled_height;
     let menu = MenuModel {
         label: "Action".into(),
         entries: vec![
@@ -1648,6 +1651,42 @@ fn action_scope_sample(registry: &Entity<CommandRegistry>) -> impl IntoElement {
             .caption("Search:")
             .selected("all"),
         )
+        .child({
+            let items = vec![
+                ToolbarItem::command("golden-tb-add", "Add", "golden.add")
+                    .image(TemplateImage::Add),
+                ToolbarItem::command("golden-tb-remove", "Remove", "golden.remove")
+                    .image(TemplateImage::Remove)
+                    .optional(true),
+                ToolbarItem::command("golden-tb-info", "Info", "golden.info")
+                    .image(TemplateImage::Info)
+                    .optional(true),
+            ];
+            let layout = ToolbarLayout::default_for(&items);
+            div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(px(8.))
+                .child(
+                    div().w_full().h(px(toolbar_height)).child(
+                        Toolbar::new(
+                            "golden-custom-toolbar",
+                            "Custom",
+                            registry.clone(),
+                            items.clone(),
+                        )
+                        .layout(layout.clone())
+                        .display_mode(ToolbarDisplayMode::IconAndLabel),
+                    ),
+                )
+                .child(ToolbarPalette::new(
+                    "golden-palette",
+                    "Customize toolbar",
+                    items,
+                    layout,
+                ))
+        })
 }
 
 fn preferences_sample(

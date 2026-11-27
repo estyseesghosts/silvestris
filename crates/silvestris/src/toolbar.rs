@@ -24,14 +24,83 @@ use silvestris_core::{
     command::{CommandId, MenuEntry, MenuModel},
     layout::{fit_toolbar, ToolbarSlot},
 };
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, collections::HashMap, rc::Rc};
 
 type SegmentAction = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 type OverflowAction = (String, Rc<dyn Fn(&mut Window, &mut App)>);
+type LayoutAction = Rc<dyn Fn(ToolbarLayout, &mut Window, &mut App)>;
+type PaletteAction = Rc<dyn Fn(ToolbarLayout, &mut Window, &mut App)>;
+
+/// One toolbar's saved arrangement. `order` lists item ids left to right;
+/// `hidden` removes optional items; `mode` remembers the display mode when the
+/// user changed it.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ToolbarLayout {
+    pub order: Vec<String>,
+    pub hidden: Vec<String>,
+    pub mode: Option<ToolbarDisplayMode>,
+}
+
+impl ToolbarLayout {
+    /// The declared arrangement: every top-level item in declaration order,
+    /// nothing hidden, no display-mode override.
+    #[must_use]
+    pub fn default_for(items: &[ToolbarItem]) -> Self {
+        Self {
+            order: items.iter().map(|item| item.id.to_string()).collect(),
+            hidden: Vec::new(),
+            mode: None,
+        }
+    }
+
+    #[must_use]
+    pub fn shows(&self, id: &str) -> bool {
+        !self.hidden.iter().any(|hidden| hidden == id)
+    }
+}
+
+/// Saved toolbar arrangements by key. Put one field of this type in the
+/// application's preferences document.
+pub type SavedToolbars = BTreeMap<String, ToolbarLayout>;
+
+/// Where a toolbar reads and writes its arrangement.
+pub trait ToolbarStore {
+    fn load(&self, key: &str, cx: &App) -> Option<ToolbarLayout>;
+    fn save(&self, key: &str, layout: ToolbarLayout, cx: &mut App);
+    /// Restore the declared default set.
+    fn clear(&self, key: &str, cx: &mut App);
+}
+
+/// Keeps arrangements in memory: for tests and apps without a preference
+/// document.
+#[derive(Default)]
+pub struct MemoryToolbars {
+    layouts: RefCell<SavedToolbars>,
+}
+
+impl ToolbarStore for MemoryToolbars {
+    fn load(&self, key: &str, _: &App) -> Option<ToolbarLayout> {
+        self.layouts.borrow().get(key).cloned()
+    }
+    fn save(&self, key: &str, layout: ToolbarLayout, _: &mut App) {
+        self.layouts.borrow_mut().insert(key.to_string(), layout);
+    }
+    fn clear(&self, key: &str, _: &mut App) {
+        self.layouts.borrow_mut().remove(key);
+    }
+}
+
+/// The value a customizable toolbar item offers to GPUI's drag system. A
+/// palette item uses `from_palette` to add itself instead of moving.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolbarItemDrag {
+    pub id: SharedString,
+    pub from_palette: bool,
+}
 
 /// User-visible toolbar presentation. The host supplies its height from the
 /// active theme; item controls keep their standard control size.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ToolbarDisplayMode {
     /// Template images without visible labels.
     IconOnly,
@@ -124,6 +193,9 @@ pub struct ToolbarItem {
     label: SharedString,
     priority: u8,
     style: ToolbarItemStyle,
+    /// Whether user customization may hide this item. Required toolbar items
+    /// remain fixed and are not offered by the palette.
+    optional: bool,
     kind: ToolbarItemKind,
 }
 
@@ -139,6 +211,7 @@ impl ToolbarItem {
             label: label.into(),
             priority: 128,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::Command {
                 command: command.into(),
                 image: None,
@@ -182,6 +255,7 @@ impl ToolbarItem {
             label: label.into(),
             priority: 128,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::Segmented {
                 segments,
                 selected: selected.map(Into::into),
@@ -201,6 +275,7 @@ impl ToolbarItem {
             label: label.into(),
             priority: 128,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::PopDown { menu, image: None },
         }
     }
@@ -216,6 +291,7 @@ impl ToolbarItem {
             label: label.into(),
             priority: 255,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::Search(field),
         }
     }
@@ -231,6 +307,7 @@ impl ToolbarItem {
             label: label.into(),
             priority: 128,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::Group(items),
         }
     }
@@ -242,6 +319,7 @@ impl ToolbarItem {
             label: SharedString::default(),
             priority: 255,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::FixedSpace(width.max(0.0)),
         }
     }
@@ -253,6 +331,7 @@ impl ToolbarItem {
             label: SharedString::default(),
             priority: 255,
             style: ToolbarItemStyle::default(),
+            optional: false,
             kind: ToolbarItemKind::FlexibleSpace,
         }
     }
@@ -268,6 +347,18 @@ impl ToolbarItem {
     pub fn style(mut self, style: ToolbarItemStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Mark this item as optional: user customization may hide it, and the
+    /// customization palette offers it. Required items stay fixed.
+    pub fn optional(mut self, optional: bool) -> Self {
+        self.optional = optional;
+        self
+    }
+
+    #[must_use]
+    pub fn is_optional(&self) -> bool {
+        self.optional
     }
 
     /// Use a monochrome template image in the fixed toolbar slot.
@@ -297,8 +388,13 @@ impl ToolbarItem {
 struct ToolbarMeasurements {
     signature: Vec<String>,
     widths: Vec<Option<f32>>,
+    bounds: Vec<Option<Bounds<Pixels>>>,
     overflow_menu: Option<Entity<PopupMenu>>,
     pop_down_menus: HashMap<String, Entity<PopupMenu>>,
+    /// The insertion caret while an item is dragged over the toolbar.
+    insertion: Option<usize>,
+    /// The arrangement applied by the last customization drop.
+    layout: Option<ToolbarLayout>,
 }
 
 /// A standard toolbar. Its containing view must observe the command registry
@@ -311,6 +407,10 @@ pub struct Toolbar {
     chain: Option<Entity<ResponderChain>>,
     items: Vec<ToolbarItem>,
     mode: ToolbarDisplayMode,
+    layout: Option<ToolbarLayout>,
+    store: Option<(Rc<dyn ToolbarStore>, String)>,
+    on_layout_change: Option<LayoutAction>,
+    customizable: bool,
 }
 
 impl Toolbar {
@@ -328,6 +428,10 @@ impl Toolbar {
             chain: None,
             items,
             mode: ToolbarDisplayMode::default(),
+            layout: None,
+            store: None,
+            on_layout_change: None,
+            customizable: true,
         }
     }
 
@@ -343,6 +447,41 @@ impl Toolbar {
         self
     }
 
+    /// Use an explicit arrangement. Without one, a stored arrangement is
+    /// loaded when `autosave` is set; otherwise the declared order applies.
+    pub fn layout(mut self, layout: ToolbarLayout) -> Self {
+        self.layout = Some(layout);
+        self
+    }
+
+    /// Persist customization under `key`. The consumer still observes the
+    /// registry; the toolbar writes a `ToolbarLayout` on each customization.
+    pub fn autosave(mut self, store: Rc<dyn ToolbarStore>, key: impl Into<String>) -> Self {
+        self.store = Some((store, key.into()));
+        self
+    }
+
+    /// Notify the consumer of the new arrangement after a customization drop.
+    pub fn on_layout_change(
+        mut self,
+        f: impl Fn(ToolbarLayout, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_layout_change = Some(Rc::new(f));
+        self
+    }
+
+    /// `false` fixes the composition. The Preferences toolbar and other fixed
+    /// hosts set this; the palette is not offered.
+    pub fn customizable(mut self, customizable: bool) -> Self {
+        self.customizable = customizable;
+        self
+    }
+
+    #[must_use]
+    pub fn is_customizable(&self) -> bool {
+        self.customizable
+    }
+
     /// Minimum width that keeps the overflow control itself reachable.
     #[must_use]
     pub fn minimum_width(&self, cx: &App) -> f32 {
@@ -350,14 +489,28 @@ impl Toolbar {
     }
 
     /// Height selected by this toolbar's display mode and active appearance.
+    /// A stored or explicit layout's mode override wins, so the frame height
+    /// matches what `render` draws.
     #[must_use]
     pub fn height(&self, cx: &App) -> f32 {
         let metrics = &cx.theme().metrics;
-        if self.mode == ToolbarDisplayMode::IconOnly {
+        if self.effective_mode(cx) == ToolbarDisplayMode::IconOnly {
             metrics.toolbar_height
         } else {
             metrics.toolbar_labelled_height
         }
+    }
+
+    fn effective_mode(&self, cx: &App) -> ToolbarDisplayMode {
+        let stored = self
+            .store
+            .as_ref()
+            .and_then(|(store, key)| store.load(key, cx));
+        self.layout
+            .clone()
+            .or(stored)
+            .and_then(|layout| layout.mode)
+            .unwrap_or(self.mode)
     }
 }
 
@@ -365,24 +518,47 @@ impl RenderOnce for Toolbar {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let registry = self.registry.clone();
         let chain = self.chain.clone();
-        let items = self.items;
-        let signature: Vec<String> = items.iter().map(|item| item.id.to_string()).collect();
+        let declared = self.items;
+        let store = self.store.clone();
+        let on_layout_change = self.on_layout_change.clone();
+        let customizable = self.customizable;
+        let declared_signature: Vec<String> =
+            declared.iter().map(|item| item.id.to_string()).collect();
         let measurements = window.use_keyed_state(self.id.clone(), cx, |_, cx| {
             cx.observe(&registry, |_, _, cx| cx.notify()).detach();
             if let Some(chain) = &chain {
                 cx.observe(chain, |_, _, cx| cx.notify()).detach();
             }
             ToolbarMeasurements {
-                signature: signature.clone(),
-                widths: vec![None; signature.len()],
+                signature: declared_signature.clone(),
+                widths: vec![None; declared_signature.len()],
+                bounds: vec![None; declared_signature.len()],
                 overflow_menu: None,
                 pop_down_menus: HashMap::new(),
+                insertion: None,
+                layout: None,
             }
         });
+        // An explicit layout wins; then the stored one; then a layout applied
+        // by the last customization drop when neither is present.
+        let layout = self
+            .layout
+            .clone()
+            .or_else(|| store.as_ref().and_then(|(store, key)| store.load(key, cx)));
+        let layout = layout.or_else(|| measurements.read(cx).layout.clone());
+        let mut mode = self.mode;
+        let items = if let Some(layout) = &layout {
+            mode = layout.mode.unwrap_or(mode);
+            apply_layout(&declared, layout)
+        } else {
+            declared.clone()
+        };
+        let signature: Vec<String> = items.iter().map(|item| item.id.to_string()).collect();
         measurements.update(cx, |measurements, cx| {
             if measurements.signature != signature {
                 measurements.signature = signature.clone();
                 measurements.widths = vec![None; signature.len()];
+                measurements.bounds = vec![None; signature.len()];
                 cx.notify();
             }
         });
@@ -423,7 +599,6 @@ impl RenderOnce for Toolbar {
             measurements.pop_down_menus = pop_down_menus.clone();
         });
         let measured_widths = measurements.read(cx).widths.clone();
-        let mode = self.mode;
         let label = self.label;
         let id = self.id;
         container_query(move |size, window, cx| {
@@ -450,6 +625,19 @@ impl RenderOnce for Toolbar {
                 })
                 .collect();
             let visible = fit_toolbar(&slots, size.width.as_f32(), gap, overflow_width);
+            let effective_ids: Vec<SharedString> =
+                items.iter().map(|item| item.id.clone()).collect();
+            let insertion = measurements.read(cx).insertion;
+            let current_hidden = layout
+                .as_ref()
+                .map(|layout| layout.hidden.clone())
+                .unwrap_or_default();
+            let move_measurements = measurements.clone();
+            let drop_measurements = measurements.clone();
+            let drop_store = store.clone();
+            let drop_change = on_layout_change.clone();
+            let drop_ids = effective_ids.clone();
+            let drop_mode = mode;
             let mut row = div()
                 .id(id.clone())
                 .role(gpui::Role::Toolbar)
@@ -458,7 +646,56 @@ impl RenderOnce for Toolbar {
                 .items_center()
                 .gap(px(gap))
                 .h(px(toolbar_height))
-                .w_full();
+                .w_full()
+                .on_drag_move::<ToolbarItemDrag>(move |event, _, cx| {
+                    if !customizable || event.event.pressed_button != Some(gpui::MouseButton::Left)
+                    {
+                        return;
+                    }
+                    let x = event.event.position.x;
+                    let insertion = {
+                        let state = move_measurements.read(cx);
+                        let mut index = 0;
+                        let mut found = false;
+                        for bounds in state.bounds.iter().flatten() {
+                            if x < bounds.center().x {
+                                found = true;
+                                break;
+                            }
+                            index += 1;
+                        }
+                        if !found {
+                            index = state.bounds.iter().flatten().count();
+                        }
+                        index
+                    };
+                    move_measurements.update(cx, |state, cx| {
+                        if state.insertion != Some(insertion) {
+                            state.insertion = Some(insertion);
+                            cx.notify();
+                        }
+                    });
+                })
+                .on_drop::<ToolbarItemDrag>(move |drag, window, cx| {
+                    let insertion = drop_measurements.read(cx).insertion;
+                    let mut new_layout = ToolbarLayout {
+                        order: drop_ids.iter().map(ToString::to_string).collect(),
+                        hidden: current_hidden.clone(),
+                        mode: Some(drop_mode),
+                    };
+                    apply_drag(&mut new_layout, drag, insertion);
+                    if let Some((store, key)) = &drop_store {
+                        store.save(key, new_layout.clone(), cx);
+                    }
+                    if let Some(change) = &drop_change {
+                        change(new_layout.clone(), window, cx);
+                    }
+                    drop_measurements.update(cx, |state, cx| {
+                        state.layout = Some(new_layout);
+                        state.insertion = None;
+                        cx.notify();
+                    });
+                });
 
             let overflow_entries = overflow_menu_entries(&items, &visible);
             let overflow = !overflow_entries.is_empty();
@@ -489,6 +726,15 @@ impl RenderOnce for Toolbar {
                 if !visible[index] {
                     continue;
                 }
+                if insertion == Some(index) {
+                    row = row.child(
+                        div()
+                            .flex_none()
+                            .w(px(2.))
+                            .h(px((toolbar_height - 8.).max(2.)))
+                            .bg(crate::convert::hsla(theme.colors.divider)),
+                    );
+                }
                 let element = render_item(
                     item,
                     mode,
@@ -499,20 +745,41 @@ impl RenderOnce for Toolbar {
                     cx,
                 );
                 let measured = measurements.clone();
+                let item_identity = SharedString::from(format!("toolbar-item-{}", item.id));
                 let mut child = match &item.kind {
-                    ToolbarItemKind::FlexibleSpace => {
-                        div().relative().flex_1().min_w_0().child(element)
-                    }
-                    _ => div().relative().flex_none().child(element),
+                    ToolbarItemKind::FlexibleSpace => div()
+                        .id(item_identity)
+                        .relative()
+                        .flex_1()
+                        .min_w_0()
+                        .child(element),
+                    _ => div()
+                        .id(item_identity)
+                        .relative()
+                        .flex_none()
+                        .child(element),
                 };
+                if customizable
+                    && !matches!(
+                        item.kind,
+                        ToolbarItemKind::FixedSpace(_) | ToolbarItemKind::FlexibleSpace
+                    )
+                {
+                    child = child.on_drag(
+                        ToolbarItemDrag {
+                            id: item.id.clone(),
+                            from_palette: false,
+                        },
+                        |_, _, _, cx| cx.new(|_| gpui::EmptyView),
+                    );
+                }
                 child = child.child(
                     canvas(
                         |_, _, _| (),
                         move |bounds, _, _, cx| {
                             let width = f32::from(bounds.size.width);
                             measured.update(cx, |state, cx| {
-                                let current = state.widths.get_mut(index);
-                                if let Some(current) = current {
+                                if let Some(current) = state.widths.get_mut(index) {
                                     let changed = match current {
                                         Some(old) => (*old - width).abs() > 0.5,
                                         None => true,
@@ -522,6 +789,9 @@ impl RenderOnce for Toolbar {
                                         cx.notify();
                                     }
                                 }
+                                if let Some(current) = state.bounds.get_mut(index) {
+                                    *current = Some(bounds);
+                                }
                             });
                         },
                     )
@@ -529,6 +799,16 @@ impl RenderOnce for Toolbar {
                     .inset_0(),
                 );
                 row = row.child(child);
+            }
+
+            if insertion == Some(items.len()) {
+                row = row.child(
+                    div()
+                        .flex_none()
+                        .w(px(2.))
+                        .h(px((toolbar_height - 8.).max(2.)))
+                        .bg(crate::convert::hsla(theme.colors.divider)),
+                );
             }
 
             if overflow {
@@ -566,6 +846,239 @@ impl RenderOnce for Toolbar {
             row
         })
     }
+}
+
+/// Lets the user add, remove and restore optional toolbar items. Host it in
+/// the application's customization surface; it renders the external labels,
+/// not a second copy of the toolbar.
+#[derive(IntoElement)]
+pub struct ToolbarPalette {
+    id: ElementId,
+    label: SharedString,
+    items: Vec<ToolbarItem>,
+    layout: ToolbarLayout,
+    on_change: Option<PaletteAction>,
+    store: Option<(Rc<dyn ToolbarStore>, String)>,
+}
+
+impl ToolbarPalette {
+    pub fn new(
+        id: impl Into<ElementId>,
+        label: impl Into<SharedString>,
+        items: Vec<ToolbarItem>,
+        layout: ToolbarLayout,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            items,
+            layout,
+            on_change: None,
+            store: None,
+        }
+    }
+
+    /// Report the new arrangement. The consumer feeds it back to `Toolbar`
+    /// and to this palette; the palette itself is controlled.
+    pub fn on_change(mut self, f: impl Fn(ToolbarLayout, &mut Window, &mut App) + 'static) -> Self {
+        self.on_change = Some(Rc::new(f));
+        self
+    }
+
+    /// Save changed arrangements under `key` as well as reporting them.
+    pub fn autosave(mut self, store: Rc<dyn ToolbarStore>, key: impl Into<String>) -> Self {
+        self.store = Some((store, key.into()));
+        self
+    }
+}
+
+impl RenderOnce for ToolbarPalette {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let hot = window.use_keyed_state(
+            SharedString::from(format!("{}-remove-hot", self.id)),
+            cx,
+            |_, _| Rc::new(std::cell::Cell::new(false)),
+        );
+        let mut palette = div()
+            .id(self.id.clone())
+            .debug_selector(|| "toolbar-palette".into())
+            .role(gpui::Role::Group)
+            .aria_label(self.label.clone())
+            .w_full()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(8.))
+            .p(px(8.))
+            .rounded(px(6.))
+            .border_1()
+            .border_color(crate::convert::hsla(theme.colors.group_border));
+        for item in self.items.iter().filter(|item| item.optional) {
+            let shown = self.layout.shows(&item.id);
+            let store = self.store.clone();
+            let change = self.on_change.clone();
+            let layout_after = self.layout.clone();
+            let id = item.id.clone();
+            let button = Button::new(
+                SharedString::from(format!("palette-{}", item.id)),
+                item.label.clone(),
+            )
+            .style(ButtonStyle::Textured)
+            .size(ControlSize::Small)
+            .selected(shown)
+            .tooltip(item.label.clone())
+            .on_click(move |_, window, cx| {
+                let mut layout_after = layout_after.clone();
+                if shown {
+                    hide_item(&mut layout_after, id.as_ref());
+                } else {
+                    layout_after.hidden.retain(|hidden| hidden != id.as_ref());
+                    if !layout_after
+                        .order
+                        .iter()
+                        .any(|ordered| ordered == id.as_ref())
+                    {
+                        layout_after.order.push(id.to_string());
+                    }
+                }
+                if let Some((store, key)) = &store {
+                    store.save(key, layout_after.clone(), cx);
+                }
+                if let Some(change) = &change {
+                    change(layout_after.clone(), window, cx);
+                }
+            });
+            let drag = ToolbarItemDrag {
+                id: item.id.clone(),
+                from_palette: true,
+            };
+            palette = palette.child(
+                div()
+                    .id(SharedString::from(format!("palette-chip-{}", item.id)))
+                    .on_drag(drag, |_, _, _, cx| cx.new(|_| gpui::EmptyView))
+                    .child(button),
+            );
+        }
+        let remove_hot = hot.read(cx).get();
+        let remove_layout = self.layout.clone();
+        let remove_store = self.store.clone();
+        let remove_change = self.on_change.clone();
+        let remove_optional: Vec<SharedString> = self
+            .items
+            .iter()
+            .filter(|item| item.optional)
+            .map(|item| item.id.clone())
+            .collect();
+        let hot_for_zone = hot.clone();
+        let hot_for_drop = hot.clone();
+        palette = palette.child(
+            div()
+                .id(SharedString::from(format!("{}-remove", self.id)))
+                .debug_selector(|| "toolbar-palette-remove".into())
+                .flex()
+                .items_center()
+                .px(px(8.))
+                .h(px(theme.metrics.textured_height))
+                .rounded(px(4.))
+                .border_1()
+                .border_color(crate::convert::hsla(theme.colors.group_border))
+                .bg(crate::convert::hsla(if remove_hot {
+                    theme.lists.table_active.fill.from
+                } else {
+                    theme.colors.content
+                }))
+                .text_size(px(theme.type_.size_small))
+                .text_color(crate::convert::hsla(theme.colors.text_secondary))
+                .child("Drag an optional item here to remove")
+                .on_drag_move::<ToolbarItemDrag>(move |_, _, cx| {
+                    hot_for_zone.update(cx, |hot, cx| {
+                        if !hot.get() {
+                            hot.set(true);
+                            cx.notify();
+                        }
+                    });
+                })
+                .on_drop::<ToolbarItemDrag>(move |drag, window, cx| {
+                    hot_for_drop.update(cx, |hot, _| hot.set(false));
+                    window.refresh();
+                    if drag.from_palette || !remove_optional.iter().any(|id| id == &drag.id) {
+                        return;
+                    }
+                    let mut layout = remove_layout.clone();
+                    hide_item(&mut layout, drag.id.as_ref());
+                    if let Some((store, key)) = &remove_store {
+                        store.save(key, layout.clone(), cx);
+                    }
+                    if let Some(change) = &remove_change {
+                        change(layout, window, cx);
+                    }
+                }),
+        );
+        let default_items = self.items.clone();
+        let default_store = self.store.clone();
+        let default_change = self.on_change.clone();
+        palette = palette.child(
+            Button::new(
+                SharedString::from(format!("{}-default", self.id)),
+                "Default Set",
+            )
+            .style(ButtonStyle::Textured)
+            .size(ControlSize::Small)
+            .on_click(move |_, window, cx| {
+                let layout = ToolbarLayout::default_for(&default_items);
+                if let Some((store, key)) = &default_store {
+                    store.clear(key, cx);
+                }
+                if let Some(change) = &default_change {
+                    change(layout, window, cx);
+                }
+            }),
+        );
+        palette
+    }
+}
+
+fn hide_item(layout: &mut ToolbarLayout, id: &str) {
+    if !layout.hidden.iter().any(|hidden| hidden == id) {
+        layout.hidden.push(id.to_string());
+    }
+}
+
+fn apply_drag(layout: &mut ToolbarLayout, drag: &ToolbarItemDrag, insertion: Option<usize>) {
+    if !drag.from_palette {
+        layout.order.retain(|id| id != drag.id.as_ref());
+    }
+    let position = insertion
+        .unwrap_or(layout.order.len())
+        .min(layout.order.len());
+    if !layout.order.iter().any(|id| id == drag.id.as_ref()) {
+        layout.order.insert(position, drag.id.to_string());
+    }
+    layout.hidden.retain(|id| id != drag.id.as_ref());
+}
+
+fn apply_layout(declared: &[ToolbarItem], layout: &ToolbarLayout) -> Vec<ToolbarItem> {
+    let mut used = vec![false; declared.len()];
+    let mut ordered = Vec::with_capacity(declared.len());
+    for id in &layout.order {
+        let found = declared
+            .iter()
+            .enumerate()
+            .find(|(index, item)| !used[*index] && item.id.as_ref() == id.as_str())
+            .map(|(index, _)| index);
+        if let Some(index) = found {
+            used[index] = true;
+            ordered.push(declared[index].clone());
+        }
+    }
+    for (index, item) in declared.iter().enumerate() {
+        if !used[index] {
+            ordered.push(item.clone());
+        }
+    }
+    ordered.retain(|item| !item.optional || layout.shows(&item.id));
+    ordered
 }
 
 fn render_item(
@@ -912,5 +1425,79 @@ fn collect_overflow_actions(item: &ToolbarItem, cx: &App, actions: &mut Vec<Over
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn items() -> Vec<ToolbarItem> {
+        vec![
+            ToolbarItem::command("keep", "Keep", "keep"),
+            ToolbarItem::command("opt-a", "A", "opt-a").optional(true),
+            ToolbarItem::command("opt-b", "B", "opt-b").optional(true),
+        ]
+    }
+
+    #[test]
+    fn a_layout_reorders_and_hides_only_optional_items() {
+        let mut layout = ToolbarLayout::default_for(&items());
+        layout.order = vec!["opt-b".into(), "keep".into(), "opt-a".into()];
+        layout.hidden = vec!["opt-a".into(), "keep".into()];
+        let applied = apply_layout(&items(), &layout);
+        assert_eq!(
+            applied
+                .iter()
+                .map(|item| item.id.to_string())
+                .collect::<Vec<_>>(),
+            ["opt-b", "keep"],
+            "order applies; a hidden required item stays"
+        );
+    }
+
+    #[test]
+    fn a_palette_drag_adds_an_item_and_a_toolbar_drag_moves_it() {
+        let mut layout = ToolbarLayout {
+            order: vec!["keep".into(), "opt-b".into()],
+            hidden: vec!["opt-a".into()],
+            mode: None,
+        };
+        apply_drag(
+            &mut layout,
+            &ToolbarItemDrag {
+                id: "opt-a".into(),
+                from_palette: true,
+            },
+            Some(1),
+        );
+        assert_eq!(layout.order, ["keep", "opt-a", "opt-b"]);
+        assert!(layout.hidden.is_empty());
+
+        apply_drag(
+            &mut layout,
+            &ToolbarItemDrag {
+                id: "opt-b".into(),
+                from_palette: false,
+            },
+            Some(0),
+        );
+        assert_eq!(layout.order, ["opt-b", "keep", "opt-a"]);
+    }
+
+    #[test]
+    fn the_default_set_restores_declaration_order() {
+        let layout = ToolbarLayout::default_for(&items());
+        assert_eq!(layout.order, ["keep", "opt-a", "opt-b"]);
+        assert!(layout.hidden.is_empty());
+        assert_eq!(layout.mode, None);
+    }
+
+    #[test]
+    fn hiding_an_item_is_idempotent_for_drag_out_removal() {
+        let mut layout = ToolbarLayout::default_for(&items());
+        hide_item(&mut layout, "opt-a");
+        hide_item(&mut layout, "opt-a");
+        assert_eq!(layout.hidden, ["opt-a"]);
     }
 }

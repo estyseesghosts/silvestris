@@ -34,7 +34,8 @@ use silvestris::responder::{
     Responder, ResponderChain, ResponderEntry, ResponderScope, ResponderState,
 };
 use silvestris::toolbar::{
-    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarSegment,
+    Toolbar, ToolbarDisplayMode, ToolbarItem, ToolbarItemStyle, ToolbarLayout, ToolbarPalette,
+    ToolbarSegment,
 };
 use silvestris::transient::TransientLayer;
 use silvestris::window_role::FrameStore;
@@ -2068,6 +2069,49 @@ impl Render for Gallery {
                         .selected("all"),
                     )
                     .into_any_element(),
+            ))
+            .child(cell(
+                "Toolbar customization: optional items, palette and Default Set",
+                {
+                    let items = vec![
+                        ToolbarItem::command("tb-add", "Add", "gallery.add")
+                            .image(silvestris::icons::TemplateImage::Add),
+                        ToolbarItem::command("tb-remove", "Remove", "gallery.remove")
+                            .image(silvestris::icons::TemplateImage::Remove)
+                            .optional(true),
+                        ToolbarItem::command("tb-action", "Action", "gallery.action")
+                            .image(silvestris::icons::TemplateImage::Action)
+                            .optional(true),
+                    ];
+                    let layout = ToolbarLayout::default_for(&items);
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(6.))
+                        .w_full()
+                        .child(
+                            div()
+                                .w_full()
+                                .h(px(theme.metrics.toolbar_labelled_height))
+                                .child(
+                                    Toolbar::new(
+                                        "gallery-custom-toolbar",
+                                        "Custom",
+                                        self.commands.clone(),
+                                        items.clone(),
+                                    )
+                                    .layout(layout.clone())
+                                    .display_mode(ToolbarDisplayMode::IconAndLabel),
+                                ),
+                        )
+                        .child(ToolbarPalette::new(
+                            "gallery-toolbar-palette",
+                            "Customize toolbar",
+                            items,
+                            layout,
+                        ))
+                        .into_any_element()
+                },
             ))
             .child(cell(
                 "File panels: an Untitled document with File > Save As (sheet) and File > Open",

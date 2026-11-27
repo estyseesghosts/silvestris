@@ -87,6 +87,12 @@ repeated here; they are listed in place next to the token.
   No separate Action-menu or command-pop-down crop is indexed in
   `reference/crops.json`, so the inset and the single-arrow presentation are
   estimates; the triangle geometry itself is the measured pop-up one.
+- Toolbar customization has no measured 10.6 customization-sheet capture in
+  `reference/crops.json`. `ToolbarPalette` is therefore composed from existing
+  measured hosts (small textured buttons, the group border and the standard
+  toolbar height) and is meant to sit inside the consumer's own customization
+  surface. Drag-out removal uses the palette's explicit remove target instead
+  of a smoke/poof animation, which the corpus does not measure.
 - Toolbar rectangular/textured is the default, with capsule style available as
   an explicit item choice. The HIG recommends consistency within a toolbar;
   exact 10.6 toolbar height/bezel measurements still come from captures, not

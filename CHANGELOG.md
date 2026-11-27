@@ -18,6 +18,13 @@ Action menus and scope bars (#46):
   column; the main menu bar keeps it.
 - `controls::ScopeBar`/`Scope` compose the measured small textured segmented
   control for search/result narrowing. It reports only the chosen scope.
+- Toolbar customization (#26): `ToolbarItem::optional`, `ToolbarLayout`,
+  `ToolbarStore`/`MemoryToolbars`, `Toolbar::layout`/`autosave`/
+  `on_layout_change`/`customizable`, the `ToolbarPalette` with Default Set and
+  a remove target, and the `ToolbarItemDrag { id, from_palette }` source.
+  Dragging an item reorders it with an insertion caret; the palette toggles
+  optional items. Required items remain fixed; `PreferencesToolbar` is not
+  customizable.
 
 Finder content views (#33/#34/#35) and one file-view host:
 
