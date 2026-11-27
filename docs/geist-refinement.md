@@ -257,6 +257,15 @@ host and are a documented verification limitation, not a passing gate.
   and reported by `tools/metrology/gate.py`. Aqua differences are reported as
   forbidden; Geist differences are reported as awaiting review. Final golden
   acceptance is deliberately left to the user after visual inspection.
+- An appended Geist-only golden page (page 24) adds search field, button state,
+  horizontal scroll, long-text wrapping and pictogram samples. It is rendered
+  only for Geist appearances, so no accepted Aqua golden moves. The generated
+  pictogram file carries `#[rustfmt::skip]` so `cargo fmt` cannot break the
+  generator's byte-for-byte `--check` gate.
+- Theme switching tests cover focus, field contents, scroll position and an
+  edited toolbar arrangement. `cargo fmt --all -- --check`,
+  `python tools/fonts/manifest.py --check` and
+  `python tools/icons/geist_pictograms.py --check` pass.
 
 ## Consumer integration and retained differences
 
@@ -293,8 +302,8 @@ regenerated or accepted.
 The palette is built when a theme resolves, not on each component render.
 Pictogram geometry is static and generated at development time. Flat paint
 paths add no offscreen textures or animation loops. Theme switching refreshes
-windows without rebuilding views; the added tests cover focus, field contents
-and scroll position across switches.
+windows without rebuilding views; the added tests cover focus, field contents,
+scroll position and a modified toolbar arrangement across switches.
 
 File-by-file review of `aqua.rs` against the baseline shows only mechanical
 field additions (capsule/fixed corner rules, the hover bevel and hover thumb

@@ -29,9 +29,11 @@ This report covers `docs/geist.txt` against commits `d575f34..HEAD` on branch
 23. Linux client decoration and Windows small-corner requests unchanged for
    Aqua and matched to the Geist root radius.
 24. Candidate Geist goldens rendered for both appearances at 100, 125, 150,
-   175 and 200%. Final acceptance is pending user review.
-25. Interaction tests for theme switching with focus, text and scroll state;
-   contrast, font, scrollbar and hover tests pass.
+   175 and 200%. An appended Geist-only page adds search field, button state,
+   horizontal scroll, long-text wrapping and pictogram samples without moving
+   any accepted Aqua golden. Final acceptance is pending user review.
+25. Interaction tests for theme switching with focus, text, scroll state and an
+   edited toolbar arrangement; contrast, font, scrollbar and hover tests pass.
 26. Consumer integration requirements documented; no consumer repository was
    modified because none is present here.
 27. This report, the refinement document and the changelog entry.
