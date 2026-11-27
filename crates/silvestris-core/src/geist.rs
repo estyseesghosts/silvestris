@@ -74,6 +74,7 @@ fn metrics() -> Metrics {
         push_small_height: 24.0,
         push_mini_height: 20.0,
         push_radius: 6.0,
+        installer_continue_diameter: 30.0,
         // designed: cap scales with the 28 px Geist control height.
         popup_cap: [18.0, 16.0, 14.0],
         // designed: 12/10/8 px, 4 px grid.
@@ -322,6 +323,18 @@ pub fn geist_dark() -> Theme {
                 selected,
             },
             push_default: flat(c(0xededed), c(0xededed), c(0x000000)),
+            // designed: installer Continue with Geist's default-action
+            // material; the geometry and glyph are shared with Aqua.
+            installer_continue: InstallerContinue {
+                normal,
+                default: flat(c(0xededed), c(0xededed), c(0x000000)),
+                pressed,
+                disabled,
+                glyph: c(0xededed),
+                glyph_default: c(0x000000),
+                glyph_pressed: c(0xededed),
+                glyph_disabled: c(0x878787),
+            },
             textured: BevelStates {
                 normal,
                 pressed,
@@ -555,6 +568,18 @@ pub fn geist_light() -> Theme {
                 selected,
             },
             push_default: flat(c(0x171717), c(0x171717), c(0xffffff)),
+            // designed: installer Continue with Geist's default-action
+            // material; the geometry and glyph are shared with Aqua.
+            installer_continue: InstallerContinue {
+                normal,
+                default: flat(c(0x171717), c(0x171717), c(0xffffff)),
+                pressed,
+                disabled,
+                glyph: c(0x171717),
+                glyph_default: c(0xffffff),
+                glyph_pressed: c(0x171717),
+                glyph_disabled: c(0x8f8f8f),
+            },
             textured: BevelStates {
                 normal,
                 pressed,

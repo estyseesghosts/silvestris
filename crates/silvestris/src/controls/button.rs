@@ -78,6 +78,39 @@ pub enum ButtonStyle {
     Recessed,
     /// Purple question-mark help button.
     Help,
+    /// Fixed circular Snow Leopard installer Continue button. It draws its own
+    /// two-dot-and-triangle glyph and never shows a text label; the supplied
+    /// label remains the accessible name. Regular size only.
+    InstallerContinue,
+}
+
+impl ButtonStyle {
+    /// Styles whose default material breathes. The installer control and the
+    /// blue push button share `throb_bevel`; no other style animates.
+    fn breathes_when_default(self) -> bool {
+        matches!(self, Self::Push | Self::InstallerContinue)
+    }
+}
+
+/// Single eligibility rule for default-button breathing. Keeping it in one
+/// place means a new capability cannot enable the animation for toggles,
+/// segments or help buttons by accident.
+fn should_throb(
+    style: ButtonStyle,
+    default: bool,
+    throb: bool,
+    enabled: bool,
+    active_window: bool,
+    reduce_motion: bool,
+    press_amount: f32,
+) -> bool {
+    throb
+        && default
+        && style.breathes_when_default()
+        && enabled
+        && active_window
+        && !reduce_motion
+        && press_amount == 0.0
 }
 
 type Icon = Box<dyn Fn(gpui::Rgba) -> AnyElement>;
@@ -321,6 +354,54 @@ fn deepen(c: Rgba8, amount: f32) -> Rgba8 {
     Rgba8::rgba(channel(c.r), channel(c.g), channel(c.b), c.a)
 }
 
+/// Glyph geometry in the 30 px reference diameter. Shared by the painter and
+/// the geometry test so the measured spacing cannot drift.
+const INSTALLER_GLYPH_DOT: f32 = 4.0;
+const INSTALLER_GLYPH_DOTS: [(f32, f32); 2] = [(7.0, 13.0), (13.0, 13.0)];
+const INSTALLER_GLYPH_TRIANGLE: [(f32, f32); 3] = [(19.0, 10.0), (24.5, 15.0), (19.0, 20.0)];
+
+/// Snow Leopard installer Continue glyph: two filled dots and a solid
+/// right-pointing triangle, measured from the supplied close-up.
+///
+/// The glyph is 17.5 x 10 px at the 30 px reference diameter: 4 px dots at
+/// x 7 and 13 (2 px gap), then a 2 px gap and a triangle whose left edge starts
+/// at x 19 and whose apex sits at x 24.5. It is centred on the button by these
+/// fixed offsets in every state; only the host ink changes.
+fn paint_installer_continue_glyph(
+    window: &mut Window,
+    bounds: gpui::Bounds<gpui::Pixels>,
+    ink: Rgba8,
+) {
+    let unit = bounds.size.width.as_f32() / 30.0;
+    if unit <= 0.0 {
+        return;
+    }
+    let at = |x: f32, y: f32| {
+        gpui::point(
+            bounds.origin.x + px(x * unit),
+            bounds.origin.y + px(y * unit),
+        )
+    };
+    let mut dot = |(x, y): (f32, f32)| {
+        let size = px(INSTALLER_GLYPH_DOT * unit);
+        window.paint_quad(
+            gpui::fill(
+                gpui::Bounds::new(at(x, y), gpui::size(size, size)),
+                hsla(ink),
+            )
+            .corner_radii(px(INSTALLER_GLYPH_DOT / 2.0 * unit)),
+        );
+    };
+    for position in INSTALLER_GLYPH_DOTS {
+        dot(position);
+    }
+    let points: Vec<_> = INSTALLER_GLYPH_TRIANGLE
+        .iter()
+        .map(|&(x, y)| at(x, y))
+        .collect();
+    crate::paint::polygon(window, &points, ink);
+}
+
 impl RenderOnce for Button {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -376,12 +457,29 @@ impl RenderOnce for Button {
                 },
                 m.push_height / 2.0,
             ),
+            ButtonStyle::InstallerContinue => {
+                let diameter = m.installer_continue_diameter;
+                // The dedicated installer material is selected below from the
+                // `installer_continue` token; `states` only provides the shared
+                // pressed/text slots for the code path.
+                (&theme.controls.push, diameter, diameter / 2.0)
+            }
         };
-        let base: Bevel = if self.disabled {
+        let installer = (self.style == ButtonStyle::InstallerContinue)
+            .then_some(theme.controls.installer_continue);
+        let base: Bevel = if let Some(installer) = installer {
+            if self.disabled {
+                installer.disabled
+            } else if self.default {
+                installer.default
+            } else {
+                installer.normal
+            }
+        } else if self.disabled {
             states.disabled
         } else if self.selected {
             states.selected
-        } else if self.default && self.style == ButtonStyle::Push {
+        } else if self.default && self.style.breathes_when_default() {
             theme.controls.push_default
         } else {
             states.normal
@@ -413,19 +511,22 @@ impl RenderOnce for Button {
             feedback.set(Press::Resting);
         }
         let feedback = handler.as_ref().map(|_| feedback.clone());
-        let throb = self.throb
-            && self.default
-            && self.style == ButtonStyle::Push
-            && enabled
-            && window.is_window_active()
-            && !cx.reduce_motion()
-            && amount == 0.0;
+        let throb = should_throb(
+            self.style,
+            self.default,
+            self.throb,
+            enabled,
+            window.is_window_active(),
+            cx.reduce_motion(),
+            amount,
+        );
         let throb_phase = Rc::new(Cell::new(0.0));
         let throb_for_paint = throb_phase.clone();
+        let pressed_bevel = installer.map_or(states.pressed, |installer| installer.pressed);
         let bezel = if amount == 0.0 {
             base
         } else {
-            let mut pressed = states.pressed;
+            let mut pressed = pressed_bevel;
             if base == pressed {
                 // The theme can share its pressed material with a latched toggle.
                 // Deepen the inset so the toggle still responds to a fresh press.
@@ -439,18 +540,30 @@ impl RenderOnce for Button {
             blend_bevel(base, pressed, amount)
         };
         let ink = if self.destructive && enabled {
-            theme.colors.error.mix(states.pressed.text, amount)
+            theme.colors.error.mix(pressed_bevel.text, amount)
         } else {
             bezel.text
         };
+        // The installer glyph uses its own per-state ink; it never follows the
+        // push-button label tone.
+        let installer_ink = installer.map(|token| {
+            if self.disabled {
+                token.glyph_disabled
+            } else if self.default {
+                token.glyph_default.mix(token.glyph_pressed, amount)
+            } else {
+                token.glyph.mix(token.glyph_pressed, amount)
+            }
+        });
         let ring_focus = focus.clone();
         let pointer_focus = focus.clone();
         let ring_color = theme.colors.focus_ring;
         let ring_profile = m.focus_ring;
         let label_size = self.size.label_size(&theme);
-        let has_icon = self.icon.is_some();
-        let icon_and_label = has_icon && self.show_label_with_icon;
-        let icon_only = has_icon && !self.show_label_with_icon;
+        let installer_glyph = installer.is_some();
+        let has_icon = self.icon.is_some() || installer_glyph;
+        let icon_and_label = has_icon && self.show_label_with_icon && !installer_glyph;
+        let icon_only = has_icon && (!self.show_label_with_icon || installer_glyph);
         let help_style = self.style == ButtonStyle::Help;
         let padding = if icon_only || help_style {
             0.0
@@ -485,7 +598,9 @@ impl RenderOnce for Button {
             .h(px(height))
             .when(icon_only || help, |el| el.w(px(height)))
             .px(px(padding))
-            .when_some(self.min_width, |el, w| el.min_w(px(w)))
+            .when_some(self.min_width.filter(|_| !installer_glyph), |el, w| {
+                el.min_w(px(w))
+            })
             .when_some(self.tooltip, super::tooltip::attach)
             .font_family(theme.type_.ui)
             .text_size(px(label_size))
@@ -672,6 +787,19 @@ impl RenderOnce for Button {
                         .font_weight(gpui::FontWeight::BOLD)
                         .text_color(hsla(theme.controls.help.glyph))
                         .child("?"),
+                )
+            })
+            .when(installer_glyph, |el| {
+                let glyph_ink = installer_ink.unwrap_or(ink);
+                el.child(
+                    canvas(
+                        |_, _, _| (),
+                        move |bounds, _, window, _| {
+                            paint_installer_continue_glyph(window, bounds, glyph_ink);
+                        },
+                    )
+                    .flex_none()
+                    .size(px(height)),
                 )
             })
             .when(!icon_only && !icon_and_label && !help, |el| {
@@ -953,5 +1081,331 @@ mod tests {
             assert_eq!(dialog.read(cx).accepted, 1);
             assert_eq!(dialog.read(cx).cancelled, 1);
         });
+    }
+
+    #[test]
+    fn installer_continue_glyph_matches_the_measured_spacing() {
+        let [first, second] = INSTALLER_GLYPH_DOTS;
+        assert_eq!(first.1, second.1, "dots share a baseline");
+        let [top, apex, bottom] = INSTALLER_GLYPH_TRIANGLE;
+        assert_eq!(top.0, bottom.0, "triangle has a vertical left edge");
+        assert!((apex.1 - (top.1 + bottom.1) / 2.0).abs() < f32::EPSILON);
+        assert!(
+            (first.1 + INSTALLER_GLYPH_DOT / 2.0 - apex.1).abs() < f32::EPSILON,
+            "dots align with the triangle's vertical centre"
+        );
+        // 2 px gap between the dots, then 2 px before the triangle.
+        assert_eq!(second.0 - (first.0 + INSTALLER_GLYPH_DOT), 2.0);
+        assert_eq!(top.0 - (second.0 + INSTALLER_GLYPH_DOT), 2.0);
+        // Complete glyph: 17.5 x 10 px, matching the 17 x 10 capture.
+        assert!((apex.0 - first.0 - 17.5).abs() < f32::EPSILON);
+        assert!((bottom.1 - top.1 - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn installer_continue_throb_varies_only_the_blue_bands() {
+        let token = silvestris_core::aqua::aqua_light()
+            .controls
+            .installer_continue;
+        let rest = token.default;
+        let light = throb_bevel(rest, 0.25);
+        let deep = throb_bevel(rest, 0.75);
+        assert_eq!(throb_bevel(rest, 0.0), rest);
+        for (phase, bevel) in [(0.25, light), (0.75, deep)] {
+            assert_ne!(bevel.upper.from, rest.upper.from, "phase {phase} upper");
+            assert_ne!(bevel.upper.to, rest.upper.to, "phase {phase} upper end");
+            assert_ne!(bevel.lower.from, rest.lower.from, "phase {phase} lower");
+            assert_ne!(bevel.lower.to, rest.lower.to, "phase {phase} lower end");
+            // Rim, emboss and glyph ink never move.
+            assert_eq!(bevel.border, rest.border);
+            assert_eq!(bevel.emboss, rest.emboss);
+            assert_eq!(bevel.split, rest.split);
+            assert_eq!(bevel.text, rest.text);
+        }
+        // The default token is its own material, not the push button's.
+        assert_ne!(
+            rest.upper,
+            silvestris_core::aqua::aqua_light()
+                .controls
+                .push_default
+                .upper
+        );
+    }
+
+    #[test]
+    fn installer_continue_breathing_eligibility_matches_the_contract() {
+        let installer = ButtonStyle::InstallerContinue;
+        assert!(should_throb(installer, true, true, true, true, false, 0.0));
+        assert!(!should_throb(
+            installer, false, true, true, true, false, 0.0
+        ));
+        assert!(!should_throb(
+            installer, true, false, true, true, false, 0.0
+        ));
+        assert!(!should_throb(
+            installer, true, true, false, true, false, 0.0
+        ));
+        assert!(!should_throb(
+            installer, true, true, true, false, false, 0.0
+        ));
+        assert!(!should_throb(installer, true, true, true, true, true, 0.0));
+        // A held press pauses the breathing; focus elsewhere does not.
+        assert!(!should_throb(installer, true, true, true, true, false, 0.5));
+        assert!(should_throb(installer, true, true, true, true, false, 0.0));
+        // Only the blue push button and the installer control opt in.
+        assert!(should_throb(
+            ButtonStyle::Push,
+            true,
+            true,
+            true,
+            true,
+            false,
+            0.0
+        ));
+        for style in [
+            ButtonStyle::Textured,
+            ButtonStyle::Gradient,
+            ButtonStyle::Bevel,
+            ButtonStyle::Round,
+            ButtonStyle::Recessed,
+            ButtonStyle::Help,
+        ] {
+            assert!(
+                !should_throb(style, true, true, true, true, false, 0.0),
+                "{style:?} must not breathe"
+            );
+        }
+    }
+
+    struct InstallerHarness {
+        focus: FocusHandle,
+        activations: usize,
+        disabled: bool,
+        label: &'static str,
+    }
+
+    impl Render for InstallerHarness {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div().size_full().track_focus(&self.focus).child(
+                Button::new("installer", self.label)
+                    .style(ButtonStyle::InstallerContinue)
+                    .default_button(true)
+                    .throb(false)
+                    .disabled(self.disabled)
+                    .on_click(cx.listener(|h, _, _, cx| {
+                        h.activations += 1;
+                        cx.notify();
+                    })),
+            )
+        }
+    }
+
+    fn installer_view<'a>(
+        app: &'a mut TestAppContext,
+        label: &'static str,
+    ) -> (gpui::Entity<InstallerHarness>, &'a mut VisualTestContext) {
+        app.update(|cx| {
+            crate::theme::install(
+                crate::ThemePreference::explicit(crate::ThemeId::AQUA_LIGHT),
+                cx,
+            )
+        });
+        let (harness, cx) = app.add_window_view(|_, cx| InstallerHarness {
+            focus: cx.focus_handle(),
+            activations: 0,
+            disabled: false,
+            label,
+        });
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        (harness, cx)
+    }
+
+    #[test]
+    fn installer_continue_bounds_stay_square_at_every_golden_scale() {
+        for scale in [1.0_f32, 1.25, 1.5, 1.75, 2.0] {
+            let mut app = TestAppContext::single();
+            let (_harness, cx) = installer_view(&mut app, "Continue");
+            cx.simulate_scale_factor_change(scale);
+            draw(cx);
+            let bounds = cx.debug_bounds("installer").unwrap();
+            assert!(
+                (bounds.size.width.as_f32() - 30.0).abs() <= 1.0,
+                "scale {scale}: width {:?}",
+                bounds.size.width
+            );
+            assert!(
+                (bounds.size.width.as_f32() - bounds.size.height.as_f32()).abs() < 0.01,
+                "scale {scale}: {bounds:?}"
+            );
+            // The painted bezel is the quad closest to the 30 px square. Its
+            // device-space edges must stay equal after snapping.
+            let target = (30.0 * scale).powi(2);
+            let (width, height) = cx.update(|window, _| {
+                let mut best: Option<(f32, f32, f32)> = None;
+                for quad in window.painted_quads() {
+                    let w = quad.bounds.size.width.0;
+                    let h = quad.bounds.size.height.0;
+                    let diff = (w * h - target).abs();
+                    if best.is_none_or(|(d, _, _)| diff < d) {
+                        best = Some((diff, w, h));
+                    }
+                }
+                best.map(|(_, w, h)| (w, h)).unwrap()
+            });
+            assert!(
+                (width - 30.0 * scale).abs() <= 1.0,
+                "scale {scale}: bezel width {width}"
+            );
+            assert!(
+                (width - height).abs() <= 1.0,
+                "scale {scale}: bezel {width} x {height} is not square"
+            );
+        }
+    }
+
+    #[test]
+    fn installer_continue_width_ignores_label_length() {
+        let mut widths = Vec::new();
+        for label in ["", "Continue", "Continue with a dramatically longer label"] {
+            let mut app = TestAppContext::single();
+            let (_harness, cx) = installer_view(&mut app, label);
+            let bounds = cx.debug_bounds("installer").unwrap();
+            widths.push(bounds.size.width.as_f32());
+        }
+        for width in &widths {
+            assert!((width - 30.0).abs() < 0.01, "{widths:?}");
+        }
+    }
+
+    #[test]
+    fn installer_continue_activates_once_and_suppresses_cancelled_or_disabled_input() {
+        let mut app = TestAppContext::single();
+        let (harness, cx) = installer_view(&mut app, "Continue");
+        let bounds = cx.debug_bounds("installer").unwrap();
+        let position = bounds.center();
+        let modifiers = Modifiers::default();
+
+        cx.simulate_click(position, modifiers);
+        draw(cx);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+
+        // Releasing outside the circle cancels the pending activation.
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        let outside = gpui::point(position.x, bounds.bottom() + px(12.));
+        cx.simulate_mouse_move(outside, MouseButton::Left, modifiers);
+        draw(cx);
+        cx.simulate_mouse_up(outside, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+
+        cx.update(|_, cx| {
+            harness.update(cx, |h, cx| {
+                h.disabled = true;
+                cx.notify();
+            });
+        });
+        draw(cx);
+        cx.simulate_click(position, modifiers);
+        draw(cx);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+    }
+
+    #[test]
+    fn installer_continue_default_action_routes_once_from_a_dialog() {
+        struct Dialog {
+            focus: FocusHandle,
+            accepted: usize,
+            cancelled: usize,
+        }
+        impl Render for Dialog {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                div()
+                    .size_full()
+                    .track_focus(&self.focus)
+                    .child(
+                        Button::new("continue", "Continue")
+                            .style(ButtonStyle::InstallerContinue)
+                            .default_button(true)
+                            .throb(false)
+                            .on_click(cx.listener(|d, _, _, cx| {
+                                d.accepted += 1;
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        Button::new("cancel", "Cancel")
+                            .cancel_button(true)
+                            .on_click(cx.listener(|d, _, _, cx| {
+                                d.cancelled += 1;
+                                cx.notify();
+                            })),
+                    )
+            }
+        }
+        let mut app = TestAppContext::single();
+        app.update(|cx| crate::theme::install(crate::ThemePreference::default(), cx));
+        let (dialog, cx) = app.add_window_view(|_, cx| Dialog {
+            focus: cx.focus_handle(),
+            accepted: 0,
+            cancelled: 0,
+        });
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        cx.simulate_keystrokes("enter");
+        cx.simulate_event(gpui::KeyUpEvent {
+            keystroke: gpui::Keystroke::parse("enter").unwrap(),
+        });
+        draw(cx);
+        cx.update(|window, cx| window.focus_next(cx));
+        draw(cx);
+        cx.simulate_keystrokes("escape");
+        draw(cx);
+        cx.update(|_, cx| {
+            assert_eq!(dialog.read(cx).accepted, 1, "one activation per Return");
+            assert_eq!(dialog.read(cx).cancelled, 1);
+        });
+    }
+
+    #[test]
+    fn installer_continue_focus_ring_is_circular() {
+        let mut app = TestAppContext::single();
+        let (_harness, cx) = installer_view(&mut app, "Continue");
+        // Keyboard input enables the ring; shift-tab returns focus to the
+        // default button after the first tab leaves it.
+        cx.simulate_keystrokes("tab");
+        cx.simulate_keystrokes("shift-tab");
+        draw(cx);
+        let rings = cx.update(|window, _| {
+            window
+                .painted_quads()
+                .into_iter()
+                .filter(|quad| quad.border_color.a > 0.0)
+                .map(|quad| (quad.bounds.size.width.0, quad.corner_radii.top_left.0))
+                .collect::<Vec<_>>()
+        });
+        assert!(!rings.is_empty(), "keyboard focus paints a ring");
+        for (width, radius) in rings {
+            assert!(
+                (radius * 2.0 - width).abs() <= 0.5,
+                "ring {width} px wide with radius {radius} is not circular"
+            );
+        }
+    }
+
+    #[test]
+    fn existing_push_round_and_help_styles_do_not_join_the_throb() {
+        assert!(ButtonStyle::Push.breathes_when_default());
+        assert!(ButtonStyle::InstallerContinue.breathes_when_default());
+        for style in [ButtonStyle::Round, ButtonStyle::Help, ButtonStyle::Textured] {
+            assert!(!style.breathes_when_default(), "{style:?}");
+        }
+        // The push default material is untouched by the new token.
+        let theme = silvestris_core::aqua::aqua_light();
+        assert_eq!(
+            throb_bevel(theme.controls.push_default, 0.0),
+            theme.controls.push_default
+        );
     }
 }

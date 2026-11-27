@@ -325,6 +325,25 @@ pub struct Help {
     pub glyph: Rgba8,
 }
 
+/// Historical Snow Leopard installer Continue button: a fixed circular
+/// control with a built-in two-dot-and-triangle glyph. The material is
+/// independent of the standard push button and round toolbar control.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InstallerContinue {
+    /// Non-default action.
+    pub normal: Bevel,
+    /// Default action; this material carries the breathing animation.
+    pub default: Bevel,
+    pub pressed: Bevel,
+    pub disabled: Bevel,
+    pub glyph: Rgba8,
+    /// Glyph ink for the default-action material (Geist inverts its fill, so
+    /// the default glyph is not the normal glyph).
+    pub glyph_default: Rgba8,
+    pub glyph_pressed: Rgba8,
+    pub glyph_disabled: Rgba8,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Controls {
     pub push: BevelStates,
@@ -358,6 +377,9 @@ pub struct Controls {
     pub progress: Progress,
     pub slider: Slider,
     pub help: Help,
+    /// Fixed circular installer Continue control (HIG setup assistants);
+    /// independent of `push_default`, `round` and `textured`.
+    pub installer_continue: InstallerContinue,
 }
 
 /// Selection band: a line on top of a gradient.
@@ -486,6 +508,9 @@ pub struct Metrics {
     pub push_small_height: f32,
     pub push_mini_height: f32,
     pub push_radius: f32,
+    /// Fixed diameter of the installer Continue button (the reference
+    /// footprint is 31 x 30 px; the control uses a 30 px square).
+    pub installer_continue_diameter: f32,
     /// Arrow-cap width of a pop-up, per control size (M: popup-button.regular
     /// cap is 21 logical px at height 21).
     pub popup_cap: [f32; 3],

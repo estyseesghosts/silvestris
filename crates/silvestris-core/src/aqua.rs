@@ -83,6 +83,9 @@ fn metrics() -> Metrics {
         push_mini_height: 15.0,
         // Capsule ends; painters clamp to half the height.
         push_radius: 11.0,
+        // M: installer Continue footprint is 31 x 30 px on the language
+        // screen; the control uses a 30 px square.
+        installer_continue_diameter: 30.0,
         // M: popup-button.regular: cap is 21 logical wide at 21 high. Small and
         // mini scale with the button height (designed; no 10.6 capture).
         popup_cap: [21.0, 18.0, 15.0],
@@ -679,6 +682,49 @@ pub fn aqua_light() -> Theme {
                 selected: push_default,
             },
             push_default,
+            // M: Snow Leopard installer Continue. Rim near 676767,
+            // upper 5187e2->71abec, split 15 of 27, lower 52aaed->88e9fc,
+            // bottom emboss f6f8f8, glyph 1c2737 (close-up capture).
+            installer_continue: InstallerContinue {
+                normal: Bevel {
+                    border: g(0x6a6a6a, 0x646464),
+                    upper: g(0x5187e2, 0x71abec),
+                    lower: g(0x52aaed, 0x88e9fc),
+                    split: 15.0 / 27.0,
+                    emboss: c(0xf6f8f8),
+                    text: c(0x1c2737),
+                },
+                default: Bevel {
+                    border: g(0x6a6a6a, 0x646464),
+                    upper: g(0x5187e2, 0x71abec),
+                    lower: g(0x52aaed, 0x88e9fc),
+                    split: 15.0 / 27.0,
+                    emboss: c(0xf6f8f8),
+                    text: c(0x1c2737),
+                },
+                // designed: no pressed capture; the same blue, deepened.
+                pressed: Bevel {
+                    border: g(0x6a6a6a, 0x646464),
+                    upper: g(0x3f6fbe, 0x5c94d2),
+                    lower: g(0x408fce, 0x6cc9e4),
+                    split: 15.0 / 27.0,
+                    emboss: c(0xf6f8f8),
+                    text: c(0x141f2d),
+                },
+                // designed: desaturated disabled adaptation of the blue.
+                disabled: Bevel {
+                    border: g(0xa9a9a9, 0x999999),
+                    upper: g(0xc9d2dc, 0xd6dde4),
+                    lower: g(0xcbd9e3, 0xe2edf2),
+                    split: 15.0 / 27.0,
+                    emboss: c(0xf6f8f8),
+                    text: c(0x8b959f),
+                },
+                glyph: c(0x1c2737),
+                glyph_default: c(0x1c2737),
+                glyph_pressed: c(0x141f2d),
+                glyph_disabled: c(0x8b959f),
+            },
             textured: BevelStates {
                 normal: textured_normal,
                 pressed: textured_selected,
@@ -1213,6 +1259,45 @@ pub fn aqua_dark() -> Theme {
                 selected: push_default,
             },
             push_default,
+            // designed: Dark Aqua adaptation of the installer Continue blue.
+            installer_continue: InstallerContinue {
+                normal: Bevel {
+                    border: g(0x0b2a6b, 0x0e1420),
+                    upper: g(0x5f97dd, 0x356fbe),
+                    lower: g(0x245cb4, 0x4a95dd),
+                    split: 15.0 / 27.0,
+                    emboss: WHITE.alpha(22),
+                    text: c(0xeaf3ff),
+                },
+                default: Bevel {
+                    border: g(0x0b2a6b, 0x0e1420),
+                    upper: g(0x5f97dd, 0x356fbe),
+                    lower: g(0x245cb4, 0x4a95dd),
+                    split: 15.0 / 27.0,
+                    emboss: WHITE.alpha(22),
+                    text: c(0xeaf3ff),
+                },
+                pressed: Bevel {
+                    border: g(0x0b2a6b, 0x0e1420),
+                    upper: g(0x4b7fca, 0x2a5da6),
+                    lower: g(0x1c4a96, 0x3d7fc4),
+                    split: 15.0 / 27.0,
+                    emboss: WHITE.alpha(22),
+                    text: c(0xdbe9f7),
+                },
+                disabled: Bevel {
+                    border: g(0x262626, 0x2a2a2a),
+                    upper: g(0x464646, 0x404040),
+                    lower: g(0x3a3a3a, 0x424242),
+                    split: 15.0 / 27.0,
+                    emboss: WHITE.alpha(10),
+                    text: c(0x858585),
+                },
+                glyph: c(0xeaf3ff),
+                glyph_default: c(0xeaf3ff),
+                glyph_pressed: c(0xdbe9f7),
+                glyph_disabled: c(0x858585),
+            },
             textured: BevelStates {
                 normal: textured_normal,
                 pressed: textured_selected,
