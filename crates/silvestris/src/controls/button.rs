@@ -1402,6 +1402,167 @@ mod tests {
         }
     }
 
+    struct InstallerMotionHarness {
+        focus: FocusHandle,
+        other_focus: FocusHandle,
+        activations: usize,
+        disabled: bool,
+    }
+
+    impl Render for InstallerMotionHarness {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .child(
+                    Button::new("installer", "Continue")
+                        .style(ButtonStyle::InstallerContinue)
+                        .default_button(true)
+                        .disabled(self.disabled)
+                        .on_click(cx.listener(|h, _, _, cx| {
+                            h.activations += 1;
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    div()
+                        .track_focus(&self.other_focus)
+                        .size(px(24.))
+                        .debug_selector(|| "other-control".to_string()),
+                )
+                .track_focus(&self.focus)
+        }
+    }
+
+    #[test]
+    fn installer_continue_breathing_pauses_for_press_and_resumes_after_release() {
+        let mut app = TestAppContext::single();
+        app.update(|cx| {
+            crate::theme::install(
+                crate::ThemePreference::explicit(crate::ThemeId::AQUA_LIGHT),
+                cx,
+            )
+        });
+        let (harness, cx) = app.add_window_view(|_, cx| InstallerMotionHarness {
+            focus: cx.focus_handle(),
+            other_focus: cx.focus_handle(),
+            activations: 0,
+            disabled: false,
+        });
+        cx.update(|window, _| window.activate_window());
+        draw(cx);
+        let bounds = cx.debug_bounds("installer").unwrap();
+        // The lower band is painted full-width over the inset bezel; it is the
+        // first quad matching that rectangle and carries the throb gradient.
+        let fill = |cx: &mut VisualTestContext| {
+            cx.update(|window, _| {
+                let inner = paint::inset(bounds, crate::convert::hairline(window))
+                    .scale(window.scale_factor());
+                window
+                    .painted_quads()
+                    .iter()
+                    .find(|quad| quad.bounds == inner)
+                    .unwrap()
+                    .background
+            })
+        };
+        let advance = |cx: &mut VisualTestContext, by: Duration| {
+            cx.update(|window, cx| {
+                cx.background_executor().advance_clock(by);
+                window.simulate_next_frame(cx);
+            });
+            draw(cx);
+        };
+        let quarter = Duration::from_millis(275);
+        let position = bounds.center();
+        let modifiers = Modifiers::default();
+
+        // The idle default breathes: quarter-cycle samples are not all equal.
+        let mut idle = vec![fill(cx)];
+        for _ in 0..3 {
+            advance(cx, quarter);
+            idle.push(fill(cx));
+        }
+        assert!(
+            idle.windows(2).any(|pair| pair[0] != pair[1]),
+            "the rendered bezel must change over the clock: {idle:?}"
+        );
+
+        // Holding a press settles on the pressed material and stops the throb.
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        advance(cx, PRESS_DURATION * 4);
+        let held = fill(cx);
+        advance(cx, quarter);
+        assert_eq!(fill(cx), held, "breathing must pause while pressed");
+        advance(cx, quarter);
+        assert_eq!(fill(cx), held, "breathing must stay paused while held");
+
+        // Releasing activates once and resumes the breathing after the release
+        // transition completes.
+        cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_eq!(cx.update(|_, cx| harness.read(cx).activations), 1);
+        advance(cx, RELEASE_DURATION);
+        let mut resumed = vec![fill(cx)];
+        for _ in 0..3 {
+            advance(cx, quarter);
+            resumed.push(fill(cx));
+        }
+        assert!(
+            resumed.windows(2).any(|pair| pair[0] != pair[1]),
+            "breathing must resume after release: {resumed:?}"
+        );
+
+        // Moving focus to another control leaves the installer breathing.
+        cx.update(|window, cx| {
+            let other = harness.read(cx).other_focus.clone();
+            window.focus(&other, cx);
+        });
+        draw(cx);
+        cx.update(|window, cx| {
+            assert!(
+                harness.read(cx).other_focus.is_focused(window),
+                "focus moved off the installer"
+            );
+        });
+        let mut unfocused = vec![fill(cx)];
+        for _ in 0..3 {
+            advance(cx, quarter);
+            unfocused.push(fill(cx));
+        }
+        assert!(
+            unfocused.windows(2).any(|pair| pair[0] != pair[1]),
+            "breathing must continue when another control has focus: {unfocused:?}"
+        );
+
+        // Disabling during a held press cancels activation and stops the throb.
+        cx.simulate_mouse_down(position, MouseButton::Left, modifiers);
+        draw(cx);
+        advance(cx, PRESS_DURATION);
+        let pressed = fill(cx);
+        cx.update(|_, cx| {
+            harness.update(cx, |h, cx| {
+                h.disabled = true;
+                cx.notify();
+            });
+        });
+        draw(cx);
+        let disabled = fill(cx);
+        assert_ne!(
+            disabled, pressed,
+            "disabling must leave the pressed material"
+        );
+        advance(cx, quarter);
+        assert_eq!(fill(cx), disabled, "the disabled control must not breathe");
+        cx.simulate_mouse_up(position, MouseButton::Left, modifiers);
+        draw(cx);
+        assert_eq!(
+            cx.update(|_, cx| harness.read(cx).activations),
+            1,
+            "disabling mid-press must cancel activation"
+        );
+    }
+
     #[test]
     fn existing_push_round_and_help_styles_do_not_join_the_throb() {
         assert!(ButtonStyle::Push.breathes_when_default());
