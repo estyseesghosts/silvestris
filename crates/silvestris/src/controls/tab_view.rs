@@ -112,6 +112,7 @@ impl RenderOnce for TabView {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let colors = theme.colors.clone();
+        let group_radius = theme.metrics.group_radius;
         let has_tabs = !self.tabs.is_empty();
         let tab_height = match self.size {
             ControlSize::Regular => theme.metrics.segment_height,
@@ -158,7 +159,9 @@ impl RenderOnce for TabView {
             .child(
                 canvas(
                     |_, _, _| (),
-                    move |bounds, _, window, _| paint::group_box(window, bounds, &colors),
+                    move |bounds, _, window, _| {
+                        paint::group_box_with_radius(window, bounds, &colors, group_radius)
+                    },
                 )
                 .absolute()
                 .inset_0(),

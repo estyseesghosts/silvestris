@@ -68,6 +68,7 @@ impl RenderOnce for GroupBox {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let colors = theme.colors.clone();
+        let group_radius = theme.metrics.group_radius;
         let mut root = div()
             .debug_selector(|| self.id.to_string())
             .id(self.id)
@@ -100,7 +101,9 @@ impl RenderOnce for GroupBox {
             .child(
                 canvas(
                     |_, _, _| (),
-                    move |bounds, _, window, _| paint::group_box(window, bounds, &colors),
+                    move |bounds, _, window, _| {
+                        paint::group_box_with_radius(window, bounds, &colors, group_radius)
+                    },
                 )
                 .absolute()
                 .inset_0(),

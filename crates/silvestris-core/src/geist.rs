@@ -232,6 +232,7 @@ fn metrics() -> Metrics {
         splitter_hot_zone: 3.0,
         control_spacing: 8.0,
         tab_label_margin: 12.0,
+        group_radius: 6.0,
         panel_radius: 6.0,
     }
 }
@@ -572,8 +573,14 @@ mod tests {
         assert_eq!(dark.type_, light.type_);
         assert_eq!(dark.controls.push.normal.upper.from, c(0x171717));
         assert_eq!(light.controls.push.normal.upper.from, c(0xffffff));
-        assert_eq!(dark.controls.popup.cap.normal, dark.controls.popup.body.normal);
-        assert_eq!(light.controls.popup.cap.normal, light.controls.popup.body.normal);
+        assert_eq!(
+            dark.controls.popup.cap.normal,
+            dark.controls.popup.body.normal
+        );
+        assert_eq!(
+            light.controls.popup.cap.normal,
+            light.controls.popup.body.normal
+        );
         assert_eq!(dark.controls.progress.radius, 4.0);
         assert_eq!(light.controls.progress.radius, 4.0);
     }
@@ -583,15 +590,11 @@ mod tests {
         for theme in [geist_dark(), geist_light()] {
             let states = theme.controls.push;
             assert_ne!(states.normal.upper.from, theme.controls.hover.upper.from);
-            assert_ne!(
-                theme.controls.hover.upper.from,
-                states.pressed.upper.from
-            );
+            assert_ne!(theme.controls.hover.upper.from, states.pressed.upper.from);
             assert_ne!(states.pressed.upper.from, states.disabled.upper.from);
             assert_ne!(states.normal.text, states.disabled.text);
             assert_ne!(
-                theme.lists.table_active.fill.from,
-                theme.lists.table_inactive.fill.from,
+                theme.lists.table_active.fill.from, theme.lists.table_inactive.fill.from,
                 "selected rows must not look like pressed neutral controls"
             );
             assert_ne!(theme.colors.focus_ring, theme.colors.menu_border);

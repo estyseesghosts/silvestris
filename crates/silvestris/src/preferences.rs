@@ -32,15 +32,17 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     canvas, div, prelude::*, px, size, AnyElement, App, ElementId, FocusHandle, Pixels,
-    SharedString, Size, Window,
+    ScrollHandle, SharedString, Size, Window,
 };
 
 use crate::binding::Binding;
 pub use crate::controls::TabView;
-use crate::controls::{Button, ButtonStyle, ControlSize, Segment, SegmentedControl};
+use crate::controls::{
+    Button, ButtonStyle, ControlSize, ScrollAxes, ScrollView, Segment, SegmentedControl,
+};
 use crate::convert::hsla;
 use crate::icons::ConsumerArtwork;
-use crate::{paint, ActiveTheme};
+use crate::{paint, ActiveTheme, ThemeFamily};
 
 // --- Measured geometry (logical px) --------------------------------------
 /// Window width of the 10.6 System Preferences overview (x 40..707 inclusive).
@@ -603,6 +605,44 @@ pub fn pane_viewport(content: impl IntoElement, scrolls: bool) -> impl IntoEleme
         .child(content)
 }
 
+/// Pane viewport with an optional theme-aware scroll handle.
+///
+/// Existing callers keep [`pane_viewport`] and native scrolling. A host that
+/// supplies a handle gets the Geist scrollbar on Geist appearance while the
+/// GPUI overflow still owns the scroll position. Only one visible bar is
+/// mounted: the native bar's reserved width is zero in that path.
+pub fn pane_viewport_with_scroll(
+    content: impl IntoElement,
+    scrolls: bool,
+    handle: ScrollHandle,
+    cx: &App,
+) -> AnyElement {
+    if scrolls && cx.theme().id.family == ThemeFamily::Geist {
+        div()
+            .w_full()
+            .flex_1()
+            .min_h_0()
+            .child(
+                ScrollView::new("preferences-pane-scroll", &handle)
+                    .axes(ScrollAxes::Vertical)
+                    .child(
+                        div()
+                            .id("preferences-pane-content")
+                            .w_full()
+                            .flex()
+                            .flex_col()
+                            .overflow_y_scroll()
+                            .scrollbar_width(px(0.))
+                            .track_scroll(&handle)
+                            .child(content),
+                    ),
+            )
+            .into_any_element()
+    } else {
+        pane_viewport(content, scrolls).into_any_element()
+    }
+}
+
 /// A natural-height pane body for measurement. [`pane_body`] keeps filling the
 /// window; use this variant inside [`measure_content`] so the body reports its
 /// required height rather than the viewport height.
@@ -706,16 +746,25 @@ type SelectFn = Rc<dyn Fn(&SharedString, &mut Window, &mut App)>;
 pub struct PreferencesOverview {
     categories: Vec<PreferenceCategory>,
     on_select: Option<SelectFn>,
+    scroll: Option<ScrollHandle>,
 }
 impl PreferencesOverview {
     pub fn new(categories: Vec<PreferenceCategory>) -> Self {
         Self {
             categories,
             on_select: None,
+            scroll: None,
         }
     }
     pub fn on_select(mut self, f: impl Fn(&SharedString, &mut Window, &mut App) + 'static) -> Self {
         self.on_select = Some(Rc::new(f));
+        self
+    }
+
+    /// Opt into the theme-aware scrollbar for an overview taller than the
+    /// window. Without a handle the native overflow path is unchanged.
+    pub fn scroll_handle(mut self, handle: ScrollHandle) -> Self {
+        self.scroll = Some(handle);
         self
     }
 }
@@ -723,13 +772,17 @@ impl RenderOnce for PreferencesOverview {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme().clone();
         let c = &theme.colors;
+        let geist = theme.id.family == ThemeFamily::Geist;
+        let themed_scroll = self
+            .scroll
+            .clone()
+            .filter(|_| theme.id.family == ThemeFamily::Geist);
         let mut root = div()
             .id("preferences-overview")
             .debug_selector(|| "preferences-overview".into())
             .size_full()
             .flex()
-            .flex_col()
-            .overflow_y_scroll();
+            .flex_col();
         for (index, category) in self.categories.into_iter().enumerate() {
             // M: prefs.overview.bands — window colour, then the group fill.
             let fill = if index % 2 == 0 {
@@ -761,13 +814,27 @@ impl RenderOnce for PreferencesOverview {
                             .top(px(HEADING_TOP))
                             .left(px(HEADING_LEFT))
                             .font_weight(crate::theme::heading_font_weight(&theme))
-                            .text_size(px(theme.type_.size_regular))
+                            .text_size(px(if geist {
+                                theme.type_.size_heading
+                            } else {
+                                theme.type_.size_regular
+                            }))
+                            .when(geist, |el| el.text_color(hsla(c.text_secondary)))
                             .child(category.label),
                     )
                     .child(grid),
             );
         }
-        root
+        let scrolling = root
+            .overflow_y_scroll()
+            .when(themed_scroll.is_some(), |el| el.scrollbar_width(px(0.)));
+        let Some(handle) = themed_scroll else {
+            return scrolling.into_any_element();
+        };
+        ScrollView::new("preferences-overview-scroll", &handle)
+            .axes(ScrollAxes::Vertical)
+            .child(scrolling.track_scroll(&handle))
+            .into_any_element()
     }
 }
 
@@ -833,7 +900,11 @@ fn cell(
                 .w(px(CELL_WIDTH - 4.0))
                 .text_center()
                 .text_size(px(theme.type_.size_small))
-                .line_height(px(13.0))
+                .line_height(px(if theme.id.family == ThemeFamily::Geist {
+                    15.0
+                } else {
+                    13.0
+                }))
                 .child(pane.label),
         )
 }
@@ -1000,6 +1071,11 @@ impl RenderOnce for Form {
         let on_color = hsla(theme.colors.text_on_accent);
         let row_height = theme.metrics.push_small_height;
         let small = theme.type_.size_small;
+        let note_line_height = if theme.id.family == ThemeFamily::Geist {
+            16.0
+        } else {
+            13.0
+        };
         let label_width = self.label_width;
         div().flex().flex_col().gap(px(CONTROL_GAP)).children(
             self.rows.into_iter().enumerate().map(move |(index, row)| {
@@ -1065,6 +1141,7 @@ impl RenderOnce for Form {
                                     .items_start()
                                     .gap(px(4.0))
                                     .text_size(px(small))
+                                    .line_height(px(note_line_height))
                                     .text_color(message_color)
                                     .children(marker)
                                     .child(div().min_w_0().child(note))

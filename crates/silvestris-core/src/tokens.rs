@@ -620,6 +620,8 @@ pub struct Metrics {
     pub splitter_hot_zone: f32,
     pub control_spacing: f32,
     pub tab_label_margin: f32,
+    /// Corner radius of group boxes and tab-view borders.
+    pub group_radius: f32,
     /// Generic corner radius for panels and popovers.
     pub panel_radius: f32,
 }

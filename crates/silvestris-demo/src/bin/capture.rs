@@ -43,7 +43,7 @@ use silvestris::icons::{
 };
 use silvestris::menu::PopupMenu;
 use silvestris::preferences::{
-    pane_body, pane_viewport, Form, FormRow, PreferencesNavigator, PreferencesToolbar,
+    pane_body, pane_viewport_with_scroll, Form, FormRow, PreferencesNavigator, PreferencesToolbar,
 };
 use silvestris::split::SplitView;
 use silvestris::toolbar::{
@@ -2180,9 +2180,11 @@ fn preferences_sample(
         .role(WindowRole::Preferences)
         .fixed_size()
         .toolbar(PreferencesToolbar::new(&nav), theme.metrics.toolbar_height)
-        .child(pane_viewport(
+        .child(pane_viewport_with_scroll(
             pane_body().child(div().pt(px(34.0)).child(form)),
             scrolls,
+            gpui::ScrollHandle::new(),
+            cx,
         ))
 }
 

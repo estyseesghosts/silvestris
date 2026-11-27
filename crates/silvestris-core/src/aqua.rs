@@ -195,6 +195,8 @@ fn metrics() -> Metrics {
         control_spacing: 8.0,
         // HIG p. 338-341: 12 px label margin in tabs.
         tab_label_margin: 12.0,
+        // M: groupbox.top: measured 4 px corner, distinct from panel_radius.
+        group_radius: 4.0,
         panel_radius: 5.0,
     }
 }

@@ -705,7 +705,11 @@ impl Render for TextField {
         let ring = m.focus_ring;
         let search = self.search && !self.masked;
         let clearable = search && enabled && !self.session.is_empty();
-        let radius = if search { height / 2.0 } else { 0.0 };
+        let radius = if search {
+            m.search_corner.radius(height)
+        } else {
+            m.field_corner.radius(height)
+        };
         let role = match (self.masked, search) {
             (true, _) => gpui::Role::PasswordInput,
             (_, true) => gpui::Role::SearchInput,

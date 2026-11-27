@@ -24,11 +24,13 @@ use silvestris::controls::{
 };
 use silvestris::core::command::{CommandDescriptor, CommandId, MenuEntry, MenuModel};
 use silvestris::file_panel::{MemoryPanelStateStore, OpenPanel, SavePanel};
-use silvestris::icons::{ConsumerArtwork, ConsumerTemplateImage, PictorialImage, TemplateImage};
+use silvestris::icons::{
+    ConsumerArtwork, ConsumerTemplateImage, GeistPictogram, PictorialImage, TemplateImage,
+};
 use silvestris::menu::PopupMenu;
 use silvestris::modal::{self, ModalResult, ModalScope, ModalSession};
 use silvestris::preferences::{
-    measure_content, pane_body_natural, pane_viewport, Form, FormRow, Navigation, PreferencePane,
+    measure_content, pane_body_natural, Form, FormRow, Navigation, PreferencePane,
     PreferencesController, PreferencesSizing, PreferencesToolbar,
 };
 use silvestris::responder::{
@@ -79,6 +81,7 @@ impl gpui::Render for RoleWindow {
 /// short panes; Privacy is taller than the display so only its body scrolls.
 struct PreferencesDemo {
     controller: PreferencesController,
+    pane_scroll: gpui::ScrollHandle,
 }
 
 impl PreferencesDemo {
@@ -95,6 +98,7 @@ impl PreferencesDemo {
                 PreferencesSizing::new(668.0, 22.0 + 32.0),
             )
             .focus_return(focus),
+            pane_scroll: gpui::ScrollHandle::new(),
         }
     }
 
@@ -193,10 +197,14 @@ impl Render for PreferencesDemo {
                     .when_some(
                         self.controller.current().is_some().then_some(()),
                         |el, ()| {
-                            el.child(div().flex_1().min_h_0().child(pane_viewport(
-                                measure_content(pane_body_natural().child(body), measured),
-                                scrolls,
-                            )))
+                            el.child(div().flex_1().min_h_0().child(
+                                silvestris::preferences::pane_viewport_with_scroll(
+                                    measure_content(pane_body_natural().child(body), measured),
+                                    scrolls,
+                                    self.pane_scroll.clone(),
+                                    cx,
+                                ),
+                            ))
                         },
                     )
                     .when(self.controller.current().is_none(), |el| {
@@ -2257,6 +2265,40 @@ impl Render for Gallery {
                                 )
                                 .display_mode(ToolbarDisplayMode::IconAndLabel),
                             )
+                        }))
+                        .into_any_element()
+                },
+            ))
+            .child(cell(
+                "Standard Geist artwork: ten generic pictograms in 32 px slots",
+                {
+                    let state = silvestris::icons::PictorialState::normal();
+                    div()
+                        .flex()
+                        .flex_wrap()
+                        .gap(px(8.))
+                        .w_full()
+                        .children(GeistPictogram::all().iter().copied().map(|role| {
+                            div()
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .w(px(81.))
+                                .h(px(64.))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .size(px(32.))
+                                        .child(role.themed_element(20.0, state, &theme)),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(theme.type_.size_mini))
+                                        .text_color(silvestris::convert::hsla(theme.colors.text_secondary))
+                                        .child(role.role()),
+                                )
                         }))
                         .into_any_element()
                 },

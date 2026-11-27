@@ -13,6 +13,8 @@ use gpui::{
     ElementId, SharedString, Window,
 };
 
+use silvestris_core::ThemeFamily;
+
 use crate::{paint, ActiveTheme};
 
 use super::ControlSize;
@@ -149,6 +151,22 @@ fn bar_draw(
                     );
                 });
             }
+        }
+        None if theme.id.family == ThemeFamily::Geist => {
+            // Same animation phase and period, flat accent instead of Aqua's
+            // 45 degree barber-pole shading. The block travels across the
+            // clipped well and keeps its rounded ends.
+            let width = inner.size.width.as_f32();
+            let block = (width * 0.35).max(px(8.).as_f32());
+            let travel = width + block;
+            let offset = (phase * travel).rem_euclid(travel) - block;
+            window.with_content_mask(Some(ContentMask { bounds: inner }), |window| {
+                let fill = Bounds::new(
+                    point(inner.origin.x + px(offset), inner.origin.y),
+                    size(px(block), inner.size.height),
+                );
+                paint::bevel(window, fill, radius, &controls.fill);
+            });
         }
         None => {
             // The stripes tint the top border row too; the sides and bottom

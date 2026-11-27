@@ -76,6 +76,14 @@ fn fill_rounded(window: &mut Window, b: Bounds<Pixels>, r: Pixels, bg: gpui::Bac
     ));
 }
 
+/// A material with one border, one fill and no emboss or gloss bands.
+fn flat_material(b: &Bevel) -> bool {
+    b.emboss.a == 0
+        && b.upper.from == b.upper.to
+        && b.lower.from == b.lower.to
+        && b.upper.from == b.lower.from
+}
+
 /// Paint a bezel: emboss line under it, border ring (top→bottom gradient),
 /// then the lower gloss band and the upper band clipped above the split
 /// (M: button.push.normal and siblings; handbook 10 "layered gloss").
@@ -87,12 +95,34 @@ pub fn bevel(window: &mut Window, bounds: Bounds<Pixels>, radius: f32, b: &Bevel
     let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
     let r = px(radius.min(bounds.size.height.as_f32() / 2.0));
+    let scale = window.scale_factor();
+    if flat_material(b) {
+        // Geist supplies a border and one fill with no emboss or gloss. The
+        // layered path would paint the same colour three times and could
+        // leave a half-row seam at fractional scaling. Aqua never takes this
+        // branch because its materials have distinct bands and emboss lines.
+        fill_rounded(
+            window,
+            bounds,
+            r,
+            rows(b.border, bounds.size.height.as_f32() * scale),
+        );
+        let inner = inset(bounds, h);
+        if inner.size.height > px(0.) {
+            fill_rounded(
+                window,
+                inner,
+                (r - h).max(px(0.)),
+                gpui::solid_background(hsla(b.upper.from)),
+            );
+        }
+        return;
+    }
     if b.emboss.a > 0 {
         let mut e = bounds;
         e.origin.y += h;
         fill_rounded(window, e, r, gpui::solid_background(hsla(b.emboss)));
     }
-    let scale = window.scale_factor();
     fill_rounded(
         window,
         bounds,
@@ -331,9 +361,35 @@ pub fn well(
 /// than the sides over one more highlight row. Each row is one device row
 /// per whole scale step, like every other Aqua edge.
 pub fn group_box(window: &mut Window, bounds: Bounds<Pixels>, c: &Colors) {
+    group_box_with_radius(window, bounds, c, 4.0);
+}
+
+/// Group box with a theme-resolved corner radius. The original [`group_box`]
+/// keeps Aqua's measured radius for consumers that call it directly.
+pub fn group_box_with_radius(window: &mut Window, bounds: Bounds<Pixels>, c: &Colors, radius: f32) {
     let bounds = snap_bounds(window, bounds);
     let h = hairline(window);
-    let r = px(4.0_f32.min(bounds.size.height.as_f32() / 2.0));
+    let r = px(radius.min(bounds.size.height.as_f32() / 2.0));
+    let flat = c.group_fill == c.group_highlight
+        && c.group_fill == c.group_highlight_bottom
+        && c.group_border == c.group_border_top
+        && c.group_border == c.group_border_bottom
+        && c.group_shadow.iter().all(|row| *row == c.group_fill);
+    if flat {
+        // One neutral border and one uniform surface. No stacked highlight,
+        // shadow rows or inner columns for a flat material.
+        let solid = |color: Rgba8| gpui::solid_background(hsla(color));
+        fill_rounded(window, bounds, r, solid(c.group_border));
+        if bounds.size.height > h {
+            fill_rounded(
+                window,
+                inset(bounds, h),
+                (r - h).max(px(0.)),
+                solid(c.group_fill),
+            );
+        }
+        return;
+    }
     let (x0, y0) = (bounds.origin.x, bounds.origin.y);
     let (w, bottom) = (bounds.size.width, bounds.bottom());
     let solid = |c: Rgba8| gpui::solid_background(hsla(c));

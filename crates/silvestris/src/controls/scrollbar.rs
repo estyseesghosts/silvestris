@@ -33,7 +33,7 @@ use gpui::{
     Global, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, Pixels, Point,
     Task, Window,
 };
-use silvestris_core::Rgba8;
+use silvestris_core::{Rgba8, Theme, ThemeFamily};
 
 use super::scroll_source::{self, ScrollSource};
 use super::ControlSize;
@@ -113,6 +113,26 @@ struct State {
     /// Pointer offset from the thumb's leading edge while dragging.
     grab: Option<Pixels>,
     repeat: Option<Task<()>>,
+    /// Pointer is over the bar; Geist uses a lighter thumb in this state.
+    hover: bool,
+}
+
+/// presentation of a scroll bar. Aqua keeps the measured Snow Leopard
+/// painter; Geist uses a flat, narrow thumb and no arrow boxes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScrollbarPresentation {
+    Aqua,
+    Flat,
+}
+
+impl ScrollbarPresentation {
+    fn of(theme: &Theme) -> Self {
+        if theme.id.family == ThemeFamily::Geist {
+            Self::Flat
+        } else {
+            Self::Aqua
+        }
+    }
 }
 
 /// Positions along the bar, measured from its leading edge.
@@ -126,7 +146,22 @@ struct Layout {
     divider: Option<Pixels>,
 }
 
-fn layout(length: Pixels, thickness: f32, arrows: ScrollArrows) -> Layout {
+fn layout(
+    length: Pixels,
+    thickness: f32,
+    arrows: ScrollArrows,
+    presentation: ScrollbarPresentation,
+) -> Layout {
+    if presentation == ScrollbarPresentation::Flat {
+        // No arrow regions: the whole bar is track, with a 2 px end inset.
+        let start = px(2.0);
+        return Layout {
+            track_start: start,
+            track_end: (length - px(2.0)).max(start),
+            boxes: [(px(0.), px(0.), 0.0); 2],
+            divider: None,
+        };
+    }
     let unit = px(thickness + 1.0);
     match arrows {
         ScrollArrows::Together => Layout {
@@ -279,6 +314,7 @@ impl RenderOnce for Scrollbar {
         let theme = cx.theme().clone();
         let width = thickness(self.size, cx);
         let style = theme.controls.scroller;
+        let presentation = ScrollbarPresentation::of(&theme);
         let prefs = ScrollerPreferences::get(cx);
         let axis = self.axis;
         let line = px(self.line);
@@ -286,6 +322,8 @@ impl RenderOnce for Scrollbar {
         let shown = !self.autohide || scrollable(source.as_ref(), axis);
         let thickness_px = if shown { px(width) } else { px(0.) };
         let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
+        let paint_state = state.clone();
+        let hover_state = state.clone();
         let debug = match axis {
             Axis::Vertical => "scrollbar",
             Axis::Horizontal => "scrollbar-horizontal",
@@ -298,15 +336,19 @@ impl RenderOnce for Scrollbar {
                 Axis::Vertical => el.h_full().w(thickness_px),
                 Axis::Horizontal => el.w_full().h(thickness_px),
             })
+            .on_hover(move |over, window, cx| {
+                hover_state.update(cx, |s, _| s.hover = *over);
+                window.refresh();
+            })
             .child(
                 canvas(
                     |_, _, _| (),
-                    move |bar, _, window, _| {
+                    move |bar, _, window, cx| {
                         if bar.size.width <= px(0.) || bar.size.height <= px(0.) {
                             return;
                         }
                         let length = scroll_source::extent(bar.size, axis);
-                        let l = layout(length, width, prefs.arrows);
+                        let l = layout(length, width, prefs.arrows, presentation);
                         // Map (along, across) offsets into window coordinates.
                         let at = move |t: Pixels, a: Pixels| -> Point<Pixels> {
                             match axis {
@@ -325,82 +367,118 @@ impl RenderOnce for Scrollbar {
                         };
                         let full = px(width);
 
-                        // Track, then arrow boxes, across the bar (M:
-                        // scroller.track.row, scroller.boxes,
-                        // scroller.horizontal: both axes share the profiles).
-                        if style.track_rows.is_empty() {
-                            let track = match axis {
-                                Axis::Vertical => across(style.track, width),
-                                Axis::Horizontal => rows(style.track, width),
-                            };
-                            window.paint_quad(gpui::fill(bar, track));
-                        } else {
-                            paint_rows(window, &span, (px(0.), length), width, style.track_rows);
-                        }
-                        if !style.arrow_rows.is_empty() {
-                            for (start, end, _) in l.boxes {
-                                paint_rows(window, &span, (start, end), width, style.arrow_rows);
+                        if presentation == ScrollbarPresentation::Aqua {
+                            // Track, then arrow boxes, across the bar (M:
+                            // scroller.track.row, scroller.boxes,
+                            // scroller.horizontal: both axes share the profiles).
+                            if style.track_rows.is_empty() {
+                                let track = match axis {
+                                    Axis::Vertical => across(style.track, width),
+                                    Axis::Horizontal => rows(style.track, width),
+                                };
+                                window.paint_quad(gpui::fill(bar, track));
+                            } else {
+                                paint_rows(
+                                    window,
+                                    &span,
+                                    (px(0.), length),
+                                    width,
+                                    style.track_rows,
+                                );
                             }
-                        }
-                        paint_shading(window, &span, &l, length, full, style.cap_shadow);
-                        if let Some(d) = l.divider {
-                            if style.arrow_rows.is_empty() {
-                                let inset = px((width * 0.2).round());
+                            if !style.arrow_rows.is_empty() {
+                                for (start, end, _) in l.boxes {
+                                    paint_rows(
+                                        window,
+                                        &span,
+                                        (start, end),
+                                        width,
+                                        style.arrow_rows,
+                                    );
+                                }
+                            }
+                            paint_shading(window, &span, &l, length, full, style.cap_shadow);
+                            if let Some(d) = l.divider {
+                                if style.arrow_rows.is_empty() {
+                                    let inset = px((width * 0.2).round());
+                                    window.paint_quad(gpui::fill(
+                                        span(d, d + px(1.), inset, full - inset),
+                                        hsla(style.track_border),
+                                    ));
+                                } else {
+                                    // M: scroller.boxes divider column.
+                                    let shades: Vec<Rgba8> = DIVIDER_PROFILE
+                                        .iter()
+                                        .map(|a| {
+                                            Rgba8::hex(0x000000).alpha((a * 255.0).round() as u8)
+                                        })
+                                        .collect();
+                                    paint_rows(window, &span, (d, d + px(1.)), width, &shades);
+                                }
+                            }
+                            if l.track_start > px(0.) {
+                                let edge = l.track_start - px(1.);
                                 window.paint_quad(gpui::fill(
-                                    span(d, d + px(1.), inset, full - inset),
+                                    span(edge, edge + px(1.), px(0.), full),
                                     hsla(style.track_border),
                                 ));
-                            } else {
-                                // M: scroller.boxes divider column: the boxes
-                                // darkened by a quarter mid-bar, less at the edges.
-                                let shades: Vec<Rgba8> = DIVIDER_PROFILE
-                                    .iter()
-                                    .map(|a| Rgba8::hex(0x000000).alpha((a * 255.0).round() as u8))
-                                    .collect();
-                                paint_rows(window, &span, (d, d + px(1.)), width, &shades);
+                            }
+                            let scale = width / 15.0;
+                            for (start, end, direction) in l.boxes {
+                                // M: scroller.arrows: 7 x 6 px glyph.
+                                let (apex, base) = if direction < 0.0 {
+                                    (start + px(4.0 * scale), start + px(10.0 * scale))
+                                } else {
+                                    (end - px(5.0 * scale), end - px(11.0 * scale))
+                                };
+                                let centre = full / 2.0;
+                                let half = px(3.5 * scale);
+                                let mut path = PathBuilder::fill();
+                                path.move_to(at(apex, centre));
+                                path.line_to(at(base, centre + half));
+                                path.line_to(at(base, centre - half));
+                                path.close();
+                                if let Ok(path) = path.build() {
+                                    window.paint_path(path, hsla(style.arrow));
+                                }
                             }
                         }
-                        if l.track_start > px(0.) {
-                            let edge = l.track_start - px(1.);
-                            window.paint_quad(gpui::fill(
-                                span(edge, edge + px(1.), px(0.), full),
-                                hsla(style.track_border),
-                            ));
-                        }
-                        let scale = width / 15.0;
-                        for (start, end, direction) in l.boxes {
-                            // M: scroller.arrows: 7 x 6 px glyph, apex 5 px
-                            // in from the box's outer end.
-                            let (apex, base) = if direction < 0.0 {
-                                (start + px(4.0 * scale), start + px(10.0 * scale))
-                            } else {
-                                (end - px(5.0 * scale), end - px(11.0 * scale))
-                            };
-                            let centre = full / 2.0;
-                            let half = px(3.5 * scale);
-                            let mut path = PathBuilder::fill();
-                            path.move_to(at(apex, centre));
-                            path.line_to(at(base, centre + half));
-                            path.line_to(at(base, centre - half));
-                            path.close();
-                            if let Ok(path) = path.build() {
-                                window.paint_path(path, hsla(style.arrow));
-                            }
-                        }
+                        // Geist draws no track background and no arrows. The
+                        // 10 px layout allocation keeps the pointer target;
+                        // only the centred 6 px thumb is visible.
 
                         let current = geometry(length, &l, source.as_ref(), axis);
                         if let Some(g) = current {
-                            let bevel = if window.is_window_active() {
-                                style.thumb
-                            } else {
+                            let hovered = presentation == ScrollbarPresentation::Flat
+                                && paint_state.read(cx).hover;
+                            let bevel = if !window.is_window_active() {
                                 style.thumb_inactive
+                            } else if hovered {
+                                style.thumb_hover
+                            } else {
+                                style.thumb
                             };
-                            let thumb = span(g.thumb.0, g.thumb.1, px(1.), full - px(1.));
-                            match axis {
-                                Axis::Vertical => paint::thumb(window, thumb, &bevel),
-                                Axis::Horizontal => {
-                                    let radius = thumb.size.height.as_f32() / 2.0;
-                                    paint::bevel(window, thumb, radius, &bevel);
+                            let (a0, a1, flat) = if presentation == ScrollbarPresentation::Flat {
+                                let visual = 6.0_f32.min(width);
+                                let inset = (width - visual) / 2.0;
+                                (px(inset), px(inset + visual), true)
+                            } else {
+                                (px(1.), full - px(1.), false)
+                            };
+                            let thumb = span(g.thumb.0, g.thumb.1, a0, a1);
+                            if flat {
+                                let radius = match axis {
+                                    Axis::Vertical => (a1 - a0).as_f32() / 2.0,
+                                    Axis::Horizontal => thumb.size.height.as_f32() / 2.0,
+                                };
+                                paint::bevel(window, thumb, radius, &bevel);
+                            } else {
+                                match axis {
+                                    Axis::Vertical => paint::thumb(window, thumb, &bevel),
+                                    Axis::Horizontal => {
+                                        let radius = thumb.size.height.as_f32() / 2.0;
+                                        paint::bevel(window, thumb, radius, &bevel);
+                                    }
                                 }
                             }
                         }

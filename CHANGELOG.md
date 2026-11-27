@@ -5,6 +5,20 @@ keyed by commit range. A range lists public API changes a consumer must handle
 when moving its pin. Behaviour-only changes are listed because consumers can
 depend on focus, key routing and layout.
 
+## Geist refinement (docs/geist.txt)
+
+Additive token fields: `tokens::CornerRule` with `Capsule` and `Fixed(f32)`,
+`Metrics::{segment_corner, field_corner, search_corner, group_radius}`,
+`Controls::hover` and `Scroller::thumb_hover`. Aqua initialises every new field
+with its existing material or capsule policy. Public additions:
+`preferences::pane_viewport_with_scroll`,
+`PreferencesOverview::scroll_handle`, `paint::group_box_with_radius`,
+`icons::GeistPictogram` and `silvestris_fonts::GEIST_SANS` (also in
+`silvestris_core::fonts`). Geist no longer uses Inter for UI text; Aqua's fonts
+and Inter as an auxiliary family are unchanged. Geist controls use the
+documented palette, radii and flat paint paths; no public theme contract or
+default preference changed.
+
 ## After a9a2879
 
 Action menus and scope bars (#46):

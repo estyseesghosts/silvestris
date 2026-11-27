@@ -189,3 +189,71 @@ progress radius. The installer Continue control and radio buttons stay
 circular. These shared-type additions are mechanical and are covered by
 explicit assertions in `crates/silvestris-core/tests/aqua_isolation.rs`; the
 Aqua fixtures were regenerated only to include the new fields.
+
+## Implementation across the shared controls
+
+- Buttons and textured controls keep 28/24/20 px heights and 12/10/8 px
+  padding. Their radius comes from `metrics.push_radius` and
+  `metrics.textured_radius`; Aqua's measured values are unchanged. Popup caps
+  keep 18/16/14 px and now use the neutral body material with a subtle
+  divider, not a blue accent. The installer Continue control remains circular
+  and uses the primary-action material for Geist.
+- Segments and fields resolve `CornerRule` through the renderer, including
+  the focus ring: Geist segments and normal fields use 4 px, search fields
+  6 px, and Aqua keeps half-height capsules.
+- The bevel and group-box painters take a flat path only when a material has
+  one fill, one border and no emboss; Aqua's layered path is unchanged. Group
+  boxes use `metrics.group_radius` without changing insets.
+- Checkboxes use a 3 px radius, radios stay circular, slider tracks and thumbs
+  use neutral materials, and progress uses a 4 px radius. Indeterminate
+  progress keeps the existing animation timing but draws a flat moving accent
+  block instead of Aqua's 45 degree barber-pole shading.
+- Preferences keep 668 px width, 81 px cells, 100 px bands, 32 px icons, 20 px
+  margins, an 8 px row gap and a right-aligned label column. Geist headings
+  are 12 px semibold secondary text, category labels use a 15 px line box,
+  and notes use a 16 px line box. The 2 px control-to-note gap is unchanged.
+- Source lists, tables, toolbars, bottom bars, tab views, menus and split
+  views read the same palette; row heights and native menu semantics are
+  unchanged.
+
+## Scrollbars and artwork
+
+`Scrollbar` now resolves a presentation from `ThemeId`. Aqua keeps its whole
+painter and arrow preferences. Geist draws no track and no arrows: a 6 px
+rounded thumb is centred in the 10 px allocation with a 2 px end inset and an
+18 px minimum length. The track geometry is a separate function, so the
+original `ScrollSource` pointer model, grab offset, page clicks, jump-to-spot
+and drag notifications are shared. `preferences::pane_viewport_with_scroll`
+and `PreferencesOverview::scroll_handle` let hosts attach that bar to native
+overflow views without changing the existing call sites; the native bar's
+reserved width becomes zero when the Geist bar is mounted.
+
+Geist interface artwork uses ten generic pictograms from Lucide 0.468.0
+(archive SHA-256 `2fe6e35a57404dab89adaddd6df49ec60d13bba3d6caee5d8805f885079a1c57`).
+`tools/icons/geist_pictograms.py` converts the pinned SVGs to static polylines
+once; nothing parses SVG during a frame. The roles are settings, database,
+message-square, monitor, volume-2, gamepad-2, bug, bot, wrench and
+sliders-horizontal. Ink comes from theme text tokens, including disabled and
+inactive states. File artwork and consumer artwork keep their own vocabularies.
+
+## Native frame behaviour
+
+The GPUI root uses `metrics.window_radius` (Aqua 4, Geist 6) and clips the
+titlebar, body and bottom bar with one `overflow_hidden` root. Maximized
+windows use radius 0. Linux client decorations keep their transparent margin
+and drawn shadow. Windows requests `DWMWCP_ROUNDSMALL` and records only that
+the request was accepted in `FrameCapabilities`; it does not claim the
+compositor honoured an exact pixel radius. Native corner captures over light
+and dark desktops at 100/125/150/200% still need an interactive Windows 11
+host and are a documented verification limitation, not a passing gate.
+
+## Verification in this environment
+
+- `cargo test --workspace --locked` passed at the palette checkpoint.
+- `cargo test -p silvestris-core`, the Aqua isolation fixtures, the Geist
+  contrast checks, font metadata checks, scrollbar interaction tests and theme
+  switching tests pass.
+- Candidate Geist goldens are rendered with `pwsh tools/metrology/render.ps1`
+  and reported by `tools/metrology/gate.py`. Aqua differences are reported as
+  forbidden; Geist differences are reported as awaiting review. Final golden
+  acceptance is deliberately left to the user after visual inspection.

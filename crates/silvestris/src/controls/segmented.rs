@@ -211,8 +211,8 @@ impl RenderOnce for SegmentedControl {
             SegmentStyle::Textured => t.controls.textured,
         };
         let radius = match self.style {
-            SegmentStyle::Rounded => height / 2.,
-            SegmentStyle::Textured => t.metrics.textured_radius,
+            SegmentStyle::Rounded => t.metrics.segment_corner.radius(height),
+            SegmentStyle::Textured => t.metrics.textured_radius.min(height / 2.0),
         };
         let labels: Vec<f32> = self
             .segments

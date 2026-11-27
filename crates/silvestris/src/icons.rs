@@ -16,10 +16,12 @@
 //! is not generic toolbar pictorial artwork and the two are never exchanged.
 
 use gpui::{
-    canvas, div, prelude::*, px, AnyElement, App, Bounds, PathBuilder, Pixels, Point, SharedString,
-    Window,
+    canvas, div, point, prelude::*, px, AnyElement, App, Bounds, PathBuilder, Pixels, Point,
+    SharedString, Window,
 };
-use silvestris_core::Rgba8;
+use silvestris_core::{Rgba8, Theme, ThemeFamily};
+
+use crate::geist_pictograms::GEIST_PICTOGRAMS;
 use std::rc::Rc;
 
 use crate::convert::hsla;
@@ -85,6 +87,131 @@ impl TemplateImageSlot {
             Self::Toolbar => 19.0,
             Self::Segmented => 13.0,
         }
+    }
+}
+
+/// Standard Geist interface pictograms.
+///
+/// These roles are generic: a consumer maps its own categories to them in its
+/// own code. Silvestris never recognises an application name. Geometry is
+/// prepared once from the pinned Lucide release in `icons/lucide`, with a 2 px
+/// nominal stroke at a 24 px source size and round caps and joins.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum GeistPictogram {
+    Settings,
+    Database,
+    MessageSquare,
+    Monitor,
+    Volume2,
+    Gamepad2,
+    Bug,
+    Bot,
+    Wrench,
+    SlidersHorizontal,
+}
+
+impl GeistPictogram {
+    /// The pinned Lucide role name.
+    #[must_use]
+    pub const fn role(self) -> &'static str {
+        match self {
+            Self::Settings => "settings",
+            Self::Database => "database",
+            Self::MessageSquare => "message-square",
+            Self::Monitor => "monitor",
+            Self::Volume2 => "volume-2",
+            Self::Gamepad2 => "gamepad-2",
+            Self::Bug => "bug",
+            Self::Bot => "bot",
+            Self::Wrench => "wrench",
+            Self::SlidersHorizontal => "sliders-horizontal",
+        }
+    }
+
+    /// All standard roles, in gallery order.
+    #[must_use]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::Settings,
+            Self::Database,
+            Self::MessageSquare,
+            Self::Monitor,
+            Self::Volume2,
+            Self::Gamepad2,
+            Self::Bug,
+            Self::Bot,
+            Self::Wrench,
+            Self::SlidersHorizontal,
+        ]
+    }
+
+    fn paths(self) -> &'static [crate::geist_pictograms::PictogramPath] {
+        let role = self.role();
+        let (_, _, paths) = GEIST_PICTOGRAMS
+            .iter()
+            .find(|(name, _, _)| *name == role)
+            .expect("generated pictogram for every Geist role");
+        paths
+    }
+
+    /// Draw the glyph in host-supplied ink at a visible size. The full slot is
+    /// still owned by the host so alignment and hit targets do not move.
+    #[must_use]
+    pub fn element(self, visible_size: f32, ink: Rgba8) -> AnyElement {
+        let scale = visible_size / 24.0;
+        let paths = self.paths();
+        div()
+            .size(px(visible_size))
+            .child(canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    for path in paths {
+                        let mut builder = PathBuilder::stroke(px(2.0 * scale));
+                        let points = path.points;
+                        let Some(&(first_x, first_y)) = points.first() else {
+                            continue;
+                        };
+                        let at = |x: f32, y: f32| {
+                            point(
+                                bounds.origin.x + px(x * scale),
+                                bounds.origin.y + px(y * scale),
+                            )
+                        };
+                        builder.move_to(at(first_x, first_y));
+                        for &(x, y) in &points[1..] {
+                            builder.line_to(at(x, y));
+                        }
+                        if let Ok(path) = builder.build() {
+                            window.paint_path(path, hsla(ink));
+                        }
+                    }
+                },
+            ))
+            .into_any_element()
+    }
+
+    /// Resolve ink from theme tokens and control state, then draw the glyph.
+    /// Aqua keeps its original artwork; this helper only supplies Geist's
+    /// monochrome presentation when the active theme is Geist.
+    #[must_use]
+    pub fn themed_element(
+        self,
+        visible_size: f32,
+        state: PictorialState,
+        theme: &Theme,
+    ) -> AnyElement {
+        if theme.id.family != ThemeFamily::Geist {
+            return div().size(px(visible_size)).into_any_element();
+        }
+        let ink = if !state.enabled {
+            theme.colors.text_disabled
+        } else if !state.active_window {
+            theme.colors.text_secondary
+        } else {
+            theme.colors.text
+        };
+        self.element(visible_size, ink)
     }
 }
 
