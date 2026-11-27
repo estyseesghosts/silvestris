@@ -1071,11 +1071,9 @@ impl RenderOnce for Form {
         let on_color = hsla(theme.colors.text_on_accent);
         let row_height = theme.metrics.push_small_height;
         let small = theme.type_.size_small;
-        let note_line_height = if theme.id.family == ThemeFamily::Geist {
-            16.0
-        } else {
-            13.0
-        };
+        // Aqua's note used the inherited line box; adding an explicit one even
+        // at the same nominal height shifts the glyphs. Only Geist overrides.
+        let geist_notes = theme.id.family == ThemeFamily::Geist;
         let label_width = self.label_width;
         div().flex().flex_col().gap(px(CONTROL_GAP)).children(
             self.rows.into_iter().enumerate().map(move |(index, row)| {
@@ -1141,7 +1139,7 @@ impl RenderOnce for Form {
                                     .items_start()
                                     .gap(px(4.0))
                                     .text_size(px(small))
-                                    .line_height(px(note_line_height))
+                                    .when(geist_notes, |el| el.line_height(px(16.0)))
                                     .text_color(message_color)
                                     .children(marker)
                                     .child(div().min_w_0().child(note))
