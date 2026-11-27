@@ -246,6 +246,7 @@ def build():
         "// rustfmt must not rewrap the generated point lists: the --check gate",
         "// compares this file byte for byte with the generator output.",
         "#[rustfmt::skip]",
+        "#[allow(clippy::approx_constant)]",
         "pub static GEIST_PICTOGRAMS: &[(&str, &str, &[PictogramPath])] = &[",
     ]
     for role, file_name, label in ICONS:
