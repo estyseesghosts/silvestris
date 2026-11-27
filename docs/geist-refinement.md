@@ -295,3 +295,9 @@ Pictogram geometry is static and generated at development time. Flat paint
 paths add no offscreen textures or animation loops. Theme switching refreshes
 windows without rebuilding views; the added tests cover focus, field contents
 and scroll position across switches.
+
+File-by-file review of `aqua.rs` against the baseline shows only mechanical
+field additions (capsule/fixed corner rules, the hover bevel and hover thumb
+set to existing materials, and the measured 4 px group radius). A first pass
+had accidentally made Aqua's ordinary text field a capsule; that was caught in
+review and corrected to `CornerRule::Fixed(0.0)` before the final test run.

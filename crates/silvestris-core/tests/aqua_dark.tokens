@@ -358,7 +358,9 @@ Snapshot {
         segment_corner: Capsule,
         field_height: 22.0,
         field_small_height: 19.0,
-        field_corner: Capsule,
+        field_corner: Fixed(
+            0.0,
+        ),
         search_corner: Capsule,
         field_text_inset: 4.0,
         caret_width: 1.0,

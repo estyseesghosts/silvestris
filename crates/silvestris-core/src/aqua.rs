@@ -108,8 +108,8 @@ fn metrics() -> Metrics {
         segment_corner: CornerRule::Capsule,
         // HIG p. 322-325 (hig-09 controls.md): text fields 22/19/15; M: toolbar.search.column = 22.
         field_height: 22.0,
-        // M: field.geometry and toolbar.search.column are capsule ends.
-        field_corner: CornerRule::Capsule,
+        // M: field.geometry is square; only the search variant is a capsule.
+        field_corner: CornerRule::Fixed(0.0),
         search_corner: CornerRule::Capsule,
         field_small_height: 19.0,
         // M: field.geometry: first ink 5 px right of the border; with the bundled

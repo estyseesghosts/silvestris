@@ -324,6 +324,7 @@ impl RenderOnce for Scrollbar {
         let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
         let paint_state = state.clone();
         let hover_state = state.clone();
+        let repaint_on_hover = presentation == ScrollbarPresentation::Flat;
         let debug = match axis {
             Axis::Vertical => "scrollbar",
             Axis::Horizontal => "scrollbar-horizontal",
@@ -338,7 +339,9 @@ impl RenderOnce for Scrollbar {
             })
             .on_hover(move |over, window, cx| {
                 hover_state.update(cx, |s, _| s.hover = *over);
-                window.refresh();
+                if repaint_on_hover {
+                    window.refresh();
+                }
             })
             .child(
                 canvas(

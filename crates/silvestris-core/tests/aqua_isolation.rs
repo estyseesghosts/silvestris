@@ -51,7 +51,7 @@ fn mechanical_shared_fields_keep_aqua_capsules_and_materials() {
     for id in [ThemeId::AQUA_LIGHT, ThemeId::AQUA_DARK] {
         let theme = theme(id);
         assert_eq!(theme.metrics.segment_corner, CornerRule::Capsule);
-        assert_eq!(theme.metrics.field_corner, CornerRule::Capsule);
+        assert_eq!(theme.metrics.field_corner, CornerRule::Fixed(0.0));
         assert_eq!(theme.metrics.search_corner, CornerRule::Capsule);
         assert_eq!(theme.controls.hover, theme.controls.push.normal);
         assert_eq!(
