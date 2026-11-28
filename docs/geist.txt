@@ -1,0 +1,1244 @@
+# **Silvestris Geist refinement — implementation plan**
+
+**Target:** `estyseesghosts/silvestris`\
+**Branch:** `devel/sil-cocoa-fixture`\
+**Verified HEAD:** [`d575f34cb7472f86015c7421998464ea6247ec81`](https://github.com/estyseesghosts/silvestris/commit/d575f34cb7472f86015c7421998464ea6247ec81?utm_source=chatgpt.com)\
+**Scope:** Geist Light, Geist Dark, and the theme-resolution infrastructure required to render them correctly.
+
+This plan is based on the source at the verified branch HEAD, not an assumed future implementation. The work should be completed sequentially, with tests and visual inspection at each major checkpoint.
+
+The objective is to make Geist a polished, modern, restrained alternative to Aqua. It must remain a **presentation theme for the existing Silvestris application model**, not become a replacement for the 2009 HIG's structure, interaction rules, or control semantics.
+
+## **Non-negotiable implementation rules**
+
+These apply to every task below.
+
+1. **Aqua is protected.** Neither Aqua Light nor Aqua Dark may change visually as a side effect of Geist work. Existing Aqua assets, gradients, geometry, fonts, spacing, window controls, and animations must remain intact.
+2. **Do not redesign application layouts.** Keep HIG window roles, preferences navigation, toolbar structure, source-list hierarchy, menu behaviour, responder-chain semantics, and keyboard interactions.
+3. **Do not duplicate components.** A Geist button must use the existing button implementation with Geist styling. The same principle applies to menus, fields, lists, scrollbars, and window frames.
+4. **Never introduce consumer-specific styling into the toolkit.** Lotus, Pain, Chaus, and other applications must be able to use Geist without special cases inside Silvestris.
+5. **Never use Aqua artwork as the fallback for missing Geist interface artwork.** Provide an appropriate neutral symbol, or an explicit documented fallback. Do not silently produce a hybrid design.
+6. **Do not accept regressions as aesthetic compromises.** A prettier scrollbar that loses dragging, a better-looking popup that clips labels, or a rounded window with broken resizing is a failed implementation.
+7. **Do not upgrade GPUI, rewrite the windowing system, or change unrelated public APIs.** The repository already pins GPUI in [`Cargo.toml`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/Cargo.toml?utm_source=chatgpt.com). This work should remain compatible with that pin.
+8. **Do not freestyle visual choices.** The colours, dimensions, typography, and artwork rules specified below are the initial design contract. Any technical deviation must be documented and visually demonstrated before it is adopted.
+
+The relevant external references are the official [Geist colour system](https://vercel.com/geist/colors?utm_source=chatgpt.com), [typography specifications](https://vercel.com/geist/typography?utm_source=chatgpt.com), and [material guidelines](https://vercel.com/geist/materials?utm_source=chatgpt.com). These establish the visual principles. Their React components and web layout patterns are **not** to be copied into Silvestris.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://vercel.com\&sz=32)
+
+vercel.com+2
+
+
+
+## **Target visual specification**
+
+These are implementation values, not choices left to the implementer.
+
+### **Colour palette**
+
+The following is the proposed Silvestris adaptation of Geist's semantic colour hierarchy. It is deliberately not presented as an exact reproduction of every Vercel colour token.
+
+| Role                        | Geist Dark | Geist Light |
+| --------------------------- | ---------- | ----------- |
+| Document/content background | `#000000`  | `#FFFFFF`   |
+| Window, titlebar, sidebar   | `#0A0A0A`  | `#FAFAFA`   |
+| Group/raised surface        | `#111111`  | `#FFFFFF`   |
+| Control background          | `#171717`  | `#FFFFFF`   |
+| Control hover               | `#1F1F1F`  | `#FAFAFA`   |
+| Control pressed             | `#292929`  | `#F2F2F2`   |
+| Default border              | `#262626`  | `#E6E6E6`   |
+| Hover border                | `#393939`  | `#C9C9C9`   |
+| Strong border               | `#505050`  | `#8F8F8F`   |
+| Primary text                | `#EDEDED`  | `#171717`   |
+| Secondary text              | `#A1A1A1`  | `#666666`   |
+| Disabled text               | `#878787`  | `#8F8F8F`   |
+| Focus/accent                | `#0095FF`  | `#0070F3`   |
+| Selected list background    | `#0B3A5C`  | `#E6F1FE`   |
+| Primary action background   | `#EDEDED`  | `#171717`   |
+| Primary action text         | `#000000`  | `#FFFFFF`   |
+
+The intended appearance is predominantly black or near-black in Dark, with clear but subtle separation between surfaces.
+
+Do not make every surface pure black. That would destroy the depth hierarchy and cause controls to disappear.
+
+Equally, do not brighten every window and panel to `#171717`. That would recreate the current problem.
+
+### **Geometry**
+
+| Element                 | Geist target                                   |
+| ----------------------- | ---------------------------------------------- |
+| Standard button         | 4px corner radius                              |
+| Toolbar/textured button | 4px                                            |
+| Segmented control       | 4px outer radius                               |
+| Popup/select control    | 4px                                            |
+| Normal text field       | 4px                                            |
+| Search field            | 6px                                            |
+| Checkbox                | 3px                                            |
+| Menu/popover            | 6px                                            |
+| Group panel             | 6px                                            |
+| Floating window         | 6px target, subject to native compositor shape |
+| Scrollbar thumb         | Fully rounded ends                             |
+| Radio button            | Remains circular                               |
+| Installer Continue      | Remains circular                               |
+
+These values are for Geist only. Explicitly circular controls are not to be squared off, and Aqua's established radii must not be changed.
+
+### **Typography**
+
+Use Geist Sans for interface text and Geist Mono for monospaced text.
+
+| Typography role           | Target         |
+| ------------------------- | -------------- |
+| Regular interface         | 13px           |
+| Small interface           | 12px           |
+| Mini interface            | 11px           |
+| Window title              | 13px           |
+| Section heading           | 12px, semibold |
+| Menu text                 | 13px           |
+| List/table text           | 13px           |
+| Toolbar label             | 11px           |
+| Monospaced interface text | 12px           |
+
+Normal interface text should be regular weight. Standard action labels may use medium weight where needed; headings should use semibold. Avoid excessive bold text.
+
+These values retain Silvestris's compact desktop character while correcting especially small labels. They are not permission to enlarge the overall UI.
+
+## **Phase I — Protect the existing implementation**
+
+### **Task 1 — Freeze the source baseline and define the allowable change surface**
+
+**Source:** [`silvestris-core/src/lib.rs`, theme resolver](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/lib.rs?utm_source=chatgpt.com#L23-L56), [`theme.rs`, theme state and font overrides](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/theme.rs?utm_source=chatgpt.com#L35-L123).
+
+**Deliverables:**
+
+- Record the starting commit, branch, GPUI pin, and current four-theme configuration in `docs/geist-refinement.md`.
+- Record the existing Aqua typography and metrics before modifying any shared theme structure.
+- Identify which changes belong in `silvestris-core`, which belong in GPUI renderers, and which belong in font registration.
+- Establish the rule that `aqua.rs` is read-only for this project unless a shared type requires a purely mechanical field addition.
+- If a shared theme structure gains a field, initialize Aqua with values that preserve its existing output exactly.
+- Require every new theme-specific rendering decision to use the resolved `ThemeId` or theme tokens, rather than application names or operating-system assumptions.
+
+**Avoid:**
+
+- Changing the public meaning of `ThemeFamily`, `ThemeId`, or `ThemePreference`.
+- Introducing a separate Geist widget crate.
+- Changing the default theme preference or consumer configuration.
+- Mixing theme selection with operating-system appearance detection.
+
+**Regression traps:**
+
+- `ThemePreference::resolve()` must continue to honour system and explicitly selected appearances.
+- Global font overrides and per-theme font overrides must retain their existing precedence.
+- Theme switching must continue to refresh windows without recreating application state.
+
+**Completion gate:** The project builds, all existing tests pass, and the baseline is documented.
+
+### **Task 2 — Establish an enforceable Aqua visual baseline**
+
+**Source:** [`docs/goldens.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/docs/goldens.md?utm_source=chatgpt.com), [`tests/goldens.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/tests/goldens.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Run the existing golden renderer against the clean source baseline.
+- Preserve Aqua Light and Aqua Dark captures at 100%, 125%, 150%, 175%, and 200% scale.
+- Preserve the current Geist captures separately as *before* references. They are not the desired final appearance.
+- Ensure the captured controls cover buttons, fields, checkboxes, radio buttons, segmented controls, popup controls, menus, scrollbars, source lists, tables, toolbars, preferences, and window frames.
+- Capture actual Windows 11 windows in addition to offscreen goldens. Include active and inactive windows, maximized and floating windows, and all four themes.
+- Record existing differences and failures before beginning changes. Do not classify existing defects as regressions introduced by the refinement.
+
+Run the existing commands documented by the repository, including:
+
+```
+pwsh tools/metrology/render.ps1
+python tools/metrology/gate.py --candidate target/goldens
+cargo test -p silvestris --test goldens
+```
+
+**Avoid:**
+
+- Regenerating accepted Aqua images merely because the candidate render differs.
+- Running the acceptance tool with `--accept` automatically.
+- Replacing historical Aqua references with Geist screenshots.
+- Comparing screenshots at mismatched scale factors.
+
+**Regression traps:**
+
+- Font registration changes may produce silent substitutions.
+- Rounded borders can develop one-pixel differences at fractional scaling.
+- Offscreen rendering does not prove that native window transparency is correct.
+
+**Completion gate:** Baseline test results and screenshots are saved. Later changes must be compared against these exact references.
+
+### **Task 3 — Add explicit theme-isolation tests**
+
+**Source:** [`silvestris-core/src/lib.rs`, conformance tests](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/lib.rs?utm_source=chatgpt.com#L58-L150), [`silvestris-core/tests/font_overrides.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/tests/font_overrides.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Add tests confirming that Aqua Light and Aqua Dark resolve to their original font families, metrics, colours, and control materials.
+- Store fixture snapshots of resolved Aqua tokens, rather than comparing against constants calculated by the newly modified code.
+- Assert that changing Geist's palette or metrics does not change resolved Aqua tokens.
+- Test all four theme IDs and both global and per-theme font overrides.
+- Add a theme-switching sequence: Aqua Light → Geist Dark → Geist Light → Aqua Dark → Aqua Light.
+- Confirm that the final Aqua appearance matches the original baseline and that the application state has not been reset.
+- Separate expected Geist golden differences from forbidden Aqua differences in test reporting.
+
+**Avoid:**
+
+- Self-referential tests where the expected values are obtained from the implementation under test.
+- Broadly weakening screenshot comparison tolerances.
+- Adding exceptions to conformance tests merely to make new Geist colours pass.
+
+**Regression traps:**
+
+- Shared constructors can unintentionally change Aqua's geometry.
+- Globally registered fonts can change fallback order.
+- Caches may retain appearance-specific artwork after a theme switch.
+
+**Completion gate:** A genuine Geist-to-Aqua visual or token regression causes a test failure.
+
+## **Phase II — Correct the typography and theme foundations**
+
+### **Task 4 — Bundle Geist Sans properly and remove Inter as Geist's default**
+
+**Source:** [`silvestris-fonts/src/lib.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-fonts/src/lib.rs?utm_source=chatgpt.com#L34-L91), [`silvestris-core/src/lib.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/lib.rs?utm_source=chatgpt.com#L23-L30), [`tools/fonts/manifest.py`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/tools/fonts/manifest.py?utm_source=chatgpt.com#L18-L58).
+
+The repository currently uses Inter for Geist's normal interface text. This must change.
+
+**Deliverables:**
+
+- Obtain Geist Sans from the official [Vercel Geist font releases](https://github.com/vercel/geist-font/releases?utm_source=chatgpt.com). Prefer the same pinned release, `v1.9.2`, already recorded for Geist Mono, rather than silently upgrading both families.
+- Select static TTF faces for Regular 400, Medium 500, SemiBold 600, Bold 700, and Regular Italic if available. Do not use a variable face unless the pinned GPUI text system demonstrably supports its weight selection correctly.
+- Inspect the font's internal family names with the existing `tools/fonts/sfnt_names.py` tooling. Register the actual embedded family name rather than assuming the filename matches it.
+- Add the fonts to `crates/silvestris-fonts/fonts/geist-sans/`.
+- Add `GEIST_SANS` constants in both the font crate and the GPUI-free core, keeping the string values consistent.
+- Register the faces in `FACES`, include the family in `FAMILIES`, and include its OFL license in `LICENSES`.
+- Extend `tools/fonts/manifest.py` with the source release, license, archive hash, and individual font metadata. Regenerate and verify the manifest.
+- Modify only Geist's `typography()` to use Geist Sans.
+- Retain Inter as an explicitly supported auxiliary family for this pass if removing it would break consumers. It must no longer be Geist's default.
+
+**Avoid:**
+
+- Downloading fonts at runtime.
+- Depending on a system-installed font.
+- Renaming or altering licensed font files without first verifying the license requirements.
+- Modifying Aqua's Lato or Source Code Pro registrations.
+- Assuming that successful font registration proves the actual text renderer selected the requested face.
+
+**Regression traps:**
+
+- Windows and Linux may report family names differently if internal font metadata is mishandled.
+- Font weight selection may silently synthesize bold.
+- Text widths, cursor positions, wrapping, and glyph baselines will change.
+- A previously supported consumer font override must still work.
+
+**Completion gate:** All expected Geist Sans faces are registered, verified and visibly used; Aqua still uses its original faces.
+
+### **Task 5 — Establish the new Geist typography metrics**
+
+**Source:** [`geist.rs`, typography and metrics](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com#L41-L136), [`tokens.rs`, Typography](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L84-L102).
+
+**Deliverables:**
+
+- Implement the typography sizes in the specification above, in `geist.rs` only.
+- Keep regular text at 13px initially. Improve small and mini text to 12px and 11px respectively.
+- Use semibold 600 for section headings in Geist. Preserve Aqua's existing heading weights.
+- Preserve monospaced styling only where content genuinely needs it: code, terminal-like content, numerical technical fields, or explicitly requested monospace labels.
+- Verify text vertical alignment against actual control bounds. Text must be optically centred, not shifted by arbitrary one-pixel patches.
+- Record measured label widths and heights for the main control sizes at all five scaling factors.
+- Check Latin letters, digits, punctuation, ellipses, path names, and strings containing accented characters.
+- Ensure settings descriptions can wrap without being clipped by fixed-height controls or containers.
+
+**Avoid:**
+
+- Replacing all fonts with Geist Mono.
+- Applying the same font size to all typography roles.
+- Adding global line-height overrides.
+- Changing HIG window dimensions to compensate for bad text metrics.
+- Compensating for one incorrectly aligned control by changing a global font baseline.
+
+**Regression traps:**
+
+- Preferences category labels have a hardcoded 13px line height.
+- Toolbar labels and source-list headings have tighter available space than ordinary body text.
+- Popups calculate natural dimensions based on text measurements.
+- Text cursor and selection geometry must agree with the new font.
+
+**Completion gate:** Geist text is legible, properly aligned, and unclipped across all standard control sizes and both appearances.
+
+### **Task 6 — Introduce a proper Geist colour palette instead of scattered hex literals**
+
+**Source:** [`geist.rs`, current colour definitions](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com#L173-L310), [`tokens.rs`, semantic colour roles](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L104-L171).
+
+**Deliverables:**
+
+- Define a private `GeistPalette` structure within `silvestris-core`, preferably in `geist.rs` or a narrowly scoped `geist/palette.rs`.
+- Provide explicit `dark()` and `light()` constructors containing the colour values in the visual specification.
+- Organize the palette into meaningful roles: window backgrounds, surfaces, control states, borders, text, selection, accents, and semantic feedback.
+- Keep `Theme::colors` as the public semantic interface consumed by Silvestris controls.
+- Resolve the Geist palette into the existing `Colors`, `Controls`, `Lists`, and `ChromeSet` tokens.
+- Where an existing colour role is insufficient, add a narrowly defined role rather than making a renderer infer styling from unrelated colours.
+- Replace duplicated hex literals in `geist_dark()` and `geist_light()` with named palette references.
+- Preserve explicit alpha only where transparency is actually needed: shadows, scrims, or overlays.
+- Add unit tests for the resolved palette values, including selected, disabled, active, and inactive states.
+
+The palette should follow Geist's hierarchy: backgrounds, ordinary component surfaces, borders, high-contrast surfaces, and text.
+
+**Avoid:**
+
+- Adding the Geist palette to `aqua.rs`.
+- Replacing the existing `Colors` contract with a completely different public API.
+- Putting palette values directly in individual GPUI controls.
+- Using alpha overlays as the default method for producing neutral borders.
+- Creating a generic CSS-style theming engine.
+- Having separate, competing palette definitions in Silvestris and its demo application.
+
+**Regression traps:**
+
+- Semantically identical surfaces must resolve to identical colours across components.
+- Inactive-window colours must not inadvertently change the selected theme.
+- Alpha compositing against different parents must not change the intended colour.
+- Existing consumer font and theme overrides must continue working.
+
+**Completion gate:** Geist resolves through one coherent palette definition, with no uncontrolled hardcoded Geist surface colours scattered across renderers.
+
+### **Task 7 — Implement the new Geist Dark surface hierarchy**
+
+**Source:** [`geist.rs`, Dark colours and chrome](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com#L256-L333), [`chrome.rs`, window background](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/chrome.rs?utm_source=chatgpt.com#L521-L563).
+
+**Deliverables:**
+
+Apply the following precise surface relationships:
+
+- Document/content surfaces: `#000000`.
+- Main application window, titlebar, toolbar, bottom bar, and sidebar: `#0A0A0A`.
+- Raised preference groups and inset organizational surfaces: `#111111` where a separate surface is required.
+- Standard controls: `#171717`, with `#1F1F1F` hover and `#292929` pressed states.
+- Ordinary dividers: `#262626`.
+- Borders around floating or interactive elements: `#393939` when stronger separation is required.
+
+The window and toolbar should generally read as one continuous dark surface. Do not use a lighter rectangular strip just because the original Aqua toolbar has a separate material.
+
+Retain thin separators where the HIG layout needs them. Avoid visible divider lines where two adjacent regions already have sufficient contrast.
+
+The titlebar, sidebar, content area, and preferences pane must all use semantic colours consistently.
+
+When the window becomes inactive, reduce emphasis using the existing inactive chrome roles. Do not make the entire window obviously lighter.
+
+**Avoid:**
+
+- Making the whole interface one uniform `#000000` block.
+- Using `#1A1A1A` as the default window background.
+- Adding a gradient to make dark surfaces appear raised.
+- Using bright borders to separate every control.
+- Changing how the window is laid out.
+
+**Regression traps:**
+
+- Black content surfaces must not become indistinguishable from text fields or panels.
+- Transparent scrollbars and popups must still render visibly.
+- Inactive titlebars must not look like disabled application windows.
+- Aqua chrome must remain unchanged.
+
+**Completion gate:** Geist Dark has a clearly black foundation and subtle, consistent surface hierarchy.
+
+### **Task 8 — Bring Geist Light into the same semantic system**
+
+**Source:** [`geist.rs`, Geist Light implementation](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com#L420-L660).
+
+Geist Light already has several reasonable values. It needs consistency more than radical alteration.
+
+**Deliverables:**
+
+- Keep the primary window background `#FAFAFA`.
+- Use white `#FFFFFF` for document surfaces, fields, and raised groups.
+- Use `#F2F2F2` for pressed or selected neutral controls.
+- Use `#E6E6E6` for ordinary borders.
+- Use `#C9C9C9` for stronger or hovered borders.
+- Keep primary text `#171717` and secondary text `#666666`.
+- Keep the primary interactive accent `#0070F3`.
+- Ensure popup menus, scrollbars, toolbars, and inactive windows use the same palette resolution structure as Geist Dark.
+- Give Light the same typography and geometry as Dark.
+
+Use the same `GeistPalette` roles introduced in Task 6. Light should not need its own independent collection of component recipes.
+
+**Avoid:**
+
+- Introducing bright blue borders on ordinary controls.
+- Making all light surfaces visibly grey.
+- Adding Aqua-style gloss.
+- Using a second set of spacing rules for Light.
+- Treating Light as a derivative that can be tested less thoroughly.
+
+**Regression traps:**
+
+- Dark and Light must have identical component sizes.
+- Focus states must remain visible on white.
+- Inactive or disabled controls must not become invisible.
+- Theme switching must not retain colours from the previous appearance.
+
+**Completion gate:** Both Geist appearances are structurally identical and differ only where their colour palettes require it.
+
+### **Task 9 — Rebuild Geist's control-state colours coherently**
+
+**Source:** [`geist.rs`, buttons and selection states](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com#L174-L256), [`tokens.rs`, BevelStates](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L198-L233), [`silvestris-core/src/lib.rs`, contrast conformance](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/lib.rs?utm_source=chatgpt.com#L58-L147).
+
+**Deliverables:**
+
+For ordinary Geist Dark controls, enforce this state table:
+
+| State             | Fill      | Border    | Text      |
+| ----------------- | --------- | --------- | --------- |
+| Normal            | `#171717` | `#262626` | `#EDEDED` |
+| Hover             | `#1F1F1F` | `#393939` | `#EDEDED` |
+| Pressed           | `#292929` | `#505050` | `#EDEDED` |
+| Selected, neutral | `#292929` | `#505050` | `#EDEDED` |
+| Disabled          | `#111111` | `#262626` | `#878787` |
+
+For Geist Light, use the corresponding palette roles defined above.
+
+The primary action button is the exception: Dark uses a light fill with dark text; Light uses a dark fill with white text.
+
+Blue should normally mean focus, selection, a link, a progress indication, or a meaningful interactive state. It should not be applied decoratively to every popup arrow or button cap.
+
+Ensure that selected list rows remain distinct from the neutral pressed state.
+
+Extend contrast tests to cover actual text/background pairs, including hover and selected states. The primary target is at least 4.5:1 for ordinary text. Disabled text may follow the existing documented exemption, but should remain visually legible.
+
+**Avoid:**
+
+- Making hover and selected states identical in meaning.
+- Using opacity reduction as the only disabled treatment.
+- Displaying white text on a bright accent without testing contrast.
+- Applying a full blue fill to every selected control.
+- Changing how disabled commands are dispatched.
+
+**Regression traps:**
+
+- Checkbox marks must remain visible against selected fills.
+- Default-button text colour must invert correctly.
+- Focus rings must remain distinct from hover borders.
+- Active and inactive source-list selections must be distinguishable.
+
+**Completion gate:** Every common control state is visually recognizable in Geist Light and Dark.
+
+## **Phase III — Remove Aqua-specific visual assumptions from the shared controls**
+
+### **Task 10 — Make corner geometry genuinely theme-resolved**
+
+**Source:** [`tokens.rs`, Metrics](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L490-L594), [`segmented.rs`, capsule calculation](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/segmented.rs?utm_source=chatgpt.com#L203-L216), [`text_field.rs`, search field radius](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/text_field.rs?utm_source=chatgpt.com#L693-L709).
+
+**Deliverables:**
+
+- Add explicit theme-resolved geometry for standard text fields, search fields, and rounded segmented controls.
+- Use a simple corner policy when the existing height-dependent Aqua capsule must be preserved. For example, a GPUI-free `CornerRule` with `Capsule` and `Fixed(f32)` variants.
+- Configure Aqua's rounded segments and search fields to retain their current half-height capsule behaviour.
+- Configure Geist segmented controls to use a fixed 4px radius.
+- Configure Geist normal text fields to use 4px and search fields to use 6px.
+- Update the affected renderers to resolve corner geometry from these metrics.
+- Keep radii clamped to valid bounds for unusually short controls.
+- Ensure corner clipping and focus-ring geometry use the same resolved radius.
+
+**Avoid:**
+
+- Replacing all `height / 2` calculations globally.
+- Making circular controls square.
+- Adding special cases based on labels or control IDs.
+- Embedding Geist-specific numerical constants directly in control files.
+- Extending `Metrics` with a large unrelated design system.
+
+**Regression traps:**
+
+- Segmented-control separators must still reach the outer contour.
+- Search-field focus rings must not retain capsule geometry after the field becomes rectangular.
+- Fractional scale factors can cause clipped or asymmetric corners.
+- Aqua's original pill-shaped elements must remain pixel-identical.
+
+**Completion gate:** Geist controls have the prescribed corner radii, while Aqua retains all existing shapes.
+
+### **Task 11 — Correct shared painting primitives without changing Aqua's materials**
+
+**Source:** [`paint.rs`, bevel painting](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/paint.rs?utm_source=chatgpt.com#L68-L133), [`paint.rs`, group boxes](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/paint.rs?utm_source=chatgpt.com#L297-L380), [`tab_view.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/tab_view.rs?utm_source=chatgpt.com#L112-L175).
+
+The existing bevel painter is built to support Aqua's layered rendering. Geist already supplies flat bevel tokens, but some shared paint routines still build multiple layers.
+
+**Deliverables:**
+
+- Preserve the existing Aqua bevel painter and its exact rendering order.
+- Add a minimal flat-material painting path only where the existing painter produces redundant shading, extra strokes, or visibly incorrect corners in Geist.
+- Ensure flat materials have one coherent border and one flat fill.
+- Make Geist group boxes use a single border and uniform surface rather than stacked highlight and shadow lines.
+- Keep group-box dimensions and content insets unchanged.
+- Preserve theme-specific focus-ring rendering.
+- Where an existing painter already renders Geist correctly, leave it alone.
+
+Do not refactor every painting primitive simply because the implementation contains Aqua-specific history.
+
+**Avoid:**
+
+- Removing Aqua's emboss lines.
+- Flattening Aqua gradients.
+- Replacing existing precision painting with ordinary div borders indiscriminately.
+- Drawing several overlapping borders with different alpha.
+- Introducing offscreen textures to render ordinary flat controls.
+
+**Regression traps:**
+
+- One-pixel border alignment at 125%, 150%, and 175% scale.
+- Selected or pressed states leaving an unpainted inner border.
+- Group-box borders overlapping tabs.
+- Focus rings being clipped by parent containers.
+
+**Completion gate:** Geist's controls are flat and clean; Aqua's layered painting remains unchanged.
+
+### **Task 12 — Refine buttons and popups to the specified modern appearance**
+
+**Source:** [`button.rs`, ButtonStyle and renderer](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L63-L113), [`button.rs`, geometry and layout](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L405-L468), [`popup_button.rs`, popup geometry](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/popup_button.rs?utm_source=chatgpt.com#L235-L275).
+
+**Deliverables:**
+
+- Preserve the regular/small/mini Geist button heights of 28/24/20 logical pixels.
+- Use 4px corner rounding on ordinary and textured buttons.
+- Retain the existing horizontal padding values of 12/10/8 logical pixels unless text measurements prove a specific control cannot fit.
+- Keep buttons flat, with a thin neutral border.
+- Use the control-state palette from Task 9.
+- Render ordinary popup buttons as unified neutral controls with a subtle divider between label and arrow area.
+- Preserve Geist's existing popup-cap widths of 18/16/14 pixels.
+- Remove the decorative blue popup cap from Geist.
+- Keep the popup arrow centred vertically and horizontally within its cap.
+- Preserve default, cancel, disabled, pressed, and selected behaviours.
+- Keep the special installer Continue button circular, but use the Geist primary-action material when Geist is selected.
+
+A default Geist button should be visually prominent because of contrast, not because of gloss or a blue Aqua-style breathing halo.
+
+**Avoid:**
+
+- Changing button click handling.
+- Using large pill-shaped buttons.
+- Making every button a high-contrast primary action.
+- Changing the existing Aqua default-button breathing behaviour.
+- Altering the installer Continue control's original Aqua glyph or geometry.
+- Making popup caps separately rounded at their inner edge.
+
+**Regression traps:**
+
+- Default-button keyboard activation.
+- Escape/cancel commands.
+- Button labels with icons.
+- Text clipping at minimum control widths.
+- Animated feedback and reduced-motion preferences.
+- Popup selected-item display and menu positioning.
+
+**Completion gate:** Buttons and popups look consistent, with the correct shape and state hierarchy, and preserve their existing interactions.
+
+### **Task 13 — Correct segmented controls and text fields**
+
+**Source:** [`segmented.rs`, segment painting](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/segmented.rs?utm_source=chatgpt.com#L322-L405), [`text_field.rs`, rendering](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/text_field.rs?utm_source=chatgpt.com#L693-L775).
+
+**Deliverables:**
+
+- Apply the new fixed Geist segment radius of 4px.
+- Use one outer border around a segmented control, with thin internal separators.
+- Do not double-paint overlapping borders where segments meet.
+- Keep selected segments visibly different, using a stronger neutral surface rather than a brightly coloured fill.
+- Preserve the existing segment widths, icon slots, and text centring.
+- Give Geist text fields a flat `#000000` or semantic content-surface interior in Dark, and white in Light.
+- Use a visible 1px border with the correct neutral colour.
+- Normal fields use 4px rounding; search fields use 6px.
+- Keep the search glyph and clear button correctly aligned inside the field.
+- Recalculate text inset only if needed for the new font; use 8px as the starting inset.
+- Ensure the cursor, selected text, placeholder, and clear button do not collide.
+- Add focused, unfocused, disabled, selected-text, and empty-field capture cases.
+
+**Avoid:**
+
+- Changing field editing behaviour.
+- Replacing existing text input with another component.
+- Forcing text to the middle with manually inserted spacer text.
+- Introducing a search-specific widget solely for Geist.
+- Making segmented controls act like unrelated independent buttons.
+
+**Regression traps:**
+
+- Text selection and caret coordinates.
+- Search clear-button hit targets.
+- Keyboard navigation between segments.
+- Disabled segment behaviour.
+- Multi-segment outer corner clipping.
+- Text scrolling inside fields.
+
+**Completion gate:** Fields and segments have consistent modern geometry without input regressions.
+
+### **Task 14 — Finish checkboxes, radio buttons, sliders, progress bars, and small controls**
+
+**Source:** [`checkbox.rs`, checkbox painting](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/checkbox.rs?utm_source=chatgpt.com#L108-L145), [`radio.rs`, radio rendering](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/radio.rs?utm_source=chatgpt.com#L140-L219), [`slider.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/slider.rs?utm_source=chatgpt.com), [`progress.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/progress.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Geist checkboxes retain their existing 16/14/12px sizes but use a 3px radius.
+- Checked checkboxes use a high-contrast fill and clearly visible checkmark.
+- Mixed-state checkboxes use the existing horizontal mark, with contrast appropriate to the selected material.
+- Radio buttons remain circular, with a clearly visible selected dot.
+- Sliders retain their existing geometry and tick positioning, but use flat neutral tracks and a plainly distinguishable thumb.
+- Geist progress bars use flat accent fills with a 4px radius rather than Aqua-style rounded capsules.
+- For indeterminate progress, preserve animation and timing but use a flat Geist-compatible presentation rather than visible Aqua barber-pole shading.
+- Keep spinner sizes and control roles unchanged.
+- Validate every size and state, including disabled controls.
+
+**Avoid:**
+
+- Replacing progress indication with a completely different animation system.
+- Changing slider value calculations.
+- Using bright accent colouring on inactive tracks.
+- Making every checkbox permanently blue.
+- Replacing standard checkmarks with text glyphs.
+
+**Regression traps:**
+
+- Mixed checkbox state.
+- Radio-button group exclusivity.
+- Slider dragging, keyboard control, and tick snapping.
+- Indeterminate progress animation.
+- Disabled control focus and activation.
+- Small controls becoming visually indistinguishable at 100% scaling.
+
+**Completion gate:** All smaller standard controls follow Geist's material and typography rules, without changing their behaviour.
+
+### **Task 15 — Correct preferences spacing, typography, and alignment**
+
+**Source:** [`preferences.rs`, measured geometry](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L45-L66), [`preferences.rs`, overview cells](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L774-L839), [`preferences.rs`, Form renderer](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L994-L1075).
+
+This task requires particular care. Preferences are the clearest demonstration of Silvestris's application model.
+
+**Deliverables:**
+
+Preserve the following foundational layout measurements:
+
+- Preferences overview width: 668px.
+- Category icon cell width: 81px.
+- Category band height: 100px.
+- Icon slot: 32×32px.
+- Pane outer margin: 20px.
+- Standard form row gap: 8px.
+- Label column remains right-aligned.
+- Controls remain left-aligned in the second column.
+
+Then refine the Geist presentation:
+
+- Category heading: Geist Sans 12px, semibold, secondary text colour.
+- Category label: Geist Sans 12px, centred below the icon.
+- Category label line height: 15px, replacing the hardcoded 13px for Geist only.
+- Icon-to-label separation should follow the existing measured icon and label positions. Do not move icons simply to create more whitespace.
+- Form label and control should share a consistent vertical centreline.
+- Notes use 12px Geist Sans with approximately 16px line height.
+- Preserve the existing 2px gap between a control and its note unless a specific font measurement shows clipping.
+- Preserve 8px row spacing. Do not add global vertical padding to every row.
+- Error and warning markers remain attached to the appropriate note rather than floating beside an entire section.
+- Ensure long labels, two-line category names, and descriptions wrap cleanly.
+
+The screenshot examples should be recreated in the Silvestris gallery using ordinary generic settings rather than hardcoded Lotus content.
+
+**Avoid:**
+
+- Replacing the System Preferences-style window with a modern web settings page.
+- Moving navigation into a left sidebar.
+- Adding oversized cards around each setting.
+- Changing category bands into floating tiles.
+- Increasing the entire preferences window's padding.
+- Applying Geist measurements to Aqua.
+
+**Regression traps:**
+
+- Category labels that occupy two lines.
+- Natural window-size measurement after font changes.
+- Form controls extending past the window's right edge.
+- Search fields and popup controls with variable width.
+- Notes appearing below the wrong control.
+- Scrolling when a preferences pane exceeds the display height.
+
+**Completion gate:** The Geist preferences window looks compact, balanced, and legible, while retaining the existing Cocoa-style composition.
+
+### **Task 16 — Refine the remaining shared window surfaces**
+
+**Source:** [`source_list.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/source_list.rs?utm_source=chatgpt.com#L420-L540), [`table_view.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/table_view.rs?utm_source=chatgpt.com), [`toolbar.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/toolbar.rs?utm_source=chatgpt.com), [`menu.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/menu.rs?utm_source=chatgpt.com#L916-L1027).
+
+**Deliverables:**
+
+Audit and refine the Geist appearance of these existing surfaces:
+
+| Component   | Required Geist treatment                                                |
+| ----------- | ----------------------------------------------------------------------- |
+| Source list | Near-black sidebar, subtle selection bands, restrained section headings |
+| Tables      | Flat headers, thin dividers, clear row selection                        |
+| Toolbars    | Same surface as titlebar, no bevel or glossy separator                  |
+| Bottom bars | Flat surface with one separator where required                          |
+| Tab views   | Neutral controls and flat group borders                                 |
+| Menus       | 6px radius, neutral background, subtle border and shadow                |
+| Tooltips    | Dark high-contrast surface, restrained radius, readable text            |
+| Split views | Single subtle divider, no redundant double border                       |
+
+Keep source-list rows at 28px and table rows at 24px unless existing theme metrics specify otherwise.
+
+For Geist Dark menus, start with a `#171717` surface and `#393939` border. Use the existing 4px downward shadow offset and 16px blur as a baseline, with translucent black shadowing. In Geist Light, use white surfaces and a subtle translucent shadow.
+
+Preserve the HIG's menu hierarchy and interaction mechanisms.
+
+For source lists, keep the selected row height identical to the normal row. Selection should affect appearance, not layout.
+
+**Avoid:**
+
+- Adding rounded backgrounds to every source-list row.
+- Turning menus into large floating cards.
+- Adding shadows to ordinary panes.
+- Increasing row heights arbitrarily.
+- Altering toolbar customization or overflow semantics.
+- Duplicating dividers where adjacent components already paint one.
+
+**Regression traps:**
+
+- Source-list virtualization and fixed row geometry.
+- Table keyboard selection and scrolling.
+- Toolbar overflow and responsive layout.
+- Menu placement near display edges.
+- Menu keyboard navigation and focus return.
+- Tab-view group-box clipping.
+
+**Completion gate:** Geist's secondary controls and surfaces match the same visual system as its primary controls.
+
+## **Phase IV — Implement the modern Geist scrollbar**
+
+### **Task 17 — Separate Aqua and Geist scrollbar presentation**
+
+**Source:** [`scrollbar.rs`, existing geometry and painter](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/scrollbar.rs?utm_source=chatgpt.com#L118-L179), [`scrollbar.rs`, painting](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/scrollbar.rs?utm_source=chatgpt.com#L277-L405), [`tokens.rs`, Scroller](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L251-L272).
+
+The current scrollbar is fundamentally a Snow Leopard-style scrollbar, even when Geist colours are selected.
+
+**Deliverables:**
+
+- Introduce an explicit scrollbar presentation style resolved from the theme.
+- Aqua continues using the entire original painter.
+- Geist uses a new, lightweight flat painter with no arrow boxes.
+- Keep the existing `Scrollbar`, `ScrollSource`, `ScrollerPreferences`, and `ScrollView` public contracts.
+- Preserve the 10px regular scrollbar layout allocation as the initial Geist footprint.
+- Draw a 6px-wide visual thumb centred within that allocation, leaving 2px on each side.
+- Use fully rounded thumb ends.
+- Give the thumb a minimum visible length of 18px.
+- Draw no visible track background in the default Geist appearance.
+- Use `#555555` for an active Geist Dark thumb, `#666666` on hover, and `#393939` for an inactive thumb.
+- Use `#A0A0A0` for an active Geist Light thumb and `#7B7B7B` on hover.
+- Preserve separate horizontal and vertical geometry.
+- Leave Aqua's existing scrollbar arrow preferences functional.
+
+**Avoid:**
+
+- Painting invisible Aqua arrow buttons in Geist.
+- Calling the Aqua painter with transparent colours and assuming that produces a modern scrollbar.
+- Narrowing the pointer hit target to the 6px visible thumb.
+- Changing document or scroll-container dimensions just to accommodate a more modern appearance.
+- Using a web scrollbar implementation or browser-based rendering.
+
+**Regression traps:**
+
+- Empty or unscrollable content.
+- Short documents where the thumb approaches the full track length.
+- Very long documents with a minimum-sized thumb.
+- Horizontal scrollbar symmetry.
+- Inactive windows.
+- Fractional scaling.
+
+**Completion gate:** Geist renders a modern, narrow scrollbar; Aqua's original scrollbar remains intact.
+
+### **Task 18 — Preserve scrollbar interaction while correcting its layout model**
+
+**Source:** [`scrollbar.rs`, pointer events and geometry](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/scrollbar.rs?utm_source=chatgpt.com#L408-L529), [`scroll_source.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/scroll_source.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Separate scrollbar track geometry from scrollbar painting so that Geist can omit the arrow regions without maintaining a second scrolling engine.
+- For Aqua, keep the existing arrow-box positions, track bounds, and thumb calculations.
+- For Geist, use the full available bar length, with a small 2px end inset.
+- Keep the 10px interaction allocation even though the drawn thumb is only 6px wide.
+- Preserve proportional thumb length and linear thumb position mapping.
+- Preserve live dragging, thumb grab offset, page clicking, and jump-to-spot preferences.
+- Maintain pointer capture during a drag, even when the pointer leaves the visible thumb.
+- Preserve scroll-source drag-started and drag-ended notifications.
+- Ensure changing content length during dragging does not jump the scroll position unexpectedly.
+- Keep existing keyboard and wheel scrolling behaviour delegated to the underlying scroll source.
+
+**Avoid:**
+
+- Duplicating the scroll position calculations.
+- Adding polling or a new animation loop.
+- Treating invisible arrow regions as clickable in Geist.
+- Breaking `ScrollerPreferences` persistence.
+- Recalculating the thumb from stale cached content dimensions.
+
+**Regression traps:**
+
+- Dragging from the top to the bottom of a long document.
+- Content growing while the thumb is held.
+- Releasing the mouse outside the scrollbar.
+- Switching between JumpToPage and JumpToSpot.
+- Horizontal scrollbar dragging.
+- Scrolling when the range is zero or changes to zero.
+
+**Completion gate:** The Geist scrollbar changes appearance and available track geometry, but preserves the behaviour of the shared scrolling model.
+
+### **Task 19 — Make Geist scrollbars appear consistently in real views**
+
+**Source:** [`scroll_view.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/scroll_view.rs?utm_source=chatgpt.com#L115-L181), [`preferences.rs`, pane scrolling](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L591-L604), [`tab_view.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/controls/tab_view.rs?utm_source=chatgpt.com#L112-L175).
+
+The preferences renderer currently uses GPUI native overflow scrolling in some places. Those views will not automatically adopt the custom scrollbar appearance just because `Scrollbar` was updated.
+
+**Deliverables:**
+
+- Inventory all Silvestris-owned scrollable views using `.overflow_y_scroll()`, `.overflow_scroll()`, or `ScrollView`.
+- Distinguish native scrolling of content from the visual scrollbar attached to that content.
+- Connect the standard preferences overview and pane viewport to the theme-aware scrollbar presentation.
+- Provide an appropriate scroll handle for those views without changing the public behaviour of existing preferences APIs.
+- Prefer adding a compatible helper or optional scroll-handle integration over breaking every consumer's call sites.
+- Ensure each scrollable view displays at most one vertical scrollbar.
+- Preserve automatic clipping and natural-height measurement in preferences.
+- Ensure scrollbars do not cover control text or steal pointer input from neighbouring controls.
+- Verify horizontal scrolling where it is supported.
+- Confirm scrolling works after switching themes while a view is open.
+
+**Avoid:**
+
+- Adding an ornamental scrollbar over a separate functioning native bar.
+- Replacing virtualized lists with ordinary layout containers.
+- Forcing every consumer to use an internal preferences scroll implementation.
+- Changing the document's scroll position when the visual theme changes.
+- Reserving duplicate scrollbar widths.
+
+**Regression traps:**
+
+- Preferences panes taller than the screen.
+- Overview pages with many categories.
+- Tables and large source lists.
+- Scrollbar visibility changing during content updates.
+- Scroll position retained through theme switches.
+- Controls near the scrollbar edge remaining clickable.
+
+**Completion gate:** The new Geist scrollbar is visibly present in actual Silvestris preferences and standard scrolling surfaces, not merely in the gallery's isolated scrollbar demo.
+
+## **Phase V — Correct Geist iconography**
+
+### **Task 20 — Establish a theme-aware interface artwork policy**
+
+**Source:** [`icons.rs`, typed artwork roles](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/icons.rs?utm_source=chatgpt.com#L1-L89), [`icons.rs`, consumer artwork](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/icons.rs?utm_source=chatgpt.com#L160-L235), [`toolbar.rs`, artwork variants](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/toolbar.rs?utm_source=chatgpt.com#L175-L226).
+
+**Deliverables:**
+
+Preserve the repository's existing distinction between:
+
+- File and object artwork.
+- Monochrome template glyphs.
+- Full-colour pictorial commands.
+- Consumer-owned artwork.
+
+Then introduce a theme-aware presentation mechanism for interface artwork.
+
+For Geist, use the following standard:
+
+- Monochrome outlines.
+- Consistent 2px nominal stroke at a 24px source size.
+- Rounded line caps and joins.
+- No gradients, gloss, shadows, or faux-3D depth.
+- No coloured object illustrations for ordinary toolbar and settings commands.
+- Icon colour resolves from the component's current text or icon colour.
+- Disabled state uses the same disabled colour system as text.
+
+For the pictogram source, use a single pinned release of [Lucide](https://lucide.dev/icons?utm_source=chatgpt.com) for common modern interface symbols, retaining its ISC license and attribution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Do not mix Lucide symbols with improvised geometric replacements for the same roles.
+
+Prefer importing only the required glyphs as build-time assets or vector paths. Do not bring an entire web icon framework into GPUI.
+
+**Avoid:**
+
+- Recolouring every image into monochrome.
+- Removing file icons from Finder-like views.
+- Treating consumer-provided game or document artwork as interface chrome.
+- Replacing Aqua's original artwork.
+- Introducing icons based on application-specific string matching.
+- Using emoji as interface icons.
+
+**Regression traps:**
+
+- Disabled and inactive icon states.
+- Pictorial toolbar commands with keyboard focus.
+- Toggle command selected states.
+- Consumer-supplied artwork continuing to render correctly.
+- Theme switching leaving stale cached icon colours.
+
+**Completion gate:** Geist interface commands can render consistent modern symbols without changing the existing Aqua artwork.
+
+### **Task 21 — Implement exact standard icon choices and placement**
+
+**Source:** [`preferences.rs`, category artwork](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L151-L183), [`preferences.rs`, icon cell layout](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L774-L839), [`icons.rs`, template slots](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/icons.rs?utm_source=chatgpt.com#L70-L89).
+
+Use the following exact mapping for the common generic categories demonstrated by Silvestris. Consumers may map their own names to these roles; the toolkit should not contain Lotus-specific labels.
+
+| Generic role        | Geist pictogram      |
+| ------------------- | -------------------- |
+| General settings    | `settings`           |
+| Storage             | `database`           |
+| Messages/chat       | `message-square`     |
+| Display             | `monitor`            |
+| Audio               | `volume-2`           |
+| Controllers/input   | `gamepad-2`          |
+| Debugging           | `bug`                |
+| Automation          | `bot`                |
+| Advanced tools      | `wrench`             |
+| Preferences/options | `sliders-horizontal` |
+
+**Deliverables:**
+
+- Use a 32×32px layout slot for preferences category artwork.
+- Centre a 20×20px visible pictogram within that slot.
+- Use 16px visible glyphs inside 19px toolbar template slots.
+- Use appropriately scaled glyphs in the existing 13px segmented-control slots.
+- Preserve the full allocated slot even for smaller glyphs so alignment and hit targets remain stable.
+- Use Geist's primary text colour normally, secondary colour for inactive representations, and disabled colour when unavailable.
+- Do not apply a coloured circular badge behind preference icons.
+- Do not add shadows or backgrounds behind ordinary pictograms.
+- Update the preferences gallery to display these roles side-by-side in Aqua and Geist.
+- Prefer the existing `ConsumerArtwork` and theme resolution interfaces. Add a narrow abstraction only if needed to let consumers supply paired artwork without repeating theme checks.
+- Keep accessible names outside the artwork itself, using the existing label and command mechanisms.
+
+**Avoid:**
+
+- Replacing Silvestris's 32px preference grid with a new icon layout.
+- Hardcoding the Lotus categories into the toolkit.
+- Changing full-colour file/object artwork.
+- Allowing the implementer to choose arbitrary icons.
+- Replacing pictograms with Unicode font characters.
+
+**Regression traps:**
+
+- Two-line labels below category icons.
+- Keyboard focus on preferences categories.
+- Inactive and disabled toolbar commands.
+- Icon alignment at 125% and 175% scaling.
+- Aqua's existing image dimensions and artwork.
+
+**Completion gate:** Geist's standard interface artwork is visually consistent, legible, and correctly centred. The gallery proves that the existing Aqua artwork remains unchanged.
+
+## **Phase VI — Fix native window corners and frame composition**
+
+### **Task 22 — Investigate and eliminate white underlap at Windows corners**
+
+**Source:** [`chrome.rs`, window options](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/chrome.rs?utm_source=chatgpt.com#L29-L98), [`chrome.rs`, root frame composition](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/chrome.rs?utm_source=chatgpt.com#L521-L571), [`native.rs`, Windows DWM configuration](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/native.rs?utm_source=chatgpt.com#L43-L98).
+
+The existing code requests small Windows DWM corners while also drawing rounded GPUI frame content. This is a potential mismatch, but the exact source of the white underlap must be measured rather than guessed.
+
+**Deliverables:**
+
+1. Reproduce the corner defect with Geist Dark over both a light and dark desktop background.
+2. Capture the top-left, top-right, bottom-left, and bottom-right corners at 100%, 125%, 150%, and 200% scale.
+3. Identify whether the unwanted light pixels come from the GPUI render target, the background behind the custom frame, the window client-area configuration, or the native compositor boundary.
+4. Verify the behaviour of the pinned GPUI version before changing window APIs.
+5. Ensure the native Windows outline and the GPUI root outline do not expose differently coloured backing surfaces.
+6. Use the small-corner compositor treatment for Geist. Match the GPUI drawing to the actual native outline rather than assuming DWM gives an exact pixel radius.
+7. Ensure titlebar and body backgrounds reach the same clipping boundary.
+8. Ensure theme switching does not expose an old background or incorrectly configured frame.
+9. Preserve the existing Windows resize and titlebar hit-test behaviour.
+10. Update the native frame capability reporting if the code needs to distinguish a successfully requested corner preference from actual compositor support.
+
+Do not assume that requesting `DWMWCP_ROUNDSMALL` succeeded simply because the API call returned successfully. Validate the rendered result.
+
+**Avoid:**
+
+- Drawing black or white corner patches.
+- Adding fake rounded-rectangle overlays.
+- Applying a custom full-screen transparency effect.
+- Disabling window decorations.
+- Replacing the DWM frame with a second custom Windows frame.
+- Changing the `WS_CAPTION` manipulation without an isolated reason and compatibility testing.
+- Fixing Geist at the expense of Aqua's native frame behaviour.
+
+**Regression traps:**
+
+- Maximized windows must have square outer corners.
+- Snapped and tiled windows must not reveal gaps.
+- Window resizing must remain usable at every edge and corner.
+- The titlebar must remain draggable.
+- Window controls must remain clickable.
+- Moving a window between different-DPI monitors must not reveal stale corner geometry.
+- Dark-to-Light theme switches must not reveal background flashes.
+
+**Completion gate:** No white or incorrectly coloured corner pixels are visible in Geist Dark or Light on a supported Windows 11 compositor. Aqua remains visually unchanged.
+
+### **Task 23 — Preserve correct window decoration on Linux and other platforms**
+
+**Source:** [`chrome.rs`, client decorations](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/chrome.rs?utm_source=chatgpt.com#L575-L647), [`native.rs`, platform separation](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/native.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Preserve the existing Linux client-decorated window path.
+- Render Geist's 6px floating-window radius within the existing shadow and decoration structure.
+- Keep the client decoration background transparent outside the actual window contour.
+- Preserve the existing resize margins and edge detection.
+- Ensure tiled windows use square corners where the compositor requires them.
+- Preserve shadow placement and opacity.
+- Ensure there is no rectangular opaque backing around the rounded frame.
+- Verify the window at 100%, 125%, 150%, 175%, and 200% scale.
+- Ensure Aqua continues using its original geometry and shadow treatment.
+- Confirm that platforms without the Windows-specific DWM mechanism still render correctly.
+
+**Avoid:**
+
+- Adding Windows-specific fixes to the Linux painter.
+- Removing the existing client shadow just to hide clipping.
+- Changing the window's usable layout bounds.
+- Reimplementing resize-edge detection.
+- Applying a new global corner radius to every window role.
+
+**Regression traps:**
+
+- Wayland window resizing.
+- Tiled and maximized windows.
+- Frame shadows changing after a resize.
+- Popup windows near screen edges.
+- High-DPI fractional scaling.
+- Mac platform compatibility, even if no Mac build is available for direct visual testing.
+
+**Completion gate:** Geist window decoration is consistent on Windows and Linux, with no new Aqua regressions.
+
+## **Phase VII — Visual verification and integration**
+
+### **Task 24 — Expand Geist visual-golden coverage**
+
+**Source:** [`docs/goldens.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/docs/goldens.md?utm_source=chatgpt.com), [`capture.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris-demo/src/bin/capture.rs?utm_source=chatgpt.com), [`tests/goldens.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/tests/goldens.rs?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+Extend the existing capture set to include the refined Geist-specific appearances and edge cases:
+
+- All standard button styles and sizes.
+- Normal, hover, pressed, selected, default, disabled, and keyboard-focused states.
+- Text fields and search fields.
+- Popup buttons with open and closed menus.
+- Segmented controls with varying numbers of segments.
+- Checkboxes in all three states.
+- Radio buttons and sliders.
+- Determinate and indeterminate progress.
+- Source-list and table selections.
+- Modern vertical and horizontal scrollbars.
+- Preferences overview and an individual settings pane.
+- Windows with active and inactive chrome.
+- Theme-aware standard artwork.
+- Long text and multiline descriptions.
+
+Run all five supported scale factors for Geist Light and Dark.
+
+Compare against the Aqua baseline from Task 2.
+
+When accepting a new Geist golden, record why it changed and which task authorized the change.
+
+**Avoid:**
+
+- Accepting every changed image automatically.
+- Removing failing screenshot cases.
+- Increasing the pixel-difference tolerance broadly.
+- Using only 100% screenshots.
+- Treating isolated control captures as sufficient proof of full-window correctness.
+
+**Regression traps:**
+
+- Theme-specific icon caches.
+- Font-antialiasing differences.
+- Rounded corner rasterization.
+- Focus rings clipped at container edges.
+- Menu or scrollbar states missing from captures.
+- Accidental changes to unrelated Aqua images.
+
+**Completion gate:** Every intentionally modified Geist element has an accepted, documented visual reference. Aqua goldens remain unchanged.
+
+### **Task 25 — Add interaction and performance regression tests**
+
+**Source:** [`tests/m2_conformance.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/tests/m2_conformance.rs?utm_source=chatgpt.com), [`tests/scroll_view.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/tests/scroll_view.rs?utm_source=chatgpt.com), [`tests/toolbar_artwork.rs`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/tests/toolbar_artwork.rs?utm_source=chatgpt.com), [`theme.rs`, refresh behaviour](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/theme.rs?utm_source=chatgpt.com#L75-L123).
+
+**Deliverables:**
+
+- Add interaction tests for every component whose visual implementation changed.
+- Test switching themes while a preferences window is open.
+- Test switching themes while a text field has focus.
+- Test switching themes while a scrollable document is positioned halfway through its content.
+- Test switching themes after modifying toolbar arrangement.
+- Test that theme changes do not lose selection, keyboard focus, or application state.
+- Verify existing animation rules, including disabled controls and reduced-motion behaviour.
+- Confirm that adding Geist's palette does not allocate a new colour table or parse assets during every render.
+- Ensure monochrome icon rendering uses cached assets or prepared vector geometry.
+- Avoid extra layout passes caused by transient font or colour changes.
+- Use the existing tests to establish whether scrollbar and control changes have introduced measurable additional work.
+
+Run:
+
+```
+cargo test -p silvestris-core
+cargo test -p silvestris-fonts
+cargo test -p silvestris
+cargo test --workspace
+```
+
+Where host-specific UI tests require a display, run them on the supported platform rather than treating them as successful when skipped.
+
+**Avoid:**
+
+- Rebuilding the entire theme on every component render.
+- Loading fonts repeatedly.
+- Allocating icon geometry repeatedly when the source is static.
+- Introducing timers for static visual effects.
+- Rewriting event handling to accommodate cosmetic changes.
+- Hiding failing tests with platform exclusions without documenting the limitation.
+
+**Regression traps:**
+
+- Focus loss after theme switching.
+- Scrollbar pointer capture.
+- Transient menus losing their appearance or focus.
+- Repeated layout invalidations.
+- Window content flickering after theme changes.
+- Glyph caches retaining the wrong font or theme.
+
+**Completion gate:** The refinement passes the existing functional tests plus new coverage for altered controls. No material rendering or interaction performance regression is introduced.
+
+### **Task 26 — Run consumer-level visual verification without modifying consumers**
+
+**Source:** [`docs/consumers.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/docs/consumers.md?utm_source=chatgpt.com), [`preferences.rs`, consumer composition](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/preferences.rs?utm_source=chatgpt.com#L1-L29), [`toolbar.rs`, consumer toolbar model](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/crates/silvestris/src/toolbar.rs?utm_source=chatgpt.com#L37-L93).
+
+**Deliverables:**
+
+After the Silvestris gallery passes, check the refined theme in existing consumer applications where builds are available.
+
+Use the applications shown in the provided screenshots as primary integration references:
+
+- Lotus: window chrome, source list, preferences, icon grid, scrollbar, and form alignment.
+- Pain: preferences, popup buttons, segmented theme picker, and terminal window chrome.
+- Chaus: preferences typography, checkbox alignment, editor window chrome, and theme switching.
+
+Document which controls look correct and which still need application-side integration.
+
+For artwork, distinguish toolkit defects from an application that continues to request its own old pictorial icons. If a consumer needs to adopt the new theme-aware artwork interface, document the required consumer change; do not make Silvestris recognize that application's name.
+
+For preference forms, confirm that changing Geist Sans and control sizes did not break settings layout or cause unexpected wrapping.
+
+**Avoid:**
+
+- Committing unrelated changes to Lotus, Pain, or Chaus.
+- Special-casing consumer window classes inside Silvestris.
+- Hiding application-side issues by modifying the toolkit's shared layout rules.
+- Adding compatibility hacks for one screenshot that worsen other applications.
+
+**Regression traps:**
+
+- Consumers that override Silvestris fonts.
+- Consumers that supply their own toolbar and preferences artwork.
+- Consumers using fixed-size preferences windows.
+- Consumers with custom scroll handles.
+- Consumers that switch themes while windows remain open.
+
+**Completion gate:** The refined Geist theme works in representative real applications without consumer-specific conditionals in Silvestris. Remaining consumer integration requirements are documented separately.
+
+### **Task 27 — Final review, documentation, and release gate**
+
+**Source:** [`README.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/README.md?utm_source=chatgpt.com), [`docs/goldens.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/docs/goldens.md?utm_source=chatgpt.com), [`CHANGELOG.md`](https://github.com/estyseesghosts/silvestris/blob/d575f34cb7472f86015c7421998464ea6247ec81/CHANGELOG.md?utm_source=chatgpt.com).
+
+**Deliverables:**
+
+- Document the Geist palette and its semantic mappings.
+- Document the typography roles and font provenance.
+- Document which control geometries intentionally differ between Aqua and Geist.
+- Document how theme-aware artwork is supplied by consuming applications.
+- Document the scrollbar presentation split and its shared interaction model.
+- Document native window-corner behaviour and known compositor limitations.
+- Record any intentionally retained differences from Vercel's web design system.
+- Update screenshots demonstrating all four themes in the same application structure.
+- Review changes file by file for accidental Aqua modifications.
+- Run the complete test and visual comparison gates.
+- Provide a concise final report listing completed tasks, failed tests, accepted visual changes, and any remaining issues.
+- Only after the user has inspected the resulting Geist screenshots should the final visual goldens be accepted and the work considered ready to push.
+
+**Avoid:**
+
+- Declaring visual correctness based only on passing unit tests.
+- Claiming Aqua is unchanged without screenshot evidence.
+- Leaving unused styling branches or superseded renderers behind.
+- Combining this work with general source cleanup.
+- Pushing an unreviewed visual redesign.
+
+**Regression traps:**
+
+- New font licenses omitted from packaged binaries.
+- Stale documentation describing Inter as the Geist UI font.
+- Unsupported changes to public theme contracts.
+- Golden baselines accepted without review.
+- Windows-specific visual problems hidden by Linux screenshots, or vice versa.
+
+**Completion gate:** All four themes are visually verified; the implementation is documented; the user has reviewed the updated Geist appearance.
+
+## **Final acceptance checklist**
+
+The implementer must verify all of the following before declaring this work complete.
+
+**Release readiness**
+
+0 / 15 verified
+
+Aqua Light produces the same accepted visual output as the baseline.
+
+Aqua Dark produces the same accepted visual output as the baseline.
+
+Geist Sans is used for interface text, with Geist Mono retained for monospaced text.
+
+Geist Dark is genuinely near-black rather than predominantly grey.
+
+Geist Light uses the same semantic colour roles and component geometry.
+
+Ordinary Geist controls have the exact specified radii, spacing and materials.
+
+Menus, toolbars, sidebars, source lists, tables and preferences are visually consistent.
+
+Geist scrollbars use the modern flat design and preserve all scrolling interactions.
+
+Geist interface pictograms are consistent, without unintended Aqua artwork leakage.
+
+Windows and Linux window corners render correctly in supported configurations.
+
+All five scale factors have been inspected.
+
+Theme switching preserves focus, selection, scroll positions and application state.
+
+Functional tests, font validation and visual regression gates pass.
+
+Consumer smoke tests identify no toolkit regressions.
+
+The user has approved the new Geist screenshots before final golden acceptance.
+
+&#x20;Copy checklist
+
+## **Implementation boundaries and stopping conditions**
+
+This is one bounded refinement project, not a mandate to rewrite Silvestris.
+
+The dependency order matters: **protect Aqua → install fonts → establish palettes → correct control geometry and materials → implement scrollbars and artwork → fix native window composition → test and review.**
+
+The implementer should create checkpoints after the font/palette work, control refinement, scrollbar/artwork work, and window-corner work. Each checkpoint must have passing functional tests and Geist/Aqua screenshots. Do not stack several unverified changes and attempt to debug their visual effects at the end.
+
+The work should stop and be reported for review if any of the following happens:
+
+- An Aqua golden changes for a reason other than an explicitly authorized shared rendering correction.
+- A Geist design decision cannot be implemented with the stated values without breaking component behaviour.
+- A native window issue requires changing GPUI or platform window management outside this scope.
+- A control needs a new public API that breaks existing consumers.
+- Visual comparison is inconclusive because the test environment cannot reproduce the required scale or compositor behaviour.
+
+**The expected result is not a perfect recreation of Vercel's web interface.** It is a modern Geist appearance applied coherently to Silvestris's existing HIG-based components. The measure of success is that the same application feels convincingly Aqua or convincingly Geist without changing what the application is, how it is structured, or how it behaves.

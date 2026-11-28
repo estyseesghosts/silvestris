@@ -1,0 +1,455 @@
+# **Silvestris — Snow Leopard circular Continue button**
+
+**Target branch:** `devel/sil-cocoa-fixture`\
+**Reviewed commit:** [`2e0acba`](https://github.com/estyseesghosts/silvestris/commit/2e0acba77586e7d773a3a28a35ac1cd85db73e54?utm_source=chatgpt.com)
+
+The goal is to reproduce the specific circular Continue button from the Mac OS X 10.6 installer's language-selection screen, including its original glyph, gradient, border, proportions and breathing animation.
+
+This should be a first-class Silvestris control, available to any consuming application. It should reuse the existing button interaction and animation infrastructure rather than introduce a separate implementation.
+
+The supplied screenshots are the authoritative visual references. The 2009 HIG documents standard push buttons and setup assistants but does not specify the precise appearance of this particular installer control. Treat it as a special-purpose historical control rather than a new general-purpose Aqua button.
+
+## **1. Establish and measure the visual reference**
+
+**Sources:** [hig-09 — Controls](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/controls.md?utm_source=chatgpt.com), [Silvestris — Visual goldens](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/goldens.md?utm_source=chatgpt.com), [Reference measurements](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/reference/measurements.json?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Use `continue-arrow-glyph.png` and `install-mac-os-x-language.png` as the reference captures. I measured both supplied images directly:
+
+| Property                          | Reference measurement                                       |
+| --------------------------------- | ----------------------------------------------------------- |
+| Visible button footprint          | Approximately 31 × 30 physical pixels                       |
+| Surrounding background            | `#EDEDED`                                                   |
+| Upper blue interior               | Approximately `#5187E2`                                     |
+| Upper interior approaching centre | `#71ABEC`                                                   |
+| Lower interior near centre        | `#52AAED`                                                   |
+| Lower interior approaching bottom | `#88E9FC`                                                   |
+| Glyph                             | Two dark circular dots and a filled right-pointing triangle |
+| Glyph footprint                   | Approximately 17 × 10 physical pixels                       |
+
+These are sampled screenshot values, not necessarily Apple's original rendering constants.
+
+- Record the reference captures and crop coordinates in `reference/crops.json`, following the existing schema.
+- Record measured geometry, gradient profiles, border colours and glyph geometry in `reference/measurements.json`.
+- Examine the reference at 8× or 16× magnification using nearest-neighbour scaling.
+- Measure the centre column, unobstructed interior columns, border and glyph separately.
+- Obtain additional Snow Leopard VM captures of the disabled and pressed states if possible. Record unverified states as estimates in `docs/exceptions.md`.
+
+**Avoidables**
+
+- Do not approximate the button from memory.
+- Do not use modern macOS controls as references.
+- Do not ship the screenshot itself as a button texture.
+- Do not assume that the standard Aqua push-button gradient is identical to this button's gradient.
+- Do not assume a capture scale solely from PNG resolution metadata.
+
+**Regression traps**
+
+- The screenshot crop includes surrounding grey background. This must not become part of the rendered button.
+- Antialiased edge pixels are composites against the reference background, not necessarily actual border colours.
+- The screenshot represents one animation phase. It cannot independently establish the original breathing animation's timing or amplitude.
+
+## **2. Introduce a dedicated button style and public API**
+
+**Sources:** [button.rs — ButtonStyle and Button](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L65), [controls/mod.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/mod.rs?utm_source=chatgpt.com), [hig-09 — Push button specification](https://github.com/estyseesghosts/hig-09/blob/master/specs/push-button.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Add `ButtonStyle::InstallerContinue` to the existing `ButtonStyle` enum.
+
+Expose it through the existing button builder:
+
+```
+Button::new("continue", "Continue")
+    .style(ButtonStyle::InstallerContinue)
+    .default_button(true)
+    .on_click(/* application callback */)
+```
+
+The new style must:
+
+- Have a fixed, approximately 30 × 30 logical-pixel circular bezel at regular scale, subject to reference-scale verification.
+- Render its own continuation glyph automatically.
+- Render no visible text label.
+- Retain the supplied label as its accessible name.
+- Support the existing `disabled()`, `default_button()`, `throb()`, `tooltip()`, `focus_handle()` and `on_click()` APIs.
+- Remain the same size regardless of the supplied label's length.
+- Remain fixed in size inside flex layouts.
+
+Only implement the regular size in this pass. No evidence has been provided for small or mini variants.
+
+**Avoidables**
+
+- Do not modify the appearance of `ButtonStyle::Round`.
+- Do not introduce a second, independent button event-handling implementation.
+- Do not implement a general wizard framework.
+- Do not invent a backward-facing variant without an authentic reference.
+- Do not turn this into a configurable circular icon-button framework.
+
+**Regression traps**
+
+The existing renderer determines icon-only geometry from whether a custom icon was supplied. This control has a built-in glyph, so that condition alone will not work.
+
+Explicitly account for the new style when calculating width, height, padding and label visibility. Otherwise, the button may become rectangular or display unwanted text beside the glyph.
+
+## **3. Introduce dedicated appearance tokens**
+
+**Sources:** [tokens.rs — Controls](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris-core/src/tokens.rs?utm_source=chatgpt.com#L328), [aqua.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris-core/src/aqua.rs?utm_source=chatgpt.com), [geist.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris-core/src/geist.rs?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Add an independent `installer_continue` appearance token to `Controls`, with the following information:
+
+- Normal bezel.
+- Default-action bezel.
+- Pressed bezel.
+- Disabled bezel.
+- Glyph colour for each applicable state.
+
+Add a dedicated diameter metric to `Metrics`.
+
+Initialize the tokens in all four theme constructors:
+
+| Appearance  | Required treatment                                                     |
+| ----------- | ---------------------------------------------------------------------- |
+| Aqua Light  | Faithful reproduction of the supplied Snow Leopard reference           |
+| Aqua Dark   | Same geometry and recognizable blue material, adapted to Dark Aqua     |
+| Geist Light | Same geometry and glyph, using existing Geist default-action materials |
+| Geist Dark  | Same geometry and glyph, using existing Geist default-action materials |
+
+Aqua Light is the historical reference. The other three appearances are Silvestris-specific adaptations.
+
+Keep the new material independent from `push_default`, `round`, `help` and `textured`.
+
+**Avoidables**
+
+- Do not hardcode colours inside the GPUI renderer.
+- Do not change global push-button metrics to accommodate this control.
+- Do not reuse `Controls::round` merely because the control is circular.
+- Do not introduce Apple-style gradients into Geist.
+- Do not make Aqua Dark an arbitrary purple or desaturated recolouring.
+
+**Regression traps**
+
+`Controls` and `Metrics` are shared by all appearances. Adding fields requires updating every initializer, including any test-specific theme constructors.
+
+No existing token values should change in this task.
+
+## **4. Reproduce the original circular bezel**
+
+**Sources:** [paint.rs — bevel renderer](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/paint.rs?utm_source=chatgpt.com#L79), [button.rs — RenderOnce](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L325), [Device-pixel snapping](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/snapping.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Reproduce the following visual layers, from outside to inside:
+
+1. Subtle antialiased outer edge.
+2. Thin grey circular rim.
+3. Upper blue gradient, transitioning from darker blue to lighter blue.
+4. Distinct transition between the upper and lower gradient bands near the middle.
+5. Lower gradient, transitioning from saturated blue to light cyan.
+6. Dark continuation glyph.
+
+The screenshot's gloss is relatively subtle. The blue material should occupy nearly the entire interior of the circle.
+
+Reuse `paint::bevel()` initially. It already supports a border gradient, two interior gradient bands, an adjustable split and rounded geometry.
+
+If comparison against the reference demonstrates that the existing painter cannot reproduce the circular rim accurately, add a narrowly scoped circular-bezel painter. Do not alter the behaviour of the shared painter for existing controls.
+
+Follow the existing device-pixel snapping rules.
+
+**Avoidables**
+
+- No oversized white specular highlight.
+- No modern glassmorphism.
+- No radial glow outside the button.
+- No thick border or pronounced drop shadow.
+- No additional decorative rings.
+- No pill shape, squircle or oval.
+- No scale-up animation on hover or press.
+
+**Regression traps**
+
+A corner radius of half the height does not guarantee circular geometry if width and height differ.
+
+At fractional DPI scales, independently rounding the dimensions can also distort the circle. Follow `paint::snap_bounds()` and the project's existing hairline rules.
+
+Do not change `paint::bevel()` globally to fix a discrepancy exclusive to this control.
+
+## **5. Recreate the exact continuation glyph**
+
+**Sources:** [button.rs — Built-in help glyph and icon rendering](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L646), [paint.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/paint.rs?utm_source=chatgpt.com), [hig-09 — Icons](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/icons.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Draw the continuation glyph using scalable vector geometry.
+
+The glyph consists of exactly three shapes:
+
+- A small filled circular dot.
+- A second identical filled circular dot.
+- A solid right-pointing triangle.
+
+The two dots are horizontally aligned with the triangle's vertical centre.
+
+From the supplied close-up, use these approximate starting dimensions, subject to refinement through pixel comparison:
+
+| Element                             | Approximate dimensions |
+| ----------------------------------- | ---------------------- |
+| Each dot                            | 4 × 4 px               |
+| Triangle                            | 6 × 10 px              |
+| Gap between dots                    | 2 px                   |
+| Gap between second dot and triangle | 2 px                   |
+| Complete glyph                      | 17 × 10 px             |
+
+The glyph is nearly black with a subtle dark-blue tint. Preserve the original spacing and placement relative to the bezel.
+
+Keep the geometry in a small, isolated rendering helper. Use the theme's state-dependent glyph colour.
+
+**Avoidables**
+
+- Do not use Unicode characters to approximate the glyph.
+- Do not use Lucide, Font Awesome or SF Symbols.
+- Do not draw three dots.
+- Do not use a chevron.
+- Do not add a shaft to the triangle.
+- Do not use a white glyph.
+- Do not apply an independent glyph shadow or glow.
+- Do not optically redesign the glyph according to personal preference.
+
+**Regression traps**
+
+Font-based icons introduce inconsistent baselines, hinting and spacing across Windows and Linux. Explicit vector geometry avoids these problems.
+
+The glyph must not move, resize or change its spacing during animation, mouse presses or focus changes.
+
+## **6. Reuse the existing breathing animation**
+
+**Sources:** [button.rs — throb_bevel()](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L291), [button.rs — Animation eligibility](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L416), [docs/exceptions.md](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/exceptions.md?utm_source=chatgpt.com#L132).
+
+This is particularly important. Silvestris already implements the desired animation.
+
+The existing implementation:
+
+- Uses a sinusoidal animation.
+- Has a 1,100 ms cycle.
+- Uses approximately 8% colour variation.
+- Alternates between lighter, less saturated and deeper, more saturated colours.
+- Leaves the border, emboss and glyph colour unchanged.
+
+**Deliverables**
+
+Generalize the existing default-button material selection and throb eligibility to support both `Push` and `InstallerContinue`.
+
+Use a small, explicit style capability check rather than scattering additional style comparisons throughout the renderer.
+
+The installer control must use the exact same `throb_bevel()` function and animation timing as the existing blue push button, operating on its own dedicated default bezel.
+
+| Condition                       | Behaviour                        |
+| ------------------------------- | -------------------------------- |
+| Enabled, default, active window | Breathing                        |
+| Disabled                        | Static disabled material         |
+| Inactive window                 | Static material                  |
+| Reduced motion enabled          | Static material                  |
+| Pointer held down               | Existing pressed-state feedback  |
+| Keyboard pressed                | Existing keyboard press feedback |
+| Another control has focus       | Continue breathing               |
+| `.throb(false)`                 | Static material                  |
+| Non-default action              | No breathing                     |
+
+Resume the breathing animation after the existing release transition completes, when eligible.
+
+**Avoidables**
+
+- Do not implement another animation loop.
+- Do not animate opacity.
+- Do not animate the button's diameter.
+- Do not animate the glyph.
+- Do not introduce a glowing halo.
+- Do not use asynchronous timers or background tasks to drive the animation.
+- Do not modify the existing 1,100 ms period or 8% swing.
+- Do not enable breathing for every button style.
+
+**Regression traps**
+
+Currently, both default-bezel selection and breathing eligibility explicitly check `ButtonStyle::Push`. Updating only the animation condition will leave the new control using the wrong resting material.
+
+Ensure that existing default push buttons render and animate exactly as they did before.
+
+The existing animation timing is an estimate derived from Snow Leopard's Mail assistant, as documented in `docs/exceptions.md`. Reusing it satisfies the requested consistency but does not independently establish the installer button's original timing.
+
+## **7. Preserve interaction, focus and keyboard behaviour**
+
+**Sources:** [button.rs — Interaction implementation](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L474), [hig-09 — Push button specification](https://github.com/estyseesghosts/hig-09/blob/master/specs/push-button.md?utm_source=chatgpt.com), [hig-09 — Accessibility checklist](https://github.com/estyseesghosts/hig-09/blob/master/notes/accessibility-checklist.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Preserve the existing button interaction model, including:
+
+- Pointer activation on valid release.
+- Cancellation when released outside the control.
+- 90 ms pointer-press transition.
+- 120 ms release transition.
+- Immediate keyboard press feedback.
+- Keyboard focus traversal.
+- Space activation when focused.
+- Return activation when designated as the dialog's default action, using the existing dialog command routing.
+- Existing keyboard-only focus ring.
+- Accessible button role and supplied accessible label.
+- Disabled-state input suppression.
+
+The focus ring must follow the circular geometry. It must not be rectangular or replace the blue bezel.
+
+The control must remain a stateless command button from the consuming application's perspective. The application decides what continuing means and whether continuing is currently permitted.
+
+**Avoidables**
+
+- Do not make the decorative canvas independently clickable.
+- Do not introduce window-wide keyboard listeners inside the control.
+- Do not trigger the action on mouse-down.
+- Do not trigger an action merely because the button receives focus.
+- Do not automatically advance the application's wizard or setup flow.
+- Do not add a persistent hover treatment without reference evidence.
+
+**Regression traps**
+
+The control must not receive two activation events from one Return keypress, particularly when hosted in a dialog that already routes default actions.
+
+Ensure disabling the control during a press cancels pending activation and stops the animation.
+
+The existing documented GPUI accessibility limitation concerning disabled-state announcements must not be falsely reported as resolved by this work.
+
+## **8. Add gallery demonstrations and visual regression coverage**
+
+**Sources:** [gallery.rs — Existing button demonstrations](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris-demo/src/bin/gallery.rs?utm_source=chatgpt.com#L1486), [capture.rs — Golden samples](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris-demo/src/bin/capture.rs?utm_source=chatgpt.com#L67), [docs/goldens.md](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/goldens.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Add the button to the existing Silvestris gallery alongside the other button styles.
+
+Provide demonstrations of:
+
+- Animated default control.
+- Static default control.
+- Non-default control.
+- Disabled control.
+
+Also provide a simple reference-comparison sample with the same `#EDEDED` background as the supplied installer capture. This is for visual verification only; the control itself must not own this background.
+
+Add deterministic golden samples:
+
+```
+button-installer-continue
+button-installer-continue-normal
+button-installer-continue-disabled
+```
+
+Generate them for all four appearances at 100%, 125%, 150%, 175% and 200% scaling.
+
+Disable breathing for static captures using `.throb(false)`.
+
+Append the new samples to the existing capture set where practical, avoiding unnecessary changes to existing sample positions and pagination.
+
+Use `tools/metrology/accept_control.py` to accept only the new control's goldens, with a documented reason.
+
+**Avoidables**
+
+- Do not build an entire mock Mac OS X installer.
+- Do not change the existing gallery layout unnecessarily.
+- Do not capture a random animation frame as a golden.
+- Do not accept every regenerated golden indiscriminately.
+- Do not treat the existence of a golden as proof of historical accuracy.
+
+**Regression traps**
+
+Silvestris' golden tests compare its rendering against previously accepted Silvestris rendering. They do not automatically establish fidelity to Apple's control.
+
+Inspect the original and candidate side by side at native scale and at magnification. Compare the bezel silhouette, colour profile, rim thickness, glyph position and glyph dimensions before accepting the golden.
+
+## **9. Add behavioural and animation regression tests**
+
+**Sources:** [button.rs — Existing button tests](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/src/controls/button.rs?utm_source=chatgpt.com#L707), [tests/goldens.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/tests/goldens.rs?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Extend the existing button tests rather than introduce a separate testing framework.
+
+Verify:
+
+- Square control bounds at every supported DPI scale.
+- The control's dimensions do not depend on label length.
+- Exactly one callback per successful activation.
+- No callback when disabled.
+- No callback when a pointer press is cancelled.
+- Correct keyboard activation and default-action routing.
+- Correct focus-ring appearance.
+- Animation varies the upper and lower gradient colours in both directions.
+- Border and glyph colours remain unchanged during breathing.
+- Animation stops under reduced motion, inactive-window and disabled conditions.
+- Animation stops during a press and resumes after release.
+- Animation remains active when focus moves to another control.
+- `.throb(false)` prevents animation.
+- Existing `Push`, `Round` and `Help` controls remain unchanged.
+
+Reuse the existing simulated-clock approach from `press_feedback_tracks_activation_cancellation_and_reduced_motion()`.
+
+Run the workspace tests and existing visual regression gate. Perform manual interaction checks on Windows and Linux where available.
+
+**Avoidables**
+
+- Do not use real-time sleeps in unit tests.
+- Do not weaken existing assertions.
+- Do not suppress failing tests to complete the task.
+- Do not regenerate unrelated goldens to conceal regressions.
+
+**Regression traps**
+
+Pay particular attention to animation eligibility after changing the current push-only checks. Accidentally enabling animation for selected toolbar buttons, toggles or help buttons would be a significant regression.
+
+## **10. Document the control and its intended usage**
+
+**Sources:** [docs/coverage.md](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/coverage.md?utm_source=chatgpt.com), [docs/exceptions.md](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/docs/exceptions.md?utm_source=chatgpt.com), [tests/coverage.rs](https://github.com/estyseesghosts/silvestris/blob/2e0acba77586e7d773a3a28a35ac1cd85db73e54/crates/silvestris/tests/coverage.rs?utm_source=chatgpt.com), [hig-09 — Setup assistants](https://github.com/estyseesghosts/hig-09/blob/master/02-macintosh-experience/software-installation-and-software-updates.md?utm_source=chatgpt.com).
+
+**Deliverables**
+
+Add a dedicated coverage entry for `ButtonStyle::InstallerContinue`.
+
+Document its public API, visual reference, supported states, animation behaviour, fixed geometry and four appearance treatments.
+
+Describe its intended use in:
+
+- Installation flows.
+- First-run setup.
+- Setup assistants.
+- Sequential configuration screens.
+
+Document which properties were measured from Snow Leopard and which were designed or estimated.
+
+**Avoidables**
+
+- Do not recommend replacing ordinary Continue, OK or Save buttons with this control.
+- Do not present it as a standard HIG-prescribed button.
+- Do not claim that its dark appearance is historically authentic.
+- Do not claim pixel-perfect reproduction of states for which no reference exists.
+
+**Regression traps**
+
+Silvestris' coverage documentation is a consumer-facing contract. It must describe the implemented API, not a proposed future API.
+
+## **Definition of done**
+
+| Requirement   | Acceptance criterion                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| Aqua fidelity | Visually indistinguishable from the supplied reference at matching scale and animation phase |
+| Geometry      | Fixed circular bezel with authentic proportions                                              |
+| Glyph         | Exact two-dot-and-triangle construction                                                      |
+| Animation     | Shared existing default-button breathing implementation                                      |
+| Interaction   | Existing button interaction contract preserved                                               |
+| Themes        | All four appearances supported                                                               |
+| DPI           | All five existing golden scales covered                                                      |
+| Architecture  | No duplicated button lifecycle or animation logic                                            |
+| Regressions   | Existing controls and their goldens unchanged                                                |
+| Documentation | Measured and estimated properties clearly distinguished                                      |
+
+Keep this implementation strictly bounded to one new button style. The existing Silvestris infrastructure already provides most of the functionality. The majority of the work should be visual measurement, dedicated theme tokens, precise glyph rendering and regression coverage—not architectural changes.

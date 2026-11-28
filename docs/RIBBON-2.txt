@@ -1,0 +1,577 @@
+I reviewed the latest `devel/sil-cocoa-fixture` push first. The branch is now at [`2e0acba77586`](https://github.com/estyseesghosts/silvestris/commit/2e0acba77586e7d773a3a28a35ac1cd85db73e54), which adds toolbar customization, persisted layouts, drag reordering, optional items, display-mode persistence, and the customization palette. That means **do not spend this pass rebuilding toolbar customization**. The remaining work is specifically the artwork/presentation layer required for the Sandcat toolbar.
+
+The current mismatch is concrete:
+
+- `ToolbarItem::image()` only accepts global `TemplateImage`, so only Silvestris-supplied monochrome images are usable in normal toolbar commands. [`toolbar.rs L350-L373`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L350-L373)
+- `ToolbarSegment` likewise only accepts `TemplateImage`, so applications cannot supply their own monochrome segmented-control glyphs. [`toolbar.rs L138-L178`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L138-L178)
+- `ConsumerArtwork` exists for application-owned 32×32 colour artwork, but `ToolbarItem` cannot consume it. [`icons.rs L80-L130`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/icons.rs#L80-L130)
+- Current `Button::icon_and_label()` explicitly lays icon and label **beside** one another. [`button.rs L175-L187`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/controls/button.rs#L175-L187), [`button.rs L640-L660`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/controls/button.rs#L640-L660)
+- The HIG distinguishes standalone 24–32px icon buttons from ≤19px monochrome rectangular toolbar images. They are not interchangeable control presentations. [`toolbar-item.md L22-L52`](https://github.com/estyseesghosts/hig-09/blob/master/specs/toolbar-item.md#L22-L52), [`icons.md L111-L138`](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/icons.md#L111-L138)
+
+This plan is therefore deliberately bounded to that missing layer.
+
+---
+
+## 1. Formalize the four artwork combinations before changing Toolbar
+
+The implementer should **not** begin by adding more overloads named `.icon()` until the type model is clear.
+
+### Deliverables
+
+Represent these four cases explicitly:
+
+| | Silvestris-provided | Application-provided |
+|---|---|---|
+| **Monochrome/template** | existing `TemplateImage` | **new consumer template type** |
+| **Full-colour/pictorial** | **new Silvestris pictorial type** | existing `ConsumerArtwork`, extended as needed |
+
+I would use concepts approximately like:
+
+```rust
+TemplateImage                 // global monochrome, already exists
+ConsumerTemplateImage         // local monochrome, new
+
+PictorialImage                // global colour, new
+ConsumerArtwork               // local colour, already exists
+```
+
+Then create toolbar-level wrappers which describe **what the host can legally accept**, rather than collapsing all four into one untyped icon enum:
+
+```rust
+ToolbarGlyph
+    Silvestris(TemplateImage)
+    Consumer(ConsumerTemplateImage)
+
+ToolbarPictorial
+    Silvestris(PictorialImage)
+    Consumer(ConsumerArtwork)
+```
+
+`ToolbarGlyph` is valid in textured/capsule buttons and segmented controls.
+
+`ToolbarPictorial` is valid in standalone toolbar icon-button presentation.
+
+Do **not** allow a 32px coloured pictorial icon to accidentally be passed into a 19px rectangular-image slot.
+
+Keep `FileArtwork` separate. A folder icon being full-colour does not make it generic toolbar pictorial artwork. The current code has correctly separated file artwork from template imagery already. [`icons.rs L30-L80`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/icons.rs#L30-L80)
+
+Update #48's public API description to explicitly document this 2×2 matrix. The current issue promises “template vs full-colour” and “consumer-registered sets,” but the implementation does not yet fulfill all combinations. [Issue #48](https://github.com/estyseesghosts/silvestris/issues/48)
+
+### Avoid
+
+- Do not rename `TemplateImage` to a vague `Icon`.
+- Do not put application-specific names such as `NewChat`, `Conversation`, `Diff` or `LotusRun` into Silvestris.
+- Do not merge `FileArtwork`, pictorial toolbar artwork and template images.
+- Do not accept arbitrary `AnyElement` everywhere and call that an icon API. The point of these types is to prevent invalid size/style combinations.
+- Do not let applications specify arbitrary image dimensions for standard toolbar roles.
+
+### Regression traps
+
+- Existing `TemplateImage::{Back,Forward,IconView,ListView,...}` role lookup must remain source-compatible where practical. [`icons.rs L247-L290`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/icons.rs#L247-L290)
+- `FileArtwork` must retain its full-colour selected/inactive/disabled behavior.
+- Existing Open/Save panels must not begin consuming the new pictorial-toolbar type simply because both are coloured artwork.
+- Existing consumers using `ToolbarItem::image(TemplateImage)` should not require a large migration. Keep that method as a convenience wrapper around `ToolbarGlyph::Silvestris`.
+
+---
+
+## 2. Add application-provided monochrome template artwork
+
+This is the optional gap from the previous audit, but I would make it mandatory before Sandcat adoption.
+
+Sandcat will eventually need icons such as Conversation/Changes that may not correspond to any legitimate system-provided image. The HIG explicitly says to create a custom image rather than repurpose a standard system image for the wrong meaning. [`icons.md L111-L145`](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/icons.md#L111-L145)
+
+### Deliverables
+
+Add `ConsumerTemplateImage`.
+
+Its renderer must receive **host-supplied ink**, just like built-in `TemplateImage` does:
+
+```rust
+ConsumerTemplateImage::new(
+    "Conversation",
+    |bounds, ink, window| { ... }
+)
+```
+
+or an equivalent element-rendering API.
+
+The consumer is responsible for the silhouette. Silvestris remains responsible for:
+
+- the 19px toolbar slot;
+- the 13px segmented slot;
+- enabled colour;
+- disabled colour;
+- selected colour;
+- inactive-window colour;
+- scaling;
+- alignment within the host slot.
+
+The important difference from `ConsumerArtwork` is that application code **must not choose its own colour** for this type. It receives current control ink.
+
+Allow `ToolbarGlyph` to provide the same operations regardless of origin:
+
+```rust
+glyph.element(slot, ink)
+glyph.button_renderer(slot)
+```
+
+Extend `ToolbarSegment` from:
+
+```rust
+pub image: Option<TemplateImage>
+```
+
+to the typed equivalent:
+
+```rust
+pub glyph: Option<ToolbarGlyph>
+```
+
+and provide APIs such as:
+
+```rust
+.image(TemplateImage::Sidebar)        // compatibility convenience
+.glyph(ToolbarGlyph::consumer(...))
+```
+
+The same applies to command and pop-down items.
+
+### Avoid
+
+- Do not accept a coloured SVG and desaturate/tint it afterward.
+- Do not expose raw `TemplateImageSlot` sizes for the consuming app to override.
+- Do not add a generic “custom icon path” string.
+- Do not copy Apple's Conversation, Mail, Finder, etc. toolbar artwork.
+- Do not repurpose `TemplateImage::ListView` to mean “transcript” or `TemplateImage::Info` to mean “detailed transcript.”
+
+### Regression traps
+
+`TemplateImage` currently gets its ink from the hosting button, which is how selection/disabled state works. [`icons.rs L384-L410`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/icons.rs#L384-L410) The new consumer variant must go through the same state path.
+
+The segmented renderer currently assumes it can resolve an icon using `TemplateImage::from_role()`. [`toolbar.rs L1090-L1150`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L1090-L1150) Do not encode consumer icons into fake global role strings. Pass the typed renderer through instead.
+
+Preserve the HIG requirement that all segments use icons or all use text; do not silently render one custom-glyph segment alongside two text segments. [`controls.md L260-L280`](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/controls.md#L260-L280)
+
+---
+
+## 3. Complete the full-colour pictorial artwork side
+
+`ConsumerArtwork` is a good beginning, but it currently solves only “application supplies something that fits in a 32×32 box.” It does not give Toolbar a complete pictorial-item contract.
+
+### Deliverables
+
+Add a small Silvestris-provided `PictorialImage` vocabulary for genuinely reusable 10.6-style pictorial toolbar meanings.
+
+Keep this **small and semantic**. Do not attempt to recreate Apple's entire NSImage catalogue in this task.
+
+A reasonable initial set is whatever can be justified by current consumers/reference apps, for example:
+
+- New document/item
+- Open
+- Save
+- Preferences/General if genuinely reusable
+- possibly Info where pictorial rather than template presentation is appropriate
+
+Do **not** create a `PictorialImage::NewChat`; Sandcat supplies that itself.
+
+All global pictorial artwork must be original artwork, with provenance/licence recorded according to #48. The issue explicitly prohibits tracing/recolouring Apple assets. [Issue #48](https://github.com/estyseesghosts/silvestris/issues/48)
+
+Extend `ConsumerArtwork` so the renderer can respond to the states that matter for a standalone toolbar command. Right now it receives only `Window` and `App`. [`icons.rs L94-L130`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/icons.rs#L94-L130)
+
+Introduce a compact state value, for example:
+
+```rust
+PictorialState {
+    enabled: bool,
+    active_window: bool,
+    pressed: bool,
+    selected: bool,
+}
+```
+
+Do not pass the entire Button or command descriptor into the artwork renderer.
+
+Prefer Silvestris applying common inactive/disabled treatment where possible, so every consumer does not invent a different “disabled icon.” If the rendering backend cannot safely apply that to arbitrary child elements, make the state available to the consumer but document one required visual treatment.
+
+The 32×32 host remains fixed. Applications should not pass `"28"` or `"37"` to make a particular icon “look better.”
+
+### Avoid
+
+- Do not automatically turn every `FileArtwork` into a toolbar icon.
+- Do not create dozens of speculative pictorial images before a consumer/reference app needs them.
+- Do not use emoji, icon fonts, Fluent icons, Material icons or modern SF Symbols as substitutes.
+- Do not draw hard-edged flat modern glyphs inside the pictorial family.
+- Do not give every pictorial image its own arbitrary perspective/light source.
+
+The HIG is explicit: toolbar pictorial icons should share perspective, size and visual weight while remaining distinguishable. [`icons.md L116-L129`](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/icons.md#L116-L129)
+
+### Regression traps
+
+- Aqua Dark/Light and Geist Dark/Light still need coherent disabled/inactive behavior.
+- A colour icon must not suddenly become host-ink monochrome when selected; that is template-image behavior, not pictorial-artwork behavior.
+- Custom pictorial artwork must remain original artwork supplied by the consumer; Silvestris must not serialize or assume anything about its application meaning.
+- `ConsumerArtwork::category_element()` is already used for preference-category artwork. Do not break that use while extending toolbar state support.
+
+---
+
+## 4. Add a dedicated standalone toolbar icon-button presentation
+
+This is the most important visual prerequisite.
+
+Do **not** try to bend current `Button::icon_and_label()` until it happens to resemble AppleScript Editor. The current implementation intentionally puts icon and label beside one another and paints a normal button bezel. [`button.rs L445-L477`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/controls/button.rs#L445-L477), [`button.rs L640-L660`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/controls/button.rs#L640-L660)
+
+A standalone toolbar icon button is a different HIG control family. [`toolbar-item.md L22-L32`](https://github.com/estyseesghosts/hig-09/blob/master/specs/toolbar-item.md#L22-L32)
+
+### Deliverables
+
+Add a toolbar-specific icon-button primitive, preferably under `toolbar`, not a general window-body button style.
+
+Conceptually:
+
+```rust
+ToolbarIconButton
+```
+
+It must render:
+
+**Icon & Text**
+
+```text
+┌──────────────┐
+│   [32×32]    │
+│   New Chat   │
+└──────────────┘
+```
+
+**Icon Only**
+
+```text
+┌──────────────┐
+│   [32×32]    │
+└──────────────┘
+```
+
+**Text Only**
+
+```text
+┌──────────────┐
+│   New Chat   │
+└──────────────┘
+```
+
+Those boxes indicate the hit target only. **Do not paint a visible rectangular bezel around the standalone icon-button at rest.**
+
+For `IconAndLabel`:
+
+- artwork is horizontally centred;
+- label is centred **below** the artwork;
+- use the toolbar's system-font label role;
+- text is one line;
+- the item width is determined by the larger of the artwork/hit-target width and measured label width;
+- neighbouring item spacing is still the toolbar's standard spacing;
+- do not vertically stretch the artwork to fill `toolbar_labelled_height`.
+
+For `IconOnly`:
+
+- keep the standard pictorial icon slot and hit area;
+- remove visible label only;
+- accessibility label stays present.
+
+For `TextOnly`:
+
+- omit the pictorial artwork;
+- retain the external label;
+- preserve a reasonable toolbar hit target;
+- do not reserve an invisible 32px icon hole.
+
+Before locking exact top/bottom offsets, use the retained 10.6 toolbar corpus referenced by `hig-09/specs/toolbar-item.md`. The spec explicitly says **not to measure the HIG PDF illustrations** and notes that exact toolbar geometry has not been completely measured. [`toolbar-item.md L34-L55`](https://github.com/estyseesghosts/hig-09/blob/master/specs/toolbar-item.md#L34-L55)
+
+Use `toolbar_labelled_height` as the host envelope, but measure icon/label placement inside it rather than freehanding.
+
+The control must preserve:
+
+- Tab focus;
+- Space activation;
+- visible keyboard focus;
+- command enabled state;
+- checked/toggle state where appropriate;
+- responder-chain dispatch;
+- titlebar hit-test occlusion;
+- help tags.
+
+The existing toolbar-item accessibility contract already requires external labels, keyboard focus and Space activation. [`toolbar-item.md L75-L104`](https://github.com/estyseesghosts/hig-09/blob/master/specs/toolbar-item.md#L75-L104)
+
+### Avoid
+
+- Do not add `ButtonStyle::Icon` and allow it everywhere in the application.
+- Do not place the label to the right.
+- Do not add 4px arbitrary margins until “it looks good.”
+- Do not scale the 32×32 image smaller because a long label exists.
+- Do not wrap toolbar labels onto two lines.
+- Do not add modern hover cards, circular highlights or acrylic backgrounds.
+- Do not draw a constant textured rectangle behind the pictorial button.
+- Do not put the toolbar label inside the artwork itself.
+
+### Regression traps
+
+The toolbar currently uses `WindowFrame::toolbar_component()` to derive correct 32px or 49px host height. Preserve that contract. [`toolbar.rs L465-L490`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L465-L490)
+
+Controls must continue to `.occlude()` the client-drawn titlebar drag area, as current `Button` does. [`button.rs L470-L490`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/controls/button.rs#L470-L490)
+
+Pressed/disabled artwork is not fully quantified by the HIG. Do not invent dramatic animation. Use measured/reference behavior where available and document any estimate in `docs/exceptions.md`.
+
+---
+
+## 5. Integrate pictorial and consumer glyphs into `ToolbarItem` without weakening its type safety
+
+Once the primitive exists, wire it into Toolbar itself.
+
+### Deliverables
+
+Add a dedicated constructor rather than making `.style(...)` magically change the meaning of `.image(...)`.
+
+For example:
+
+```rust
+ToolbarItem::pictorial_command(
+    "new",
+    "New",
+    command_id,
+    ToolbarPictorial::Consumer(artwork),
+)
+```
+
+and, if needed:
+
+```rust
+ToolbarItem::pictorial_toggle(...)
+```
+
+Keep the existing constructor:
+
+```rust
+ToolbarItem::command(...)
+    .image(TemplateImage::Stop)
+```
+
+for rectangular/capsule monochrome controls.
+
+Do **not** make this legal:
+
+```rust
+ToolbarItem::command(...)
+    .style(Rectangular)
+    .pictorial(...)
+```
+
+if that would put 32px colour artwork inside the 19px textured slot.
+
+Modify the current `ToolbarItemKind::Command` model accordingly. It presently stores only `Option<TemplateImage>`. [`toolbar.rs L120-L150`](https://github.com/estyseghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L120-L150)
+
+Update `render_item()` so:
+
+- normal command + `ToolbarGlyph` → existing textured/capsule path;
+- pictorial command → new standalone icon-button path;
+- segmented control → `ToolbarGlyph` only;
+- pop-down/action menu → `ToolbarGlyph` unless a specifically supported pictorial pop-down control is implemented and backed by the HIG.
+
+Do not broaden scope by implementing pictorial pop-downs unless Sandcat or a current reference app actually requires them.
+
+### Avoid
+
+- Do not replace `ToolbarItemKind` with “custom view” for normal pictorial commands. They are standard toolbar commands and must retain standard command semantics.
+- Do not let consumers manually build `div().child(icon).child(label)` and put it into the toolbar.
+- Do not bypass `CommandRegistry`.
+- Do not store enabled/checked state inside `ToolbarItem`.
+- Do not create a second click callback specifically for pictorial commands.
+
+The existing command path correctly resolves enabled/checked state through `CommandRegistry` and `ResponderChain`. [`command.rs L350-L470`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/command.rs#L350-L470)
+
+### Regression traps
+
+Toolbar customization has just landed. New pictorial items must participate in it exactly like existing items.
+
+Test:
+
+- saved order;
+- optional visibility;
+- drag reorder;
+- drag from customization palette;
+- reset to default set;
+- persisted `IconOnly`, `IconAndLabel`, `TextOnly`;
+- overflow;
+- responder-chain disabled state.
+
+The current toolbar's customization path identifies items by stable ID and clones the typed `ToolbarItem`; do not introduce an artwork identity separate from the toolbar item ID. [`toolbar.rs L1040-L1085`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L1040-L1085)
+
+---
+
+## 6. Make overflow and customization presentation correct for the new item types
+
+Do **not** add new customization capabilities here. The latest commit already did that work. This task only makes the new artwork types participate correctly.
+
+### Deliverables
+
+For overflow:
+
+- pictorial command collapses to its **command label** in the overflow menu;
+- do not attempt to squeeze the 32×32 pictorial artwork into a menu row;
+- invoking it through overflow must dispatch the same command;
+- checked/disabled state must still derive from the registry.
+
+For customization palette:
+
+- an optional pictorial item should have a clear preview;
+- use its pictorial artwork plus external label if the palette's measured layout has space;
+- if the existing palette geometry is explicitly designed as labelled chips, it is acceptable to keep the palette preview textual for this bounded change—**but document that decision** rather than inconsistently showing artwork for some items.
+- global and local artwork must behave identically from the layout store's perspective.
+
+For display modes:
+
+- `IconOnly` uses pictorial image or monochrome glyph, depending on the item type.
+- `IconAndLabel` gives standalone pictorial commands **label below icon**; rectangular controls retain their control-appropriate presentation.
+- `TextOnly` removes both global and application-supplied icon rendering.
+
+This distinction is important: `ToolbarDisplayMode::IconAndLabel` is a toolbar-wide preference, **not an instruction to force every control into the same internal geometry**.
+
+### Avoid
+
+- Do not serialize image renderer closures or artwork bytes into `ToolbarLayout`.
+- Do not store “this is a Sandcat icon” in customization state.
+- Do not show a full pictorial icon in the overflow menu merely to preserve visual identity.
+- Do not create separate layout IDs for IconOnly versus IconAndLabel.
+- Do not change the just-landed drag/drop customization model.
+
+### Regression traps
+
+Current overflow logic gathers actions independently of visible rendering. Preserve that architecture. [`toolbar.rs L700-L735`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L700-L735)
+
+The latest `ToolbarPalette` toggles items solely through stable item IDs and `ToolbarLayout`; artwork changes must not affect add/remove/reorder persistence. [`toolbar.rs L825-L1035`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L825-L1035)
+
+Check the frame height after restoring a stored display mode. `Toolbar::height()` already takes the effective stored mode into account; do not regress that while changing item layout. [`toolbar.rs L465-L505`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/src/toolbar.rs#L465-L505)
+
+---
+
+## 7. Finish with targeted goldens and a Sandcat-shaped generic acceptance fixture
+
+Do not call this done because the API compiles.
+
+This change is specifically about layout fidelity, and the implementer is not allowed to eyeball the result.
+
+### Deliverables
+
+Add focused gallery/capture cases for the **full matrix**:
+
+1. Silvestris monochrome template image.
+2. Consumer monochrome template image.
+3. Silvestris full-colour pictorial image.
+4. Consumer full-colour pictorial image.
+
+For each, cover:
+
+- Icon Only;
+- Icon & Text;
+- Text Only;
+- enabled;
+- disabled;
+- inactive window;
+- keyboard focused;
+- pressed where the capture harness permits it.
+
+Add one generic toolbar composition deliberately resembling the requirements Sandcat will exercise:
+
+```text
+[pictorial command] [pictorial/template Stop]
+      flexible space
+[2-segment view switch]
+[checked Details-style toggle]
+      flexible space
+[Sidebar] [Inspector] [Search]
+```
+
+Do **not** call these Sandcat/New Chat/Conversation/Changes in Silvestris. Use neutral fixture names such as:
+
+```text
+New
+Stop
+Primary / Secondary
+Details
+Sidebar
+Inspector
+Search
+```
+
+The purpose is to prove the generic API can build the shape.
+
+Add scenario tests covering:
+
+- both global and consumer template glyph activation;
+- pictorial command activation;
+- command disable/re-enable;
+- toolbar display-mode switching;
+- overflow;
+- custom layout persistence;
+- keyboard Tab/Space;
+- icon-label placement bounds.
+
+For the last item, assert geometry rather than screenshot-only inspection:
+
+```text
+icon bounds horizontally centred in item
+label bounds below icon bounds
+label does not overlap icon
+item remains inside toolbar height
+```
+
+Add goldens for at least Aqua Light/Dark and Geist Light/Dark at the repository's required scaling set. The roadmap definition-of-done currently requires 100/150/200% and 125% where hairlines matter, while the existing artwork/toolbar work is already capturing more scales. Follow the repository's current capture convention rather than reducing coverage. [`ROADMAP.md`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/ROADMAP.md)
+
+Update:
+
+- `docs/coverage.md`;
+- `docs/guide.md`;
+- #26;
+- #48;
+- `CHANGELOG.md`;
+- `docs/exceptions.md` for any geometry/state behavior that remains estimated.
+
+Current icon tests only establish role separation and fixed slot sizes, and only test that `ConsumerArtwork` retains its label. That is nowhere near sufficient for this visual addition. [`tests/icons.rs L1-L65`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/tests/icons.rs#L1-L65)
+
+Current toolbar tests already cover height, overflow and keyboard activation; extend them rather than starting a parallel test harness. [`tests/toolbar.rs L1-L150`](https://github.com/estyseesghosts/silvestris/blob/devel/sil-cocoa-fixture/crates/silvestris/tests/toolbar.rs#L1-L150)
+
+### Avoid
+
+- Do not accept “looks right on my monitor.”
+- Do not create one golden only at 100%.
+- Do not test only Aqua Light.
+- Do not put the actual Sandcat logo or Sandcat command names into Silvestris fixtures.
+- Do not modify BottomBar, Preferences, SplitView, Finder browser, DnD or scope-bar architecture during this task set.
+- Do not continue into the Sandcat migration before these public APIs and visual states pass.
+
+### Regression traps
+
+The highest-risk regression is accidentally changing existing rectangular toolbar controls while implementing standalone pictorial commands. The old toolbar goldens must remain stable unless a deliberate measured correction is made.
+
+The second is incorrectly treating colour artwork like template imagery: selected/inactive state must not recolour pictorial art with toolbar ink.
+
+The third is changing `ToolbarDisplayMode` semantics globally so a segmented control gains labels underneath each segment or otherwise changes structure. Segmented controls keep their own HIG layout rules. [`controls.md L252-L282`](https://github.com/estyseesghosts/hig-09/blob/master/03-aqua-interface/controls.md#L252-L282)
+
+---
+
+### Explicit stopping point
+
+After these seven tasks, stop work on Silvestris and migrate Sandcat.
+
+At that point Silvestris should support this matrix cleanly:
+
+| Toolbar need | Global | App-owned |
+|---|---|---|
+| Monochrome rectangular/segmented glyph | `TemplateImage` | `ConsumerTemplateImage` |
+| Full-colour standalone 32px artwork | `PictorialImage` | `ConsumerArtwork` |
+| Command-backed activation | yes | yes |
+| Icon Only | yes | yes |
+| Icon + label below for pictorial item | yes | yes |
+| Text Only | yes | yes |
+| Overflow/customization | yes | yes |
+| Disabled/inactive/focus state | yes | yes |
+
+That is the actual prerequisite boundary for the Sandcat toolbar redesign. Everything after that—choosing Sandcat's New Chat artwork, creating its Conversation/Changes glyphs, relocating Agent/Model/Variant, and replacing its hand-built toolbar—is Sandcat work, not another excuse to expand Silvestris.

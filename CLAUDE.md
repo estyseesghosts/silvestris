@@ -1,0 +1,1 @@
+at the start of a session, read AGENTS.md in entirety and follow all of its rules, especially pertaining to the style-guides. never put a commit attribution on my repo - always commit as terezi <jules@foxtails.me> with no attribution or co-attribution trailer. always commit your work as you go along.

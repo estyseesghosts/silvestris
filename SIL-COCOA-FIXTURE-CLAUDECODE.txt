@@ -1,0 +1,2658 @@
+ ▐▛███▛█   Claude Code v2.1.330
+▝▜██████▀  Opus 5.5 · Claude Pro
+ ▝▝   ▝▝   ~\workdir\silvestris-cont
+
+
+● I've stopped partway through M2. Of the four open issues, #13 (tab views and
+  group boxes) is committed. #16 (menus) is measured but not yet coded, and #17
+  (active/inactive audit) and #70 (four-appearance proof and live theme
+  switching) are untouched. Clippy, all tests and the golden check (940 goldens)
+  pass at HEAD. Nothing is pushed; the branch is 18 commits ahead of origin.
+
+  #13: tab views and group boxes (e3730e1, af0f3ec)
+
+  The capture comparison found three bugs in the earlier M2 pass:
+
+  - Group-box edges were wrong. The Date & Time, Network and Desktop & Screen
+    Saver captures all show the same rows. The top is #ababab followed by three
+    shadow rows (#c5c5c5, #dbdbdb, #e5e5e5). The sides are #c8c8c8 with an
+    #e2e2e2 inner column. The bottom is #e4e4e4 then #dbdbdb, lighter than the
+    sides. Silvestris was drawing a #c8c8c8 border with the dark line one row
+    inside it, so the top looked doubled, and the bottom matched the sides. One
+    painter now draws the measured edges for both GroupBox and TabView, which
+    also removes a duplicate. At 200% each row is two device rows.
+  - Segmented controls lost their emboss row. The token was measured (#b9b9b9
+    under the #5e5e5e edge), but each segment was clipped to its own height,
+    which cut the row off. It now shows in all four segmented samples in both
+    Aqua appearances.
+  - Group-box titles were bold. HIG p. 344 sets them in the small system font.
+    Titles can now also be a checkbox or pop-up, which p. 344 allows.
+
+  TabView moved from preferences into controls, gained small and mini tab sizes,
+  and now has a gallery sample, a tab-view golden in all four appearances and
+  five scales, and six scenario tests. The tests cover:
+  - the box line sitting 10 rows below the tab top;
+  - the tabs centred on the box;
+  - clicks calling the handler while setting the selection in code does not;
+  - the 82ce65a overflow and scroll behaviour.
+
+  The old System Preferences placement is kept as preferences::pane_tab_view.
+  This is an API change for lotus and johjoh when they move their pin, and it is
+  recorded in CHANGELOG.md.
+
+  One small difference remains and is logged in docs/exceptions.md: under the
+  tabs we paint #bbbbbb where the capture has #b9b9b9 then #e4e4e4. Fixing it
+  would mean changing the emboss token every segmented control shares.
+
+  Issues filed
+
+  - #106: the source-list-secondary golden at 200% renders differently from run
+    to run, by 1–2 pixels. I didn't accept those files and left the committed
+    ones in place.
+  - #107: placards. The coverage table had them under #13, but they were never
+    in its scope.
+  - johjoh#4: replace johjoh's group() helper with GroupBox.
+
+  Corpus naming
+
+  33 of the 71 captures listed in reference/crops.json were renamed in hig-09.
+  All 33 match by hash; for example 3.56.41 AM.png is now
+  right-click-context-menu-nested.png. The crops.json entries and the corpus
+  paths in issues #13 and #16 still use the old names. That's a Silvestris-side
+  fix, and hig-09 itself is fine.
+
+  #16: menus, measured so far
+
+  - Item height: the Arrange By contextual menu uses 18 px items, but the
+    menu-bar menu in Finder-Menu.png uses 19 px. Both match an exact grid of 4
+    px padding and 12 px separators with the line on the 6th row. So the single
+    menu_item_height = 19 token is wrong for contextual and pop-down menus, and
+    the menu needs a size it doesn't have.
+  - Body colour: the body is translucent white, about 95% opaque. Over the
+    toolbar it reads #fbfbfb; over the dark desktop it reads #f2f2f3. The
+    current #f2f2f2 token is that dark-background reading baked in as an opaque
+    colour.
+  - Selection gradient: this matches the existing token in both captures.
+
+  Still to measure before coding: corners, shadow, submenu arrow position, and
+  the checkmark and key-equivalent columns.
+
+  Next up is #16: the item-height split, the translucent body, and an Arrange By
+  golden compared against the capture. Then #17 and #70.
+
+✻ Crunched for 18m 59s · done 1:05 PM
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+  ⎿  Read ..\..\docs\exceptions.md (203 lines)
+  ⎿  Referenced file ..\..\CHANGELOG.md
+  ⎿  Referenced file ..\..\crates\silvestris-demo\src\bin\gallery.rs
+  ⎿  Referenced file ..\..\crates\silvestris\src\controls\segmented.rs
+  ⎿  Referenced file ..\..\crates\silvestris-demo\src\bin\capture.rs
+
+❯ lets finish the rest of m2. always cross-reference with hig-09 and the        
+  provided reference screenshots - this is the visual accuracy milestone, you   
+  need to help me get this right.                                               
+
+  Searched for 2 patterns, read 2 files, ran 2 shell commands (ctrl+o to expand)
+
+● Measuring the Arrange By capture now: edges, corners, text and arrow columns,
+  and how the submenu sits against its parent row.
+
+  Read 1 file, ran 5 shell commands (ctrl+o to expand)
+
+● Contextual captures show 18 px items with translucent white, while the
+  existing tokens came from a menu-bar capture. I'm checking whether the corpus
+  has an open pop-up button menu before re-citing the shared item-height token. 
+  · summary
+
+  Read 1 file, ran 5 shell commands (ctrl+o to expand)
+
+● Shadow fit is tight: black at α 0.33, σ 6.5, offset y 10, spread −2 (residual
+  ≤1 level per row on all three sides). Now checking contextual-menu top corners
+  and separators.
+
+  Read 3 files, ran 15 shell commands (ctrl+o to expand)
+
+● Fits done. Writing the code: core tokens first.
+
+  Read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; python3 - <<'EOF' 2>/dev/null
+      || echo nopython
+      EOF…)
+  ⎿  62:    pub mixed: bool,
+     80:            mixed: false,
+     114:    pub fn mixed(mut self, mixed: bool) -> Self {
+     … +8 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\command.rs +31
+      57      pub kind: CommandKind,
+      58      pub enabled: bool,
+      59      pub checked: bool,
+      60 +    /// The attribute applies to part of the selection; menus s
+         +how a dash                                                     
+      61 +    /// instead of a checkmark (HIG pp. 170-171). Exclusive wit
+         +h `checked`.                                                   
+      62 +    pub mixed: bool,                                           
+      63      pub destructive: bool,
+      64      /// The command asks for more input before acting; menus ap
+          pend "…"
+      65      /// (HIG pp. 131-132 via hig-09 text.md).
+     ...
+      77              kind: CommandKind::Action,
+      78              enabled: true,
+      79              checked: false,
+      80 +            mixed: false,                                      
+      81              destructive: false,
+      82              needs_input: false,
+      83          }
+     ...
+      110          self.tooltip = Some(tip.to_string());
+      111          self
+      112      }
+      113 +    /// Mark the attribute as applying to part of the selectio
+          +n (HIG pp. 170-171).                                          
+      114 +    pub fn mixed(mut self, mixed: bool) -> Self {             
+      115 +        self.mixed = mixed;                                   
+      116 +        if mixed {                                            
+      117 +            self.checked = false;                             
+      118 +        }                                                     
+      119 +        self                                                  
+      120 +    }                                                         
+      121      pub fn enabled(mut self, enabled: bool) -> Self {
+      122          self.enabled = enabled;
+      123          self
+     ...
+      301              }
+      302          }
+      303      }
+      304 +    /// Show a dash for an attribute that applies to part of t
+          +he selection                                                  
+      305 +    /// (HIG pp. 170-171). Setting it clears `checked`.       
+      306 +    pub fn set_mixed(&mut self, id: &str, mixed: bool) {      
+      307 +        let Some(c) = self.commands.get_mut(&CommandId::new(id
+          +)) else {                                                     
+      308 +            return;                                           
+      309 +        };                                                    
+      310 +        let changed = c.mixed != mixed || (mixed && c.checked)
+          +;                                                             
+     … +21 lines (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; set -e
+      t=crates/silvestris-core/src/tokens.rs…)
+  ⎿  crates/silvestris-core/src/aqua.rs:35:        size_menu: 13.0,
+     crates/silvestris-core/src/aqua.rs:156:        menu_shadow_offset: [0.
+     0, 10.0],
+     … +30 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\aqua.rs +25 -12
+      114          // M: table.header_and_rows: 18 px rows, 17 px header 
+           + 1 px border.
+      115          table_row_height: 18.0,
+      116          table_header_height: 18.0,
+      117 -        // M: menu.bar_and_selection / menu.body: 19 px items,
+          - 12 px separator blocks, 4 px top pad.                        
+      118 -        menu_item_height: 19.0,                               
+      117 +        // M: menu.context.rows: 18 px items, 12 px separator 
+          +blocks, 4 px pad                                              
+      118 +        // in both contextual captures. Menu-bar menus use 19 
+          +px items                                                      
+      119 +        // (M: menu.body); Silvestris does not draw menu-bar m
+          +enus.                                                         
+      120 +        menu_item_height: 18.0,                               
+      121          menu_separator_height: 12.0,
+      122          menu_padding: 4.0,
+      123 +        // M: menu.context.corners: the curve spans 5 rows and
+          + columns.                                                     
+      124          menu_radius: 5.0,
+      125          // M: scroller.track.row: 15 px bar + 1 px shared bord
+           er.
+      126          scroller_width: 15.0,
+     ...
+      151          progress_height: [16.0, 12.0, 10.0],
+      152          // designed: spinner sizes scale with the bar.
+      153          spinner_size: [16.0, 13.0, 11.0],
+      151 -        // M: menu.body: soft shadow directly under the panel,
+          - radius roughly                                               
+      152 -        // one item height. Offset and blur are a designed fit
+          - to the capture.                                              
+      153 -        menu_shadow_offset: [0.0, 2.0],                       
+      154 -        menu_shadow_blur: 12.0,                               
+      154 +        // M: menu.context.shadow: least-squares Gaussian fit 
+          +to the submenu                                                
+      155 +        // side, bottom and top profiles over white, max error
+          + 1/255.                                                       
+      156 +        menu_shadow_offset: [0.0, 10.0],                      
+      157 +        menu_shadow_blur: 6.5,                                
+      158 +        menu_shadow_spread: -2.0,                             
+      159          // M: groupbox.top/left: 1 px border plus a 1 px inner
+            shadow row.
+      160          well_inset: 1.0,
+      161          splitter_hot_zone: 2.0,
+     ...
+      599              well_border: c(0xc8c8c8),
+      600              well_shadow: c(0xd2d2d2),
+      601              band_rule: c(0xd8d8d8), // M: prefs.overview.bands
+      598 -            menu: c(0xf2f2f2),      // M: menu.body           
+      602 +            // M: menu.context.body: white at 0.953 reads fbfb
+          +fb over the toolbar                                           
+      603 +            // and faf5f9 over the desktop in the two contextu
+          +al captures.                                                  
+      604 +            menu: WHITE.alpha(243),                           
+      605              menu_text: BLACK,
+      606              menu_text_disabled: c(0xa3a3a3),
+      601 -            menu_separator: c(0xd7d7d8), // M: menu.body separ
+          -ator row                                                      
+     … +30 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\geist.rs +3
+      121          spinner_size: [16.0, 14.0, 12.0],
+      122          menu_shadow_offset: [0.0, 4.0],
+      123          menu_shadow_blur: 16.0,
+      124 +        menu_shadow_spread: 0.0,                              
+      125          well_inset: 1.0,
+      126          splitter_hot_zone: 3.0,
+      127          control_spacing: 8.0,
+     ...
+      295              menu_separator: c(0x2e2e2e),
+      296              menu_separator_highlight: T,
+      297              menu_border: c(0x2e2e2e),
+      298 +            menu_shadow: c(0x000000).alpha(160),              
+      299              tooltip: c(0x292929),
+      300              tooltip_border: c(0x454545),
+      301              tooltip_text: c(0xededed),
+     ...
+      520              menu_separator: c(0xebebeb),
+      521              menu_separator_highlight: T,
+      522              menu_border: c(0xc9c9c9),
+      523 +            menu_shadow: c(0x000000).alpha(40),               
+      524              tooltip: c(0x171717),
+      525              tooltip_border: c(0x171717),
+      526              tooltip_text: c(0xfafafa),
+  ⎿  Updated crates\silvestris-core\src\tokens.rs +7 -2
+      157      pub menu_text_disabled: Rgba8,
+      158      pub menu_separator: Rgba8,
+      159      pub menu_separator_highlight: Rgba8,
+      160 -    /// Outer hairline around a floating menu.                
+      160 +    /// Outer hairline around a floating menu, painted outside
+          + the body over                                                
+      161 +    /// the shadow.                                           
+      162      pub menu_border: Rgba8,
+      163 +    /// Floating-menu drop shadow (offset, blur and spread are
+          + metrics).                                                    
+      164 +    pub menu_shadow: Rgba8,                                   
+      165      pub tooltip: Rgba8,
+      166      pub tooltip_border: Rgba8,
+      167      pub tooltip_text: Rgba8,
+     ...
+      531      pub progress_height: [f32; 3],
+      532      /// Asynchronous spinner diameter per size.
+      533      pub spinner_size: [f32; 3],
+      531 -    /// Menu elevation: offset (x, y) and blur radius in logic
+          -al pixels.                                                    
+      534 +    /// Menu elevation: offset (x, y), Gaussian sigma and spre
+          +ad in logical                                                 
+      535 +    /// pixels. GPUI uses `BoxShadow::blur_radius` as the sigm
+          +a.                                                            
+      536      pub menu_shadow_offset: [f32; 2],
+      537      pub menu_shadow_blur: f32,
+      538 +    pub menu_shadow_spread: f32,                              
+      539      /// Recessed-well border and inner-shadow thickness.
+      540      pub well_inset: f32,
+      541      pub splitter_hot_zone: f32,
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont/tools/metrology; perl -0pi -e
+      's|(column\(MENU, 230, 20, 140, "menu.body", "menu body, selected item,
+      separators"\)\n…)
+  ⎿   reference/measurements.json | 1283 ++++++++++++++++++++++++++++++++++
+     +++++++++
+      1 file changed, 1283 insertions(+)
+     … +21 lines (ctrl+o to expand)
+  ⎿  Updated tools\metrology\measure.py +17
+      206  column(MENU, 60, 0, 50, "menu.bar_and_selection", "menu bar ti
+           tle selection and first item selection")
+      207  column(MENU, 230, 20, 140, "menu.body", "menu body, selected i
+           tem, separators")
+      208 
+      209 +# Contextual and pop-down menus (VM captures, 1x). PopupMenu d
+          +raws these kinds.                                             
+      210 +NESTED = "../vm-screenshots/right-click-context-menu-nested.pn
+          +g"                                                            
+      211 +CONTEXT = "../vm-screenshots/expanded-contextual-menu.png"    
+      212 +column(NESTED, 150, 50, 214, "menu.context.rows",             
+      213 +       "pop-down menu: body from row 54, 4 px pad, 18 px items
+          +, 12 px separators (line on the 6th row), bottom edge 212")   
+      214 +column(CONTEXT, 200, 58, 140, "menu.context.body",            
+      215 +       "contextual menu over the desktop: translucent body, 4 
+          +px pad, separator, 18 px items")                              
+      216 +row(NESTED, 99, 70, 256, "menu.context.separator", "separator 
+          +row: 1 px inset each side, body edge, parent edge")           
+      217 +row(NESTED, 230, 250, 400, "menu.context.edge", "submenu at mi
+          +d height: left shadow, left edge, body, right edge, right shad
+          +ow")                                                          
+      218 +column(NESTED, 320, 150, 300, "menu.context.shadow", "submenu 
+          +at mid width: shadow above, top edge, items, bottom edge, shad
+          +ow below")                                                    
+      219 +row(NESTED, 167, 250, 390, "menu.context.corners",            
+      220 +    "submenu top edge: square top-left corner beside the paren
+          +t, rounded top-right")                                        
+      221 +column(NESTED, 383, 160, 180, "menu.context.corner_column", "s
+          +ubmenu right edge entering the top-right curve")              
+      222 +row(NESTED, 181, 225, 256, "menu.context.arrow", "highlighted 
+          +Arrange By row through the submenu arrow tip and the submenu e
+          +dge")                                                         
+      223 +row(MENU, 147, 140, 250, "menu.bar.arrow_and_keys", "Services 
+          +row: submenu arrow 19 px from the body edge")                 
+      224 +row(MENU, 66, 140, 250, "menu.bar.key_column", "Preferences ro
+          +w: command glyph 212-221, key 225 onward, body edge 247")     
+      225 +                                                              
+      226  json.dump({
+      227      "tool": "tools/metrology/measure.py",
+      228      "colour_space": "sRGB (converted from each capture's embed
+           ded ICC profile with LittleCMS)",
+  ⎿  … +1 file changed
+     reference\measurements.json
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i 's/column(NESTED, 150,
+      50, 214, "menu.context.rows"/column(NESTED, 246, 50, 214,
+      "menu.context.rows"/' tools/…)
+  ⎿  edge right [(378, '#ffffff'), (379, '#ffffff'), (380, '#ffffff'), (381
+     , '#ffffff'), (382, '#fefefe'), (383, '#c4c4c4'), (384, '#e2e2e2'), (3
+     85, '#e6e6e6'), (386, '#eaeaea'), (387, '#eeeeee'), (388, '#f1f1f1'),
+     … +56 lines (ctrl+o to expand)
+  ⎿  Updated reference\measurements.json +51 -51
+      3419     "capture": "../vm-screenshots/right-click-context-menu-nes
+            ted.png",
+      3420     "sha256": "147472fbe914ab11a0a734befa42a1e2f320967589f004b
+            08dd3344ee8e06b8b",
+      3421     "kind": "column",
+      3422 -   "x": 150,                                                 
+      3422 +   "x": 246,                                                 
+      3423     "y": [
+      3424      50,
+      3425      213
+      3426     ],
+      3427     "srgb": [
+      3428 -    "#acacac",                                               
+      3429 -    "#aaaaaa",                                               
+      3428 +    "#fefefe",                                               
+      3429 +    "#e0e0e0",                                               
+      3430      "#a9a9a9",
+      3431 -    "#9a9a9a",                                               
+      3431 +    "#9c9c9c",                                               
+      3432      "#fbfbfb",
+      3433      "#fbfbfb",
+      3434      "#fafafa",
+      3435      "#fafafa",
+      3436      "#fafafa",
+      3437      "#fbfbfb",
+      3438 -    "#f9f9f9",                                               
+      3439 -    "#666666",                                               
+      3440 -    "#666666",                                               
+      3441 -    "#666666",                                               
+      3442 -    "#666666",                                               
+      3443 -    "#666666",                                               
+      3444 -    "#666666",                                               
+      3445 -    "#666666",                                               
+      3446 -    "#666666",                                               
+      3447 -    "#666666",                                               
+      3448 -    "#666666",                                               
+      3449 -    "#ffffff",                                               
+      3450 -    "#ffffff",                                               
+      3451 -    "#ffffff",                                               
+      3452 -    "#ffffff",                                               
+      3453 -    "#ffffff",                                               
+      3454 -    "#ffffff",                                               
+     … +124 lines (ctrl+o to expand)
+  ⎿  Updated tools\metrology\measure.py +1 -1
+      209  # Contextual and pop-down menus (VM captures, 1x). PopupMenu d
+           raws these kinds.
+      210  NESTED = "../vm-screenshots/right-click-context-menu-nested.pn
+           g"
+      211  CONTEXT = "../vm-screenshots/expanded-contextual-menu.png"
+      212 -column(NESTED, 150, 50, 214, "menu.context.rows",             
+      212 +column(NESTED, 246, 50, 214, "menu.context.rows",             
+      213         "pop-down menu: body from row 54, 4 px pad, 18 px items
+           , 12 px separators (line on the 6th row), bottom edge 212")
+      214  column(CONTEXT, 200, 58, 140, "menu.context.body",
+      215         "contextual menu over the desktop: translucent body, 4 
+           px pad, separator, 18 px items")
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i 's/menu_separator:
+      BLACK.alpha(28),/menu_separator: BLACK.alpha(27),/; s|            // M:
+      menu.context.separ…)
+  ⎿  15:pub fn inset(b: Bounds<Pixels>, d: Pixels) -> Bounds<Pixels> {
+     25:pub fn outset(b: Bounds<Pixels>, d: Pixels) -> Bounds<Pixels> {
+     34:pub fn snap_edge(window: &Window, v: Pixels) -> Pixels {
+     … +29 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\aqua.rs +1 -1
+      607              // M: menu.context.separator: one row darkening th
+           e body by 0.11
+      608              // (dfe0e1 over f9fbfc, dcd9dc over f7f4f7), 1 px 
+           side insets, no
+      609              // highlight row.
+      610 -            menu_separator: BLACK.alpha(28),                  
+      610 +            menu_separator: BLACK.alpha(27),                  
+      611              menu_separator_highlight: WHITE.alpha(0),
+      612              // M: menu.context.edge: black at 0.105 over the s
+           hadow, the
+      613              // least-squares value for the top, side and botto
+           m edge rows.
+
+  Read 1 file, ran 2 shell commands · 1 failed (ctrl+o to expand)
+
+● Write(~\AppData\Local\Temp\claude\ca8d946d589f3495\cad8ae04-9051-477e-8525-ff5
+       c79e593ce\scratchpad\panel.rs)
+  ⎿  Wrote 453 lines to ~\AppData\Local\Temp\claude\ca8d946d589f3495\cad8ae
+     04-9051-477e-8525-ff5c79e593ce\scratchpad\panel.rs
+       1     /// Body width: 21 px from the body edge to the label and 21
+          px after it
+       2     /// (M: menu.context.rows; the ink sits 22 px in from each b
+         ody edge and
+       3     /// Lato has a one-pixel side bearing), widened for key equi
+         valents and
+       4     /// submenu arrows. No minimum: the measured Arrange By subm
+         enu body is
+       5     /// 129 px wide.
+       6     fn panel_width(&self, entries: &[MenuEntry], window: &mut Wi
+     … +448 lines (~18 KB) (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      S=C:/Users/terezi/AppData/Local/Temp/claude/ca8d946d589f3495/cad8ae04-9051
+      -477e-8525-ff5c79e593ce/scratchpad; f=crat…)
+  ⎿      fn panel(
+         }
+     }
+     … +4 lines (ctrl+o to expand)
+  ⎿  1 file changed (binary, mode only or too large to show)
+     crates\silvestris\src\menu.rs
+
+● Rewiring the root panel call and adding the pop-down open mode.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris/src/menu.rs; perl -0pi -e 's|        let panel =
+      self.panel\(&self.model.entries, 0, window, cx\…)  ⎿  80:    pop_down: bool,
+     110:            pop_down: false,
+     182:    pub fn open(&mut self, position: Point<Pixels>, window: &mut W
+     … +26 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\menu.rs +38 -1
+      76      chain: Option<Entity<ResponderChain>>,
+      77      focus: FocusHandle,
+      78      position: Point<Pixels>,
+      79 +    // Opened from a control: the top edge hangs square from it
+         +.                                                              
+      80 +    pop_down: bool,                                            
+      81      layer: Entity<TransientLayer>,
+      82      surface: Option<SurfaceId>,
+      83      // One highlighted row per open menu column.
+     ...
+      107              chain: None,
+      108              focus: cx.focus_handle(),
+      109              position: point(px(0.), px(0.)),
+      110 +            pop_down: false,                                  
+      111              layer,
+      112              surface: None,
+      113              path: vec![None],
+     ...
+      177              cx.notify();
+      178          }
+      179      }
+      180 +    /// Open as a contextual menu with its top-left corner at 
+          +`position`. All                                               
+      181 +    /// four corners are rounded (M: menu.context.body).      
+      182      pub fn open(&mut self, position: Point<Pixels>, window: &m
+           ut Window, cx: &mut Context<Self>) {
+      183 +        self.pop_down = false;                                
+      184 +        self.open_at(position, window, cx);                   
+      185 +    }                                                         
+      186 +                                                              
+      187 +    /// Open hanging from a control, with the frame's top-left
+          + corner at                                                    
+      188 +    /// `position` (usually the control's bottom-left). The to
+          +p corners are                                                 
+      189 +    /// square and the bottom ones rounded, as under 10.6's to
+          +olbar Action                                                  
+      190 +    /// button (M: menu.context.rows).                        
+      191 +    pub fn open_pop_down(                                     
+      192 +        &mut self,                                            
+      193 +        position: Point<Pixels>,                              
+      194 +        window: &mut Window,                                  
+      195 +        cx: &mut Context<Self>,                               
+      196 +    ) {                                                       
+      197 +        self.pop_down = true;                                 
+      198 +        self.open_at(position, window, cx);                   
+      199 +    }                                                         
+      200 +                                                              
+      201 +    fn open_at(&mut self, position: Point<Pixels>, window: &mu
+          +t Window, cx: &mut Context<Self>) {                           
+     … +24 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris/src/controls/popup_button.rs; perl -0pi -e 's|
+         // Current row over the button \(10.6…)
+  ⎿  1:            let mut panel = crate::menu::menu_body(&theme, Default::
+     default())
+     448:            let mut panel = div()
+     … +9 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\controls\popup_button.rs +6 -2
+      1 -//! Pop-up button (HIG pp. 279-281): a button showing the curren
+        -t choice that                                                   
+      1 +            let mut panel = crate::menu::menu_body(&theme, Defau
+        +lt::default())                                                  
+      2 +                .min_w(bounds.size.width - px(2.0))             
+      3 +                .text_size//! Pop-up button (HIG pp. 279-281): a
+        + button showing the current choice that                         
+      4  //! opens a menu of mutually exclusive choices.
+      5  //!
+      6  //! - The open menu places the current item over the button, as 
+         10.6 does;
+     ...
+      434              let bounds = s.bounds;
+      435              let highlight = s.highlight;
+      436              let row = m.menu_item_height;
+      435 -            // Current row over the button (10.6 pop-up placem
+          -ent).                                                         
+      437 +            // Current row over the button (10.6 pop-up placem
+          +ent). The frame                                               
+      438 +            // edge sits one hairline outside the padded body.
+      439              let origin = point(
+      440                  bounds.origin.x,
+      441                  bounds.origin.y + (bounds.size.height - px(row
+           )) / 2.0
+      442                      - px(m.menu_padding)
+      443 +                    - px(1.0)                                 
+      444                      - px(row) * current as f32,
+      445              );
+      446              let sel = theme.lists.menu;
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  Found 1 new diagnostic issue in 1 file (ctrl+o to expand)
+
+● Fixing that bad splice with the Edit tool instead.
+
+● Update(crates\silvestris\src\controls\popup_button.rs)
+  ⎿  Added 1 line, removed 3 lines
+      1 -            let mut panel = crate::menu::menu_body(&theme, Defau
+        -lt::default())                                                  
+      2 -                .min_w(bounds.size.width - px(2.0))             
+      3 -                .text_size//! Pop-up button (HIG pp. 279-281): a
+        - button showing the current choice that                         
+      1 +//! Pop-up button (HIG pp. 279-281): a button showing the curren
+        +t choice that                                                   
+      2  //! opens a menu of mutually exclusive choices.
+      3  //!
+      4  //! - The open menu places the current item over the button, as 
+         10.6 does;
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(crates\silvestris\src\controls\popup_button.rs)
+  ⎿  Added 4 lines, removed 20 lines
+      443              );
+      444              let sel = theme.lists.menu;
+      445              let menu_text = theme.colors.menu_text;
+      446 -            let mut panel = div()                             
+      447 -                .id("popup-panel")                            
+      448 -                .debug_selector(|| "popup-panel".into())      
+      449 -                .role(gpui::Role::ListBox)                    
+      450 -                .flex()                                       
+      451 -                .flex_col()                                   
+      452 -                .min_w(bounds.size.width)                     
+      453 -                .py(px(m.menu_padding))                       
+      454 -                .bg(hsla(theme.colors.menu))                  
+      455 -                .rounded(px(m.menu_radius))                   
+      456 -                .border_1()                                   
+      457 -                .border_color(hsla(theme.colors.menu_border)) 
+      458 -                .shadow(vec![gpui::BoxShadow::new(            
+      459 -                    px(m.menu_shadow_offset[0]),              
+      460 -                    px(m.menu_shadow_offset[1]),              
+      461 -                    hsla(theme.colors.shadow),                
+      462 -                )                                             
+      463 -                .blur_radius(px(m.menu_shadow_blur))])        
+      464 -                .text_size(px(theme.type_.size_menu))         
+      465 -                .on_mouse_down(MouseButton::Left, |_, _, cx| c
+          -x.stop_propagation());                                        
+      446 +            // Same frame, body and elevation as PopupMenu (on
+          +e menu material).                                             
+      447 +            let mut panel = crate::menu::menu_body(&theme, Def
+          +ault::default())                                              
+      448 +                .min_w(bounds.size.width - px(2.0))           
+      449 +                .text_size(px(theme.type_.size_menu));        
+      450              for (index, item) in items.iter().enumerate() {
+      451                  let choose = on_choose.clone();
+      452                  let row_state = state.clone();
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(crates\silvestris\src\controls\popup_button.rs)
+  ⎿  Added 8 lines, removed 1 line
+      541                  anchored()
+      542                      .position(origin)
+      543                      .snap_to_window_with_margin(px(4.))
+      544 -                    .child(panel),                            
+      544 +                    .child(                                   
+      545 +                        crate::menu::menu_frame(&theme, Defaul
+          +t::default())                                                 
+      546 +                            .id("popup-panel")                
+      547 +                            .debug_selector(|| "popup-panel".i
+          +nto())                                                        
+      548 +                            .role(gpui::Role::ListBox)        
+      549 +                            .on_mouse_down(MouseButton::Left, 
+          +|_, _, cx| cx.stop_propagation())                             
+      550 +                            .child(panel),                    
+      551 +                    ),                                        
+      552              );
+      553              deferred(shield).with_priority(2)
+      554          });
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Adding a public highlight_path (preselect rows, opening submenus, without
+  invoking) and a dedicated golden page for the Arrange By reproduction.
+
+● Update(crates\silvestris\src\menu.rs)
+  ⎿  Added 15 lines
+      309          }
+      310          cx.notify();
+      311      }
+      312 +    /// Highlight one row per column along `path`, opening eac
+          +h submenu on                                                  
+      313 +    /// the way, as pointer scanning would. Nothing is invoked
+          +. Disabled rows                                               
+      314 +    /// stop the walk (HIG p. 168: disabled items are not high
+          +lighted).                                                     
+      315 +    pub fn highlight_path(&mut self, path: &[usize], window: &
+          +Window, cx: &mut Context<Self>) {                             
+      316 +        for (depth, &index) in path.iter().enumerate() {      
+      317 +            if self.path.len() <= depth {                     
+      318 +                return;                                       
+      319 +            }                                                 
+      320 +            let opens = depth + 1 < path.len();               
+      321 +            self.highlight(depth, index, opens, window, cx);  
+      322 +            if self.path.get(depth) != Some(&Some(index)) {   
+      323 +                return;                                       
+      324 +            }                                                 
+      325 +        }                                                     
+      326 +    }                                                         
+      327      fn choose(view: &Entity<Self>, depth: usize, index: usize,
+            window: &mut Window, cx: &mut App) {
+      328          let command = view.update(cx, |menu, cx| {
+      329              let entry = menu.entries(depth).get(index)?.clone(
+           );
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i 's/            let
+      opens = depth + 1 < path.len();\n//' crates/silvestris/src/menu.rs; perl
+      -0pi -e 's/…)
+  ⎿  315:    pub fn highlight_path(&mut self, path: &[usize], window: &Wind
+     ow, cx: &mut Context<Self>) {
+     316-        for (depth, &index) in path.iter().enumerate() {
+     … +21 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\menu.rs +3 -4
+      309          }
+      310          cx.notify();
+      311      }
+      312 -    /// Highlight one row per column along `path`, opening eac
+          -h submenu on                                                  
+      313 -    /// the way, as pointer scanning would. Nothing is invoked
+          -. Disabled rows                                               
+      312 +    /// Highlight one row per column along `path`, opening eac
+          +h submenu row                                                 
+      313 +    /// it reaches, as pointer scanning would. Nothing is invo
+          +ked. Disabled rows                                            
+      314      /// stop the walk (HIG p. 168: disabled items are not high
+           lighted).
+      315      pub fn highlight_path(&mut self, path: &[usize], window: &
+           Window, cx: &mut Context<Self>) {
+      316          for (depth, &index) in path.iter().enumerate() {
+      317              if self.path.len() <= depth {
+      318                  return;
+      319              }
+      320 -            let opens = depth + 1 < path.len();               
+      321 -            self.highlight(depth, index, opens, window, cx);  
+      320 +            self.highlight(depth, index, true, window, cx);   
+      321              if self.path.get(depth) != Some(&Some(index)) {
+      322                  return;
+      323              }
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now the capture page.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/capture.rs; perl -0pi -e 's/use
+      silvestris::core::source_list::SourceNode;\n/use si…)
+  ⎿  287:const MENU_SAMPLES: [Sample; 2] = [
+     300:fn menu_page() -> usize {
+     309:    if page == menu_page() {
+     … +8 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-demo\src\bin\capture.rs +44 -1
+      13  use std::path::{Path, PathBuf};
+      14 
+      15  use gpui::{
+      16 -    div, point, prelude::*, px, size, App, Bounds, Context, Ent
+         -ity, Render, SharedString, Window,                             
+      16 +    deferred, div, point, prelude::*, px, size, App, Bounds, Co
+         +ntext, Entity, Render, SharedString,                           
+      17 +    Window,                                                    
+      18  };
+      19  use silvestris::chrome::WindowFrame;
+      20  use silvestris::controls::{
+     ...
+      23      RowStatus, Segment, SegmentStyle, SegmentedControl, Separat
+          or, Slider, SourceList,
+      24      SourceListStyle, TabView, TextField, ThumbStyle, Well,
+      25  };
+      26 +use silvestris::command::CommandRegistry;                      
+      27 +use silvestris::core::command::{CommandDescriptor, MenuEntry, M
+         +enuModel};                                                     
+      28  use silvestris::core::source_list::SourceNode;
+      29 +use silvestris::menu::PopupMenu;                               
+      30  use silvestris::window_role::WindowRole;
+      31  use silvestris::{ActiveTheme, ThemeId, ThemePreference};
+      32 
+     ...
+      281      },
+      282  ];
+      283 
+      284 +/// Open menus are larger than a grid cell, so they get their 
+          +own last page,                                                
+      285 +/// laid out in one row. Appending a page keeps every other sa
+          +mple's                                                        
+      286 +/// position, so no existing golden moves.                    
+      287 +const MENU_SAMPLES: [Sample; 2] = [                           
+      288 +    Sample {                                                  
+      289 +        id: "menu-arrange-by",                                
+      290 +        width: 360.,                                          
+      291 +        height: 270.,                                         
+      292 +    },                                                        
+      293 +    Sample {                                                  
+      294 +        id: "menu-marks",                                     
+      295 +        width: 260.,                                          
+      296 +        height: 270.,                                         
+      297 +    },                                                        
+      298 +];                                                            
+      299 +                                                              
+      300 +fn menu_page() -> usize {                                     
+      301 +    SAMPLES.len().div_ceil(PAGE_SIZE)                         
+     … +41 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Update(crates\silvestris-demo\src\bin\capture.rs)
+  ⎿  Added 11 lines
+      409              list.select("inbox", cx);
+      410          });
+      411 
+      412 +        let menus = if page == menu_page() {                  
+      413 +            let rects = sample_rects(page);                   
+      414 +            vec![                                             
+      415 +                arrange_by_menu(rects[0].1 + 10., rects[0].2, 
+          +window, cx),                                                  
+      416 +                marks_menu(rects[1].1 + 10., rects[1].2 + 10.,
+          + window, cx),                                                 
+      417 +            ]                                                 
+      418 +        } else {                                              
+      419 +            Vec::new()                                        
+      420 +        };                                                    
+      421 +                                                              
+      422          window.on_next_frame(move |window, cx| {
+      423              capture(window, cx, &out, scale, page);
+      424              cx.quit();
+     ...
+      428              field,
+      429              list,
+      430              secondary,
+      431 +            menus,                                            
+      432              page,
+      433          }
+      434      }
+
+● Update(crates\silvestris-demo\src\bin\capture.rs)
+  ⎿  Added 122 lines
+      711                      .child(self.sample(id)),
+      712              );
+      713          }
+      714 +        for menu in &self.menus {                             
+      715 +            root = root.child(deferred(menu.clone()).priority(
+          +1));                                                          
+      716 +        }                                                     
+      717          root
+      718      }
+      719  }
+      720 
+      721 +/// Register no-op commands and build a menu model from `(id, 
+          +label)` rows;                                                 
+      722 +/// an empty id is a separator.                               
+      723 +fn menu_commands(                                             
+      724 +    registry: &Entity<CommandRegistry>,                       
+      725 +    rows: &[(&str, &str)],                                    
+      726 +    cx: &mut App,                                             
+      727 +) -> Vec<MenuEntry> {                                         
+      728 +    registry.update(cx, |registry, cx| {                      
+      729 +        rows.iter()                                           
+      730 +            .map(|&(id, label)| {                             
+      731 +                if id.is_empty() {                            
+      732 +                    return MenuEntry::Separator;              
+      733 +                }                                             
+      734 +                registry                                      
+      735 +                    .register(CommandDescriptor::action(id, la
+          +bel), |_, _, _| {}, cx)                                       
+      736 +                    .expect("unique golden command");         
+      737 +                MenuEntry::Command(id.into())                 
+      738 +            })                                                
+      739 +            .collect()                                        
+      740 +    })                                                        
+      741 +}                                                             
+      742 +                                                              
+      743 +/// The Finder Action menu with Arrange By open, as in        
+      744 +/// `right-click-context-menu-nested.png` (M: menu.context.row
+          +s): a pop-down                                                
+      745 +/// menu hanging from the toolbar, its submenu beside the high
+          +lighted row.                                                  
+      746 +fn arrange_by_menu(x: f32, y: f32, window: &mut Window, cx: &m
+          +ut App) -> Entity<PopupMenu> {                                
+      747 +    let registry = cx.new(|_| CommandRegistry::default());    
+      748 +    let sort = menu_commands(                                 
+      749 +        &registry,                                            
+      750 +        &[                                                    
+      751 +            ("sort.name", "Name"),                            
+      752 +            ("sort.modified", "Date Modified"),               
+      753 +            ("sort.created", "Date Created"),                 
+      754 +            ("sort.size", "Size"),                            
+      755 +            ("sort.kind", "Kind"),                            
+      756 +            ("sort.label", "Label"),                          
+      757 +        ],                                                    
+      758 +        cx,                                                   
+      759 +    );                                                        
+      760 +    let mut entries = menu_commands(                          
+      761 +        &registry,                                            
+      762 +        &[                                                    
+      763 +            ("file.new_folder", "New Folder"),                
+      764 +            ("file.open", "Open"),                            
+      765 +            ("", ""),                                         
+      766 +            ("file.info", "Get Info"),                        
+      767 +            ("file.burn", "Burn \u{201c}terezi\u{201d} to Disc
+          +\u{2026}"),                                                   
+      768 +            ("", ""),                                         
+      769 +            ("view.clean_up", "Clean Up"),                    
+      770 +        ],                                                    
+      771 +        cx,                                                   
+      772 +    );                                                        
+      773 +    entries.push(MenuEntry::Submenu {                         
+      774 +        label: "Arrange By".into(),                           
+      775 +        entries: sort,                                        
+      776 +    });                                                       
+      777 +    entries.extend(menu_commands(                             
+      778 +        &registry,                                            
+      779 +        &[("view.options", "Show View Options")],             
+      780 +        cx,                                                   
+      781 +    ));                                                       
+      782 +    let model = MenuModel {                                   
+      783 +        label: "Action".into(),                               
+      784 +        entries,                                              
+      785 +    };                                                        
+      786 +    let menu = cx.new(|cx| PopupMenu::new(model, registry, win
+          +dow, cx));                                                    
+      787 +    menu.update(cx, |menu, cx| {                              
+      788 +        menu.open_pop_down(point(px(x), px(y)), window, cx);  
+      789 +        menu.highlight_path(&[7], window, cx);                
+      790 +    });                                                       
+      791 +    menu                                                      
+      792 +}                                                             
+      793 +                                                              
+      794 +/// A contextual menu with a checked, a mixed and a disabled i
+          +tem and key                                                   
+      795 +/// equivalents, for the mark and key columns.                
+      796 +fn marks_menu(x: f32, y: f32, window: &mut Window, cx: &mut Ap
+          +p) -> Entity<PopupMenu> {                                     
+      797 +    let registry = cx.new(|_| CommandRegistry::default());    
+      798 +    registry.update(cx, |registry, cx| {                      
+      799 +        for descriptor in [                                   
+      800 +            CommandDescriptor::toggle("format.bold", "Bold", t
+          +rue).shortcut("secondary-b"),                                 
+      801 +            CommandDescriptor::toggle("format.italic", "Italic
+          +", false)                                                     
+      802 +                .mixed(true)                                  
+      803 +                .shortcut("secondary-i"),                     
+      804 +            CommandDescriptor::toggle("format.underline", "Und
+          +erline", false)                                               
+      805 +                .shortcut("secondary-u"),                     
+      806 +            CommandDescriptor::action("format.copy_style", "Co
+          +py Style")                                                    
+      807 +                .shortcut("alt-secondary-c"),                 
+      808 +            CommandDescriptor::action("format.paste_style", "P
+          +aste Style")                                                  
+      809 +                .shortcut("alt-secondary-v")                  
+      810 +                .enabled(false),                              
+      811 +            CommandDescriptor::action("format.show_fonts", "Sh
+          +ow Fonts").needs_input(true),                                 
+      812 +        ] {                                                   
+      813 +            registry                                          
+      814 +                .register(descriptor, |_, _, _| {}, cx)       
+      815 +                .expect("unique golden command");             
+      816 +        }                                                     
+      817 +    });                                                       
+      818 +    let command = |id: &str| MenuEntry::Command(id.into());   
+      819 +    let model = MenuModel {                                   
+      820 +        label: "Format".into(),                               
+      821 +        entries: vec![                                        
+      822 +            command("format.bold"),                           
+      823 +            command("format.italic"),                         
+      824 +            command("format.underline"),                      
+      825 +            MenuEntry::Separator,                             
+      826 +            command("format.copy_style"),                     
+      827 +            command("format.paste_style"),                    
+      828 +            MenuEntry::Separator,                             
+      829 +            command("format.show_fonts"),                     
+      830 +        ],                                                    
+      831 +    };                                                        
+      832 +    let menu = cx.new(|cx| PopupMenu::new(model, registry, win
+          +dow, cx));                                                    
+      833 +    menu.update(cx, |menu, cx| {                              
+      834 +        menu.open(point(px(x), px(y)), window, cx);           
+      835 +        menu.highlight_path(&[2], window, cx);                
+      836 +    });                                                       
+      837 +    menu                                                      
+      838 +}                                                             
+      839 +                                                              
+      840  fn capture(window: &mut Window, cx: &mut App, out: &Path, scal
+           e: f32, page: usize) {
+      841      let image = window.render_to_image().expect("frame readbac
+           k");
+      842      let (width, height) = root_size(page);
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/capture.rs; perl -0pi -e 's/(
+      secondary: Entity<SourceList>,\n)/$1    menus: Vec…)
+  ⎿  121:    pub fn enabled(mut self, enabled: bool) -> Self {
+     129:    pub fn needs_input(mut self) -> Self {
+  ⎿  Updated crates\silvestris-demo\src\bin\capture.rs +6
+      354      field: Entity<TextField>,
+      355      list: Entity<SourceList>,
+      356      secondary: Entity<SourceList>,
+      357 +    menus: Vec<Entity<PopupMenu>>,                            
+      358      page: usize,
+      359  }
+      360 
+     ...
+      650                  .into_any_element(),
+      651              "separator" => Separator::horizontal().inset(8.0).
+           into_any_element(),
+      652              // A flex column so the tab view's box fills the s
+           ample cell.
+      653 +            "menu-arrange-by" => div()                        
+      654 +                .size_full()                                  
+      655 +                .bg(silvestris::convert::hsla(cx_content(self)
+          +))                                                            
+      656 +                .into_any_element(),                          
+      657 +            "menu-marks" => div().size_full().into_any_element
+          +(),                                                           
+      658              "tab-view" => div()
+      659                  .size_full()
+      660                  .flex()
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/capture.rs; perl -0pi -e
+      's/\.needs_input\(true\)/.needs_input()/; s/cx_content\(se…)
+  ⎿  Updated crates\silvestris-demo\src\bin\capture.rs +5 -2
+      355      list: Entity<SourceList>,
+      356      secondary: Entity<SourceList>,
+      357      menus: Vec<Entity<PopupMenu>>,
+      358 +    // Finder content white under the Arrange By menu.        
+      359 +    content: silvestris::core::Rgba8,                         
+      360      page: usize,
+      361  }
+      362 
+     ...
+      432              list,
+      433              secondary,
+      434              menus,
+      435 +            content: cx.theme().colors.content,               
+      436              page,
+      437          }
+      438      }
+     ...
+      655              // A flex column so the tab view's box fills the s
+           ample cell.
+      656              "menu-arrange-by" => div()
+      657                  .size_full()
+      655 -                .bg(silvestris::convert::hsla(cx_content(self)
+          -))                                                            
+      658 +                .bg(silvestris::convert::hsla(self.content))  
+      659                  .into_any_element(),
+      660              "menu-marks" => div().size_full().into_any_element
+           (),
+      661              "tab-view" => div()
+     ...
+      817              CommandDescriptor::action("format.paste_style", "P
+           aste Style")
+      818                  .shortcut("alt-secondary-v")
+      819                  .enabled(false),
+      817 -            CommandDescriptor::action("format.show_fonts", "Sh
+          -ow Fonts").needs_input(true),                                 
+      820 +            CommandDescriptor::action("format.show_fonts", "Sh
+          +ow Fonts").needs_input(),                                     
+      821          ] {
+      822              registry
+      823                  .register(descriptor, |_, _, _| {}, cx)
+
+● Builds. Rendering the menu page at 100% Aqua Light to compare against the
+  capture.
+
+  Read 2 files, ran 1 shell command (ctrl+o to expand)
+
+● Two problems: the submenu lands about 20 px right and 54 px high (the anchored
+  element's in-flow origin isn't the row's top-left), and Windows-style Ctrl+ B
+  gets a stray gap. Fixing both.
+
+  Read 2 files, ran 1 shell command · 1 failed (ctrl+o to expand)
+
+● Update(crates\silvestris\src\menu.rs)  ⎿  Added 1 line, removed 1 line
+      705                                  .child(child),
+      706                          )
+      707                          .priority(depth + 2),
+      708 -                    );                                        
+      708 +                    ));                                       
+      709                  }
+      710              }
+      711              body = body.child(row);
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Placement fixed. Now a numeric side-by-side with the capture.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Edges and row geometry match within 2 levels, but GPUI also paints the box
+  shadow under the translucent body, so it reads 251 where the reference reads
+  255. I'm checking whether the shadow can be masked to the outside of the
+  frame. · summary
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● paint_drop_shadows is public, so the frame can paint its shadow through
+  content masks outside the body and then its own edge on top. Implementing.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      S=C:/Users/terezi/AppData/Local/Temp/claude/ca8d946d589f3495/cad8ae04-9051
+      -477e-8525-ff5c79e593ce/scratchpad; cat >…)
+  ⎿  left side at y=30,80,140 d=-6..1
+     30 [np.int64(176), np.int64(175), np.int64(173), np.int64(171), np.int
+     64(167), np.int64(164), np.int64(143), np.int64(251)] [np.int64(245),
+     … +40 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\menu.rs +73 -11
+      828  pub(crate) fn menu_frame(theme: &silvestris_core::Theme, squar
+           e: SquareCorners) -> gpui::Div {
+      829      let m = &theme.metrics;
+      830      let r = px(m.menu_radius);
+      831 +    let radii = gpui::Corners {                               
+      832 +        top_left: if square.top_left { px(0.) } else { r },   
+      833 +        top_right: if square.top_right { px(0.) } else { r }, 
+      834 +        bottom_right: r,                                      
+      835 +        bottom_left: r,                                       
+      836 +    };                                                        
+      837 +    let shadow = BoxShadow::new(                              
+      838 +        px(m.menu_shadow_offset[0]),                          
+      839 +        px(m.menu_shadow_offset[1]),                          
+      840 +        hsla(theme.colors.menu_shadow),                       
+      841 +    )                                                         
+      842 +    .blur_radius(px(m.menu_shadow_blur))                      
+      843 +    .spread_radius(px(m.menu_shadow_spread));                 
+      844 +    let reach = px(m.menu_shadow_blur * 3.                    
+      845 +        + m.menu_shadow_offset[0].abs().max(m.menu_shadow_offs
+          +et[1].abs())                                                  
+      846 +        + m.menu_shadow_spread.max(0.)                        
+      847 +        + 1.);                                                
+      848 +    let border = theme.colors.menu_border;                    
+      849      div()
+      850          .relative()
+      851          .flex()
+      852          .flex_col()
+      835 -        .border_1()                                           
+      836 -        .border_color(hsla(theme.colors.menu_border))         
+      837 -        .rounded(r)                                           
+      838 -        .when(square.top_left, |el| el.rounded_tl(px(0.)))    
+      839 -        .when(square.top_right, |el| el.rounded_tr(px(0.)))   
+      840 -        .shadow(vec![BoxShadow::new(                          
+      841 -            px(m.menu_shadow_offset[0]),                      
+      842 -            px(m.menu_shadow_offset[1]),                      
+      843 -            hsla(theme.colors.menu_shadow),                   
+      853 +        // Room for the edge hairline, painted by the canvas b
+          +elow.                                                         
+      854 +        .p(px(1.))                                            
+      855 +        .child(                                               
+      856 +            canvas(                                           
+      857 +                |_, _, _| (),                                 
+      858 +                move |b, _, window, _| {                      
+     … +55 lines (ctrl+o to expand)
+
+● Body now reads 255 like the capture, but the edge lost the shadow underneath
+  it (228 vs 196). The mask should exclude only the body, not the edge ring.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris/src/menu.rs; perl -0pi -e 's|                    //
+      squares a rounded corner leaves open.\n…)
+  ⎿  867:                            point(body.left() - reach, body.top()
+     - reach),
+     868:                            point(body.right() + reach, body.top()
+     … +17 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\menu.rs +15 -13
+      859                      // 10.6 casts no shadow under the transluc
+           ent body: it
+      860                      // reads ffffff over white (M: menu.contex
+           t.rows). Paint
+      861                      // the shadow only outside the frame and i
+           n the corner
+      862 -                    // squares a rounded corner leaves open.  
+      862 +                    // squares a rounded corner leaves open. T
+          +he edge ring                                                  
+      863 +                    // keeps the shadow under it (M: menu.cont
+          +ext.edge).                                                    
+      864 +                    let body = paint::inset(b, px(1.));       
+      865                      let mut masks = vec![
+      866                          Bounds::from_corners(
+      865 -                            point(b.left() - reach, b.top() - 
+          -reach),                                                       
+      866 -                            point(b.right() + reach, b.top()),
+      867 +                            point(body.left() - reach, body.to
+          +p() - reach),                                                 
+      868 +                            point(body.right() + reach, body.t
+          +op()),                                                        
+      869                          ),
+      870                          Bounds::from_corners(
+      869 -                            point(b.left() - reach, b.bottom()
+          -),                                                            
+      870 -                            point(b.right() + reach, b.bottom(
+          -) + reach),                                                   
+      871 +                            point(body.left() - reach, body.bo
+          +ttom()),                                                      
+      872 +                            point(body.right() + reach, body.b
+          +ottom() + reach),                                             
+      873                          ),
+      874                          Bounds::from_corners(
+      873 -                            point(b.left() - reach, b.top()), 
+      874 -                            point(b.left(), b.bottom()),      
+      875 +                            point(body.left() - reach, body.to
+          +p()),                                                         
+      876 +                            point(body.left(), body.bottom()),
+      877                          ),
+      878                          Bounds::from_corners(
+      877 -                            point(b.right(), b.top()),        
+      878 -                            point(b.right() + reach, b.bottom(
+          -)),                                                           
+      879 +                            point(body.right(), body.top()),  
+      880 +                            point(body.right() + reach, body.b
+          +ottom()),                                                     
+      881                          ),
+      882                      ];
+      883                      for (radius, x, y) in [
+      882 -                        (radii.top_left, b.left(), b.top()),  
+      883 -                        (radii.top_right, b.right() - r, b.top
+          -()),                                                          
+      884 -                        (radii.bottom_right, b.right() - r, b.
+          -bottom() - r),                                                
+      885 -                        (radii.bottom_left, b.left(), b.bottom
+          -() - r),                                                      
+      884 +                        (radii.top_left, body.left(), body.top
+          +()),                                                          
+      885 +                        (radii.top_right, body.right() - r, bo
+          +dy.top()),                                                    
+     … +5 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Edges match within two levels except the top and bottom ones, which a single
+  alpha can't fit. The arrow lands where the capture does, and I'm checking text
+  placement next. · summary
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The label's x position matches exactly, but its baseline sits one row low, as
+  with push buttons, so I'll add a menu-specific vertical offset instead of
+  reusing the button token. · summary
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; perl -0pi -e 's|(    pub
+      menu_shadow_spread: f32,\n)|$1    /// Vertical nudge for menu row text,
+      negative is up.\n…)
+  ⎿  crates/silvestris-core/src/aqua.rs:1
+     crates/silvestris-core/src/color.rs:0
+     crates/silvestris-core/src/command.rs:0
+     … +8 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\aqua.rs +3
+      156          menu_shadow_offset: [0.0, 10.0],
+      157          menu_shadow_blur: 6.5,
+      158          menu_shadow_spread: -2.0,
+      159 +        // M: menu.context.rows: centred Lato 13 puts the base
+          +line one row                                                  
+      160 +        // below the 10.6 ink (Name: rows 4-12 of the item, La
+          +to 4-13).                                                     
+      161 +        menu_label_dy: -1.0,                                  
+      162          // M: groupbox.top/left: 1 px border plus a 1 px inner
+            shadow row.
+      163          well_inset: 1.0,
+      164          splitter_hot_zone: 2.0,
+  ⎿  Updated crates\silvestris-core\src\geist.rs +1
+      122          menu_shadow_offset: [0.0, 4.0],
+      123          menu_shadow_blur: 16.0,
+      124          menu_shadow_spread: 0.0,
+      125 +        menu_label_dy: 0.0,                                   
+      126          well_inset: 1.0,
+      127          splitter_hot_zone: 3.0,
+      128          control_spacing: 8.0,
+  ⎿  Updated crates\silvestris-core\src\tokens.rs +2
+      536      pub menu_shadow_offset: [f32; 2],
+      537      pub menu_shadow_blur: f32,
+      538      pub menu_shadow_spread: f32,
+      539 +    /// Vertical nudge for menu row text, negative is up.     
+      540 +    pub menu_label_dy: f32,                                   
+      541      /// Recessed-well border and inner-shadow thickness.
+      542      pub well_inset: f32,
+      543      pub splitter_hot_zone: f32,
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris/src/menu.rs; perl -0pi -e 's|
+        .left\(px\(MARK_X\)\)\n…)
+  ⎿  4
+     499:                                .top(px(m.menu_label_dy))
+     New Folder cap rel 23 8 17  ren rel 23 8 17
+     … +2 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\controls\popup_button.rs +6 -1
+      493                                  f(&index, window, cx);
+      494                              }
+      495                          })
+      496 -                        .child(div().relative().child(item.clo
+          -ne())),                                                       
+      496 +                        .child(                               
+      497 +                            div()                             
+      498 +                                .relative()                   
+      499 +                                .top(px(m.menu_label_dy))     
+      500 +                                .child(item.clone()),         
+      501 +                        ),                                    
+      502                  );
+      503              }
+      504              let key_state = state.clone();
+  ⎿  Updated crates\silvestris\src\menu.rs +14 -3
+      569                  .and_then(|d| d.shortcut.as_deref())
+      570                  .map(|k| display_shortcut(k, Platform::current
+           ()));
+      571              let submenu = matches!(entry, MenuEntry::Submenu {
+            .. });
+      572 +            let dy = m.menu_label_dy;                         
+      573              let hover = cx.entity();
+      574              let choose = cx.entity();
+      575              let mut row = div()
+     ...
+      619                          div()
+      620                              .absolute()
+      621                              .left(px(MARK_X))
+      621 -                            .top_0()                          
+      622 -                            .bottom_0()                       
+      622 +                            .top(px(dy))                      
+      623 +                            .bottom(px(-dy))                  
+      624                              .flex()
+      625                              .items_center()
+      626                              .debug_selector(move || format!("m
+           enu-mark-{depth}-{i}"))
+      627                              .child(if check { "\u{2713}" } els
+           e { "\u{2013}" }),
+      628                      )
+      629                  })
+      629 -                .child(div().relative().flex_1().min_w_0().tru
+          -ncate().child(label))                                         
+      630 +                .child(                                       
+      631 +                    div()                                     
+      632 +                        .relative()                           
+      633 +                        .top(px(dy))                          
+      634 +                        .flex_1()                             
+      635 +                        .min_w_0()                            
+      636 +                        .truncate()                           
+      637 +                        .child(label),                        
+      638 +                )                                             
+      639                  .when_some(shortcut, |el, text| {
+      640                      let (mods, key) = split_shortcut(&text);
+      641                      let (mods, key) = (mods.to_string(), key.t
+           o_string());
+     ...
+      643                          div()
+      644                              .relative()
+      645                              .flex_none()
+      646 +                            .top(px(dy))                      
+      647                              .ml(px(KEY_GAP))
+      648                              .mr(px(modifier_gap(&mods)))
+      649                              .child(mods),
+     … +7 lines (ctrl+o to expand)
+
+● Text now lands on the capture's rows. Starting the full golden render in the
+  background while I write tests and docs.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i 's/\[int\]\$Pages =
+      3,/[int]$Pages = 4,/' tools/metrology/render.ps1; grep -n "Pages = "
+      tools/metrology/rend…)
+  ⎿  12:    [int]$Pages = 4,
+  ⎿  Updated tools\metrology\render.ps1 +1 -1
+       9      [string]$Out = "target/goldens",
+      10      [string[]]$Appearance = @("aqua-light", "aqua-dark", "geist
+          -light", "geist-dark"),
+      11      [string[]]$Scale = @("1.0", "1.25", "1.5", "1.75", "2.0"),
+      12 -    [int]$Pages = 3,                                           
+      12 +    [int]$Pages = 4,                                           
+      13      [string]$PrependPath = "",
+      14      [switch]$Accept,
+      15      [string]$Reason = "",
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Write(crates\silvestris\tests\menus.rs)
+  ⎿  Wrote 177 lines to crates\silvestris\tests\menus.rs
+       1 //! Menus (#16): row geometry, submenu placement and key columns
+          against the
+       2 //! 10.6 contextual captures (M: menu.context.*), and programmat
+         ic
+       3 //! highlighting that never invokes a command.
+       4 
+       5 use std::cell::Cell;
+       6 use std::rc::Rc;
+       7 
+       8 use gpui::{
+     … +169 lines (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris/tests/menus.rs; perl -0pi -e 's/fn open\(\n
+      position: \(f32, f32\),\n    viewport: \(f32, f32…)
+  ⎿  74:fn with_menu(
+     101:    with_menu((40., 30.), (800., 600.), |_, cx, _| {
+     117:    with_menu((40., 30.), (800., 600.), |_, cx, _| {
+     … +4 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\tests\menus.rs +19 -10
+      69      cx.new(|cx| PopupMenu::new(model, registry, window, cx))
+      70  }
+      71 
+      72 -fn open(                                                       
+      72 +/// Open the menu as a pop-down at `position` in a window of `v
+         +iewport`, with                                                 
+      73 +/// Arrange By highlighted and its submenu open, then run `chec
+         +k`.                                                            
+      74 +fn with_menu(                                                  
+      75      position: (f32, f32),
+      76      viewport: (f32, f32),
+      75 -) -> (Entity<Harness>, &'static mut VisualTestContext, Rc<Cell<
+         -usize>>) {                                                     
+      76 -    let app = Box::leak(Box::new(TestAppContext::single()));   
+      77 +    check: impl FnOnce(&Entity<Harness>, &mut VisualTestContext
+         +, &Cell<usize>),                                               
+      78 +) {                                                            
+      79 +    let mut app = TestAppContext::single();                    
+      80      app.update(|cx| {
+      81          silvestris::theme::install(ThemePreference::explicit(Th
+          emeId::AQUA_LIGHT), cx)
+      82      });
+     ...
+       93          });
+       94      });
+       95      cx.run_until_parked();
+       93 -    (view, cx, hits)                                          
+       96 +    check(&view, cx, &hits);                                  
+       97  }
+       98 
+       99  #[test]
+      100  fn rows_and_separators_use_the_contextual_heights() {
+       98 -    let (_, cx, _) = open((40., 30.), (800., 600.));          
+      101 +    with_menu((40., 30.), (800., 600.), |_, cx, _| {          
+      102      let frame = cx.debug_bounds("menu-panel-0").expect("menu f
+           rame");
+      103      let first = cx.debug_bounds("menu-item-0-0").expect("first
+            row");
+      104      let second = cx.debug_bounds("menu-item-0-1").expect("seco
+           nd row");
+     ...
+      109      assert_eq!(second.origin.y - first.origin.y, px(18.));
+      110      assert_eq!(after_separator.origin.y - second.origin.y, px(
+           18. + 12.));
+      111      assert_eq!(frame.origin, point(px(40.), px(30.)));
+      112 +    });                                                       
+      113  }
+      114 
+      115  #[test]
+      116  fn narrow_menus_have_no_minimum_width() {
+      113 -    let (_, cx, _) = open((40., 30.), (800., 600.));          
+     … +59 lines (ctrl+o to expand)
+
+● Write(crates\silvestris-core\tests\mixed_state.rs)
+  ⎿  Wrote 41 lines to crates\silvestris-core\tests\mixed_state.rs
+       1 //! Mixed menu state (#16; HIG pp. 170-171): a dash for an attri
+         bute that
+       2 //! applies to part of the selection, exclusive with the checkma
+         rk.
+       3 
+       4 use silvestris_core::command::{CommandDescriptor, CommandSet};
+       5 
+       6 fn set() -> CommandSet {
+       7     let mut set = CommandSet::default();
+       8     set.insert(CommandDescriptor::toggle("format.bold", "Bold",
+     … +34 lines (~1 KB) (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-core/tests/mixed_state.rs; perl -0pi -e 's/    let mut
+      set = CommandSet::default\(\);\n    set.i…)
+  ⎿  //! Mixed menu state (#16; HIG pp. 170-171): a dash for an attribute t
+     hat
+     //! applies to part of the selection, exclusive with the checkmark.
+     … +11 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\tests\mixed_state.rs +5 -7
+       4  use silvestris_core::command::{CommandDescriptor, CommandSet};
+       5 
+       6  fn set() -> CommandSet {
+       7 -    let mut set = CommandSet::default();                       
+       8 -    set.insert(CommandDescriptor::toggle("format.bold", "Bold",
+         - true));                                                       
+       9 -    set                                                        
+       7 +    CommandSet::new([CommandDescriptor::toggle("format.bold", "
+         +Bold", true)])                                                 
+       8  }
+       9 
+      10  #[test]
+     ...
+      22  #[test]
+      23  fn mixed_changes_bump_the_version_once() {
+      24      let mut set = set();
+      27 -    let start = set.version();                                 
+      25 +    let start = set.version;                                   
+      26      set.set_mixed("format.bold", true);
+      29 -    let after = set.version();                                 
+      27 +    let after = set.version;                                   
+      28      assert!(after > start);
+      29      set.set_mixed("format.bold", true);
+      32 -    assert_eq!(set.version(), after, "a repeated update is not 
+         -a change");                                                    
+      30 +    assert_eq!(set.version, after, "a repeated update is not a 
+         +change");                                                      
+      31      set.set_mixed("missing", true);
+      34 -    assert_eq!(set.version(), after);                          
+      32 +    assert_eq!(set.version, after);                            
+      33  }
+      34 
+      35  #[test]
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/gallery.rs; perl -0pi -e 's|(
+      cx.observe\(&commands, \|_, _, cx\| cx.notify\…)
+  ⎿  307:                    CommandDescriptor::toggle("view.badges", "Row
+     Badges", false).mixed(true),
+     414:                        MenuEntry::Command("view.badges".into()),
+     … +2 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-demo\src\bin\gallery.rs +11
+      300                  )
+      301                  .unwrap()
+      302          });
+      303 +        commands.update(cx, |registry, cx| {                  
+      304 +            // Demonstrates the mixed (dash) menu state, HIG p
+          +p. 170-171.                                                   
+      305 +            registry                                          
+      306 +                .register(                                    
+      307 +                    CommandDescriptor::toggle("view.badges", "
+          +Row Badges", false).mixed(true),                              
+      308 +                    |_, _, _| {},                             
+      309 +                    cx,                                       
+      310 +                )                                             
+      311 +                .unwrap()                                     
+      312 +        });                                                   
+      313          cx.observe(&commands, |_, _, cx| cx.notify()).detach()
+           ;
+      314          commands.update(cx, |registry, cx| {
+      315              // Bare digits switch themes. The registry keeps t
+           yping keys away
+     ...
+      411                      label: "View".into(),
+      412                      entries: vec![
+      413                          MenuEntry::Command("view.sidebar".into
+           ()),
+      414 +                        MenuEntry::Command("view.badges".into(
+          +)),                                                           
+      415                          MenuEntry::Separator,
+      416                          MenuEntry::Submenu {
+      417                              label: "Appearance".into(),
+
+● Now making the gallery's toolbar View button open a real pop-down from its own
+  bottom edge.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/gallery.rs; perl -0pi -e 's|(    menu:
+      Entity<PopupMenu>,\n)|$1    // Toolbar View…)
+  ⎿  64:    view_button: std::rc::Rc<std::cell::Cell<gpui::Bounds<Pixels>>>
+     ,
+     64:    view_button: std::rc::Rc<std::cell::Cell<gpui::Bounds<Pixels>>>
+     … +2 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-demo\src\bin\gallery.rs +3
+      60 
+      61  struct Gallery {
+      62      menu: Entity<PopupMenu>,
+      63 +    // Toolbar View button bounds, so its menu hangs from the b
+         +utton.                                                         
+      64 +    view_button: std::rc::Rc<std::cell::Cell<gpui::Bounds<Pixel
+         +s>>>,                                                          
+      65      commands: Entity<CommandRegistry>,
+      66      selected_view: gpui::SharedString,
+      67      selected_tab: gpui::SharedString,
+     ...
+      438          menu.update(cx, |menu, cx| menu.set_chain(routing.clon
+           e(), cx));
+      439          Gallery {
+      440              menu,
+      441 +            view_button: Default::default(),                  
+      442              commands,
+      443              selected_view: "grid".into(),
+      444              selected_tab: "date".into(),
+● Update(crates\silvestris-demo\src\bin\gallery.rs)
+  ⎿  Added 27 lines, removed 13 lines
+      1561                                  "view.sidebar",
+      1562                                  self.commands.clone(),
+      1563                              ))
+      1564 -                            .child(                          
+      1565 -                                Button::new("view-menu", "Vie
+           -w")                                                          
+      1566 -                                    .style(ButtonStyle::Textu
+           -red)                                                         
+      1567 -                                    .on_click(cx.listener(   
+      1568 -                                        |g, event: &gpui::Cli
+           -ckEvent, window, cx| {                                       
+      1569 -                                            let position =   
+      1570 -                                                event.positio
+           -n() + point(px(0.), px(12.));                                
+      1571 -                                            g.menu.update(cx,
+           - |menu, cx| {                                                
+      1572 -                                                menu.open(pos
+           -ition, window, cx)                                           
+      1573 -                                            });              
+      1574 -                                        },                   
+      1575 -                                    )),                      
+      1576 -                            ),                               
+      1564 +                            .child({                         
+      1565 +                                let bounds = self.view_button
+           +.clone();                                                    
+      1566 +                                div()                        
+      1567 +                                    .relative()              
+      1568 +                                    .child(                  
+      1569 +                                        Button::new("view-men
+           +u", "View")                                                  
+      1570 +                                            .style(ButtonStyl
+           +e::Textured)                                                 
+      1571 +                                            .on_click(cx.list
+           +ener(|g, _, window, cx| {                                    
+      1572 +                                                // A toolbar 
+           +menu hangs from the                                          
+      1573 +                                                // button's b
+           +ottom edge.                                                  
+      1574 +                                                let b = g.vie
+           +w_button.get();                                              
+      1575 +                                                let position 
+           +=                                                            
+      1576 +                                                    gpui::poi
+           +nt(b.left(), b.bottom());                                    
+      1577 +                                                g.menu.update
+           +(cx, |menu, cx| {                                            
+      1578 +                                                    menu.open
+           +_pop_down(position, window, cx)                              
+      1579 +                                                });          
+      1580 +                                            })),             
+      1581 +                                    )                        
+      1582 +                                    .child(                  
+      1583 +                                        gpui::canvas(        
+      1584 +                                            move |b, _, _| bo
+           +unds.set(b),                                                 
+      1585 +                                            |_, _, _, _| {}, 
+      1586 +                                        )                    
+      1587 +                                        .absolute()          
+      1588 +                                        .inset_0(),          
+      1589 +                                    )                        
+      1590 +                            }),                              
+      1591                          theme.metrics.toolbar_height,
+      1592                      )
+      1593                      .bottom_bar(div())
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      f=crates/silvestris-demo/src/bin/gallery.rs; sed -i 's/    view_button:
+      std::rc::Rc<std::cell::Cell<gpui::Bounds<Pix…)
+  ⎿  ok
+  ⎿  Updated crates\silvestris-demo\src\bin\gallery.rs +3 -3
+      61  struct Gallery {
+      62      menu: Entity<PopupMenu>,
+      63      // Toolbar View button bounds, so its menu hangs from the b
+          utton.
+      64 -    view_button: std::rc::Rc<std::cell::Cell<gpui::Bounds<Pixel
+         -s>>>,                                                          
+      64 +    view_button: std::rc::Rc<std::cell::Cell<Bounds<gpui::Pixel
+         +s>>>,                                                          
+      65      commands: Entity<CommandRegistry>,
+      66      selected_view: gpui::SharedString,
+      67      selected_tab: gpui::SharedString,
+     ...
+      1573                                                  // button's b
+            ottom edge.
+      1574                                                  let b = g.vie
+            w_button.get();
+      1575                                                  let position
+            =
+      1576 -                                                    gpui::poi
+           -nt(b.left(), b.bottom());                                    
+      1576 +                                                    point(b.l
+           +eft(), b.bottom());                                          
+      1577                                                  g.menu.update
+            (cx, |menu, cx| {
+      1578                                                      menu.open
+            _pop_down(position, window, cx)
+      1579                                                  });
+      1580                                              })),
+      1581                                      )
+      1582                                      .child(
+      1583 -                                        gpui::canvas(        
+      1583 +                                        canvas(              
+      1584                                              move |b, _, _| bo
+            unds.set(b),
+      1585                                              |_, _, _, _| {},
+      1586                                          )
+  ⎿  Found 2 new diagnostic issues in 1 file (ctrl+o to expand)
+
+● While goldens render: docs.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      S=C:/Users/terezi/AppData/Local/Temp/claude/ca8d946d589f3495/cad8ae04-9051
+      -477e-8525-ff5c79e593ce/scratchpad; cat >…)
+  ⎿  ## After e22e7bf
+
+     M2 menus (#16):
+     … +3 lines (ctrl+o to expand)
+  ⎿  Updated CHANGELOG.md +23
+       7 
+       8  ## After e22e7bf
+       9 
+      10 +M2 menus (#16):                                                
+      11 +                                                               
+      12 +- Added `PopupMenu::open_pop_down` (square top corners, for men
+         +us hanging                                                     
+      13 +  from a control) and `PopupMenu::highlight_path` (preselect ro
+         +ws and open                                                    
+      14 +  submenus without invoking). `PopupMenu::open` is the contextu
+         +al menu with                                                   
+      15 +  four rounded corners.                                        
+      16 +- Added `CommandDescriptor::mixed`, the `mixed` builder and    
+      17 +  `CommandSet::set_mixed` for the HIG dash state (pp. 170-171).
+         + It is                                                         
+      18 +  exclusive with `checked`. Struct literals of `CommandDescript
+         +or` must set                                                   
+      19 +  the new field. GPUI's native menu items have no mixed state, 
+         +so                                                             
+      20 +  `native_menus` shows a mixed item unchecked.                 
+      21 +- Added `menu::split_shortcut`, which splits a displayed shortc
+         +ut into                                                        
+      22 +  modifiers and key for the key-equivalent column.             
+      23 +- Added tokens `Colors::menu_shadow`, `Metrics::menu_shadow_spr
+         +ead` and                                                       
+      24 +  `Metrics::menu_label_dy`. Themes built outside Silvestris mus
+         +t set them.                                                    
+      25 +  `Metrics::menu_shadow_blur` is now documented as GPUI's Gauss
+         +ian sigma.                                                     
+      26 +- Visual: Aqua menus use the measured contextual geometry: 18 p
+         +x rows (was                                                    
+      27 +  19, a menu-bar value), translucent white body, an edge hairli
+         +ne over the                                                    
+      28 +  shadow, a shadow cast only outside the body, separators with 
+         +1 px insets,                                                   
+      29 +  a drawn submenu arrow, a left-aligned key column and no 160 p
+         +x minimum                                                      
+      30 +  width. Submenus overlap the parent edge by 2 px and line thei
+         +r first row                                                    
+      31 +  up with the parent row. The pop-up button menu shares the fra
+         +me and body.                                                   
+      32 +                                                               
+      33  M2 tab views and group boxes (#13):
+      34 
+      35  - Moved `TabView` to `controls::TabView`; `preferences::TabView
+          ` re-exports
+
+● Update(docs\exceptions.md)
+  ⎿  Removed 2 lines
+      78    The 4 px stripe edge is an estimate: the capture is upscaled,
+           so its blur
+      79    overstates the source's anti-aliasing. Dark Aqua's barber pro
+          files are
+      80    designed.
+      81 -- Menu shadow offset (0/2 px) and 12 px blur are a designed fit
+         - to the 10.6                                                   
+      82 -  menu captures; the menu body, selection and separator are mea
+         -sured.                                                         
+      81  - The default-button throb breathes either side of the measured
+           default
+      82    bevel: lighter and less saturated, then deeper and more satur
+          ated, about 8%
+      83    each way over a 1.1 s cycle. The two-sided swing was observed
+           on a 10.6 VM
+
+● Update(docs\exceptions.md)
+  ⎿  Added 35 lines
+      117    recoloured Aqua and are not claimed as historical.
+      118 
+      119 
+      120 +## Menus                                                      
+      121 +                                                              
+      122 +`PopupMenu` and the pop-up button menu follow the two contextu
+          +al captures                                                   
+      123 +(`right-click-context-menu-nested.png`, `expanded-contextual-m
+          +enu.png`;                                                     
+      124 +M: menu.context.*). Measured: 18 px rows, 12 px separators wit
+          +h the line on                                                 
+      125 +the 6th row, 4 px padding, the translucent body, the shadow fi
+          +t, row and                                                    
+      126 +submenu placement, the arrow and the label inset.             
+      127 +                                                              
+      128 +- Menu-bar menus use 19 px rows (M: menu.body). Silvestris doe
+          +s not draw                                                    
+      129 +  menu-bar menus, so `menu_item_height` is the contextual 18. 
+          +No 10.6                                                       
+      130 +  capture shows an open pop-up button menu; it uses the contex
+          +tual height.                                                  
+      131 +- The edge is one alpha for all four sides (black at 0.105, th
+          +e                                                             
+      132 +  least-squares fit). 10.6's top edge is lighter and its botto
+          +m edge darker:                                                
+      133 +  the reproduction is 6 levels too dark at the top and 10 too 
+          +light at the                                                  
+      134 +  bottom.                                                     
+      135 +- Square corners on a submenu follow GPUI's flip rule, recompu
+          +ted in                                                        
+      136 +  `submenu_opens_left`. If GPUI changes that rule, the square 
+          +corner can land                                               
+      137 +  on the wrong side.                                          
+      138 +- The checkmark and dash column (6 px from the body edge) is a
+          +n estimate: no                                                
+      139 +  capture shows a checked menu item. The marks are font glyphs
+          +.                                                             
+      140 +- The 8 px gap between the longest label and the submenu arrow
+          + and the 20 px                                                
+      141 +  gap before the key column are estimates. No capture has a la
+          +bel long                                                      
+      142 +  enough to reach either.                                     
+      143 +- The key column is measured from a menu-bar capture (M: menu.
+          +bar.key_column)                                               
+      144 +  and the arrow position in both kinds matches (19 px from the
+          + body edge),                                                  
+      145 +  so the key column is assumed to match too. On Windows and Li
+          +nux the                                                       
+      146 +  modifiers are spelled out ("Ctrl+") with no gap before the k
+          +ey.                                                           
+      147 +- Row text moves up 1 px (`Metrics::menu_label_dy`), for the s
+          +ame reason as                                                 
+      148 +  push button labels: centred Lato 13 puts the baseline one ro
+          +w below the                                                   
+      149 +  10.6 ink.                                                   
+      150 +- No 10.6 capture shows a highlighted contextual row over a di
+          +sabled one, a                                                 
+      151 +  scrolling menu or a menu in an inactive window.             
+      152 +- Dark Aqua's menu body keeps Aqua Light's translucency over i
+          +ts own fill;                                                  
+      153 +  its edge and shadow are designed.                           
+      154 +                                                              
+      155  ## Text fields
+      156 
+      157  - Caret blink: Windows uses `GetCaretBlinkTime` (native.rs `ca
+           ret_blink`);
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont;
+      S=C:/Users/terezi/AppData/Local/Temp/claude/ca8d946d589f3495/cad8ae04-9051
+      -477e-8525-ff5c79e593ce/scratchpad; cat >…)
+  ⎿  ## Menu bar
+
+     | Component | Silvestris | Status | Appearances | Golden | Issue |
+     … +10 lines (ctrl+o to expand)
+  ⎿  Updated docs\coverage.md +2 -2
+      47  | Component | Silvestris | Status | Appearances | Golden | Issu
+          e |
+      48  | --- | --- | --- | --- | --- | --- |
+      49  | Menu bar composition | `menu::native_menus` (macOS only) | mi
+          ssing | — | — | #24 |
+      50 -| Menu items, state, submenus | `core::command::MenuModel`, `Me
+         -nuEntry`, `PopupMenu` | functional | four | — | #16, #25 |     
+      51 -| Contextual menu | `PopupMenu` | functional | four | — | #16 |
+      50 +| Menu items, state, submenus | `core::command::MenuModel`, `Me
+         +nuEntry`, `PopupMenu` | measured | four | `menu-arrange-by`, `m
+         +enu-marks` | #25 |                                             
+      51 +| Contextual menu | `PopupMenu::open`, `open_pop_down` | measur
+         +ed | four | `menu-arrange-by`, `menu-marks` | #16 |            
+      52  | Transient surfaces | `TransientLayer`, `TransientHandle`, `Ca
+          ncelToken` | functional | four | — | #60 |
+      53 
+      54  ## Controls
+  ⎿  Updated docs\menus.md +26 -9
+      35    The text width can truncate at narrow viewport sizes. Popup s
+          ize is bounded
+      36    by the current window viewport with a designed 4 logical px m
+          argin.
+      37 
+      38 -Materials come from the active theme's menu/selection tokens an
+         -d metrics.                                                     
+      39 -Aqua Light's tokens cite measurements.json menu.body and menu.s
+         -election;                                                      
+      40 -the checkmark/submenu glyphs are font glyphs, not copied Apple 
+         -artwork.                                                       
+      41 -The 160 px minimum width, 20 px check gutter, 16 px submenu gut
+         -ter, 8 px gap,                                                 
+      42 -4 px window margin and immediate submenu opening are estimates 
+         -or modern                                                      
+      43 -extensions pending visual/native review. Menu elevation is now 
+         -a token                                                        
+      44 -(`Colors::menu_border`, `Metrics::menu_shadow_offset/blur`) pai
+         -nted as a                                                      
+      45 -`BoxShadow`; the offset and blur are a designed fit to the 10.6
+         - menu captures,                                                
+      46 -not a `shadow_lg` default.                                     
+      38 +Materials and geometry come from the active theme's menu tokens
+         +. Aqua Light                                                   
+      39 +cites the contextual captures (M: menu.context.*, #16):        
+      40 +                                                               
+      41 +- `open` draws a contextual menu with four rounded corners;    
+      42 +  `open_pop_down` hangs the menu from a control with square top
+         + corners, as                                                   
+      43 +  under the Finder toolbar's Action button. A submenu's top cor
+         +ner on the                                                     
+      44 +  parent's side is square.                                     
+      45 +- The frame is a 1 px edge around a translucent body. The edge 
+         +and the drop                                                   
+      46 +  shadow are painted outside the body only, because 10.6 casts 
+         +no shadow                                                      
+      47 +  under the menu.                                              
+      48 +- Rows are 18 px, separators 12 px with the line on the 6th row
+         + and 1 px                                                      
+      49 +  side insets, and the label sits 21 px from each body edge. Me
+         +nus are as                                                     
+      50 +  wide as their widest row; there is no minimum.               
+      51 +- The submenu arrow is a drawn 7.5 x 10 px triangle 19 px in fr
+         +om the body                                                    
+      52 +  edge. A submenu's edge overlaps the parent's by 2 px and its 
+         +first row                                                      
+      53 +  lines up with the parent row; it flips left by GPUI's rule.  
+      54 +- Key equivalents are split by `split_shortcut`: the key is lef
+         +t-aligned in a                                                 
+      55 +  shared column and the modifiers end 4 px before it (HIG p. 16
+         +7).                                                            
+      56 +- Checked items show a checkmark and mixed items a dash (HIG pp
+         +. 170-171).                                                    
+      57 +  GPUI's native menu items cannot show the dash.               
+      58 +                                                               
+      59 +`highlight_path` highlights rows and opens submenus as pointer 
+         +scanning                                                       
+      60 +would, without invoking. The capture tool uses it for the `menu
+         +-arrange-by`                                                   
+      61 +and `menu-marks` goldens. The 4 px window margin and immediate 
+         +submenu                                                        
+      62 +opening are designed. Remaining estimates are listed in        
+      63 +[exceptions](exceptions.md#menus).                             
+      64 
+      65  GPUI interaction tests cover pointer activation and live disabl
+          ed-state
+     … +1 line (ctrl+o to expand)
+
+● Background command "Render all goldens in background" completed (exit code 0)
+
+● Render finished. Checking which goldens changed.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Only the known #106 flake fails (now also at geist-light 125%); the two menu
+  samples are new. Reviewing them in the other appearances before accepting.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Two fixes needed: Geist's 28 px rows push the submenu past the 270 px sample,
+  and the arrow sits 4 px from the row top instead of centred (correct for 18
+  and 19 px rows, wrong for Geist).
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; perl -0pi -e 's|
+      let y = bounds.origin.y \+ px\(4.\);|            // M: 4 rows down in both
+      18 and 19 px…)
+  ⎿  291:        height: 390.,
+     296:        height: 390.,
+     973:            let y = bounds.origin.y + ((bounds.size.height - px(AR
+     ROW_HEIGHT)) / 2.).floor();
+  ⎿  Updated crates\silvestris-demo\src\bin\capture.rs +2 -2
+      288      Sample {
+      289          id: "menu-arrange-by",
+      290          width: 360.,
+      291 -        height: 270.,                                         
+      291 +        height: 390.,                                         
+      292      },
+      293      Sample {
+      294          id: "menu-marks",
+      295          width: 260.,
+      296 -        height: 270.,                                         
+      296 +        height: 390.,                                         
+      297      },
+      298  ];
+      299 
+  ⎿  Updated crates\silvestris\src\menu.rs +2 -1
+      969          |_, _, _| (),
+      970          move |bounds, _, window, _| {
+      971              let x = bounds.right() - px(ARROW_ZONE);
+      972 -            let y = bounds.origin.y + px(4.);                 
+      972 +            // M: 4 rows down in both 18 and 19 px rows; centr
+          +ed otherwise.                                                 
+      973 +            let y = bounds.origin.y + ((bounds.size.height - p
+          +x(ARROW_HEIGHT)) / 2.).floor();                               
+      974              paint::polygon(
+      975                  window,
+      976                  &[
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i '610s/.*/
+      \/\/ M: menu.context.separator \/ .rows: one row darkening the body by/;
+      611s/.*/…)
+  ⎿              menu_text: BLACK,
+                 menu_text_disabled: c(0xa3a3a3),
+                 // M: menu.context.separator / .rows: one row darkening th
+     … +6 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\aqua.rs +2 -2
+      607              menu: WHITE.alpha(243),
+      608              menu_text: BLACK,
+      609              menu_text_disabled: c(0xa3a3a3),
+      610 -            // M: menu.context.separator: one row darkening th
+          -e body by 0.11                                                
+      611 -            // (dfe0e1 over f9fbfc, dcd9dc over f7f4f7), 1 px 
+          -side insets, no                                               
+      610 +            // M: menu.context.separator / .rows: one row dark
+          +ening the body by                                             
+      611 +            // 0.106 (e4e4e4 over white, dfe0e1 over f9fbfc), 
+          +1 px side insets, no                                          
+      612              // highlight row.
+      613              menu_separator: BLACK.alpha(27),
+      614              menu_separator_highlight: WHITE.alpha(0),
+
+● Waiting on the menu-page render.
+
+  Read 1 file (ctrl+o to expand)
+
+● Monitor(menu page render completion)
+  ⎿  Monitor started · task b2pmpgqoe · timeout 15m
+
+● I've re-rendered the menu golden page for all four appearances and five scales
+  after two fixes. The goldens aren't accepted and nothing is committed yet, so
+  #16 isn't closed. #17 and #70 haven't started.
+
+  Next steps for #16:
+  1. Look over the new renders.
+  2. Accept them, restoring the committed source-list-secondary files first.
+     These are the #106 flake, which now also hits geist-light at 125%.
+  3. Run fmt, clippy and the full test suite, including the new tests/menus.rs
+     and silvestris-core/tests/mixed_state.rs.
+  4. Commit.
+
+  Where the menu now matches 10.6
+
+  I compared the Aqua Light render of the Arrange By menu against
+  right-click-context-menu-nested.png pixel by pixel:
+
+  - Row positions are exact. Items are 18 px with a 4 px pad, and separators are
+    12 px with the line on the 6th row. The highlighted Arrange By row sits
+    119–136 rows below the frame top in both images.
+  - Text position is exact. Labels start 23 px from the frame edge, and "New
+    Folder" ink covers the same rows after moving row text up 1 px. That's the
+    same Lato baseline offset already logged for push buttons.
+  - Shadow is within 1–2 grey levels per row. I fitted a Gaussian to the
+    submenu's top, side and bottom profiles: black at 0.33, σ 6.5, offset 10 px
+    down, spread −2. The old token (offset 2, blur 12) was wrong by a lot,
+    partly because GPUI treats the blur value as σ.
+  - Body is exact. The body is white at 95% opacity, and it reads 255 over white
+    like the capture. GPUI normally draws the shadow under the whole element,
+    which made it 251, so the menu now paints its shadow only outside the body.
+  - Submenu placement and arrow are exact. The submenu's edge sits one column
+    inside the parent's, and its first row lines up with Arrange By. The arrow
+    is drawn 19 px in from the edge, 4 rows down, 10 rows tall.
+
+  What doesn't match
+
+  These are logged in docs/exceptions.md under a new Menus section:
+
+  - Edge darkness varies by side in 10.6. I use one alpha for all four sides.
+    The result is 6 levels too dark at the top and 10 too light at the bottom.
+  - The 160 px minimum width is gone. The measured submenu is only 131 px wide.
+  - Checkmark position and two label gaps are estimates. No capture shows a
+    checked item, or a label long enough to reach the arrow or the key column.
+
+  Decision for you
+
+  I changed the shared menu_item_height token from 19 to 18. The 19 came from
+  the menu-bar capture, and Silvestris doesn't draw menu-bar menus; both
+  contextual captures use 18. This also changes the pop-up button's menu, which
+  no capture shows open. Say if you'd rather keep 19 and add a separate
+  contextual-menu token.
+
+  API additions
+
+  All are listed in CHANGELOG.md:
+  - PopupMenu::open_pop_down: square top corners, for a menu hanging from a
+    toolbar control as in the Arrange By capture.
+  - PopupMenu::highlight_path: highlights rows and opens submenus without
+    running any command.
+  - CommandDescriptor::mixed and CommandSet::set_mixed: the dash state from HIG
+    pp. 170–171. GPUI's native macOS menu items can't show it, so they appear
+    unchecked.
+  - menu::split_shortcut: feeds a key-equivalent column where keys are
+    left-aligned and modifiers end 4 px before them. The column comes from the
+    menu-bar capture.
+  - Three new theme tokens. Themes built outside Silvestris must set them.
+
+  The pop-up button menu now uses the same frame and body as PopupMenu. In the
+  gallery, the toolbar View button opens a pop-down from its own bottom edge,
+  and the View menu shows a mixed item.
+
+  The renders also caught two problems, both now fixed:
+  - Geist's 28 px rows cut the submenu off at the bottom of the golden sample,
+    so the samples are now 390 px tall.
+  - The submenu arrow sat at the top of Geist's taller rows; it's now centred.
+    That still puts it 4 rows down in 18 and 19 px rows, as measured.
+
+✻ Sautéed for 25m 22s · done 1:34 PM
+
+● Background command "Re-render menu page for all appearances and scales"
+  completed (exit code 0)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor "menu page render completion" stream ended
+
+  Read 1 file (ctrl+o to expand)
+
+● Renders look right. Running gates, then accepting.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; cargo fmt --all -- --check
+      >/dev/null 2>&1 || { cargo fmt --all; echo FORMATTED; }; cargo clippy
+      --workspace --all-t…)  ⎿  FORMATTED
+     test document::tests::a_failed_save_keeps_the_window_open ... ok
+     test lifecycle::tests::clean_documents_terminate_and_a_failed_save_can
+     … +16 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris-core\src\aqua.rs +1 -1
+      616              // least-squares value for the top, side and botto
+           m edge rows.
+      617              menu_border: BLACK.alpha(27),
+      618              menu_shadow: BLACK.alpha(84), // M: menu.context.s
+           hadow peak 0.33
+      619 -            tooltip: c(0xffffc6), // designed: help tags not c
+          -aptured                                                       
+      619 +            tooltip: c(0xffffc6),         // designed: help ta
+          +gs not captured                                               
+      620              tooltip_border: c(0xb5b5a0),
+      621              tooltip_text: BLACK,
+      622              shadow: BLACK.alpha(90), // M: win.shadow.* peak a
+           lpha ~94 below the window
+  ⎿  Updated crates\silvestris-demo\src\bin\capture.rs +1 -1
+      17      Window,
+      18  };
+      19  use silvestris::chrome::WindowFrame;
+      20 +use silvestris::command::CommandRegistry;                      
+      21  use silvestris::controls::{
+      22      Button, ButtonStyle, CheckState, Checkbox, ControlSize, Dis
+          closure, DisclosureStyle, GroupBox,
+      23      Orientation, PopUpButton, PopupStyle, ProgressIndicator, Ra
+          dioGroup, RadioOption, RowAccessory,
+      24      RowStatus, Segment, SegmentStyle, SegmentedControl, Separat
+          or, Slider, SourceList,
+      25      SourceListStyle, TabView, TextField, ThumbStyle, Well,
+      26  };
+      26 -use silvestris::command::CommandRegistry;                      
+      27  use silvestris::core::command::{CommandDescriptor, MenuEntry, M
+          enuModel};
+      28  use silvestris::core::source_list::SourceNode;
+      29  use silvestris::menu::PopupMenu;
+  ⎿  Updated crates\silvestris\src\menu.rs +30 -21
+      698                      // outside it on each side.
+      699                      // Anchor from a zero-size box at the row'
+           s top-left, so the
+      700                      // target is in row space regardless of th
+           e flex flow.
+      701 -                    row = row.child(div().absolute().top_0().l
+          -eft_0().child(                                                
+      702 -                        deferred(                             
+      703 -                            anchored()                        
+      704 -                                .position_mode(AnchoredPositio
+          -nMode::Local)                                                 
+      705 -                                .attach(                      
+      706 -                                    Bounds::new(              
+      707 -                                        point(px(0.), px(0.)),
+      708 -                                        size(px(body_width), p
+          -x(m.menu_item_height)),                                       
+      709 -                                    ),                        
+      710 -                                    Anchor::TopRight,         
+      711 -                                )                             
+      712 -                                .offset(point(                
+      713 -                                    px(1. - SUBMENU_OVERLAP), 
+      714 -                                    px(-(m.menu_padding + 1.))
+          -,                                                             
+      715 -                                ))                            
+      716 -                                .child(child),                
+      717 -                        )                                     
+      718 -                        .priority(depth + 2),                 
+      719 -                    ));                                       
+      701 +                    row = row.child(                          
+      702 +                        div().absolute().top_0().left_0().chil
+          +d(                                                            
+      703 +                            deferred(                         
+      704 +                                anchored()                    
+      705 +                                    .position_mode(AnchoredPos
+          +itionMode::Local)                                             
+      706 +                                    .attach(                  
+      707 +                                        Bounds::new(          
+      708 +                                            point(px(0.), px(0
+          +.)),                                                          
+      709 +                                            size(px(body_width
+          +), px(m.menu_item_height)),                                   
+      710 +                                        ),                    
+      711 +                                        Anchor::TopRight,     
+      712 +                                    )                         
+      713 +                                    .offset(point(            
+      714 +                                        px(1. - SUBMENU_OVERLA
+          +P),                                                           
+      715 +                                        px(-(m.menu_padding + 
+          +1.)),                                                         
+      716 +                                    ))                        
+      717 +                                    .child(child),            
+      718 +                            )                                 
+     … +29 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\tests\menus.rs +45 -45
+      77      check: impl FnOnce(&Entity<Harness>, &mut VisualTestContext
+          , &Cell<usize>),
+      78  ) {
+      79      let mut app = TestAppContext::single();
+      80 -    app.update(|cx| {                                          
+      81 -        silvestris::theme::install(ThemePreference::explicit(Th
+         -emeId::AQUA_LIGHT), cx)                                        
+      82 -    });                                                        
+      80 +    app.update(|cx| silvestris::theme::install(ThemePreference:
+         +:explicit(ThemeId::AQUA_LIGHT), cx));                          
+      81      let hits = Rc::new(Cell::new(0));
+      82      let count = hits.clone();
+      83      let (view, cx) = app.add_window_view(move |window, cx| Harn
+          ess {
+     ...
+       97  #[test]
+       98  fn rows_and_separators_use_the_contextual_heights() {
+       99      with_menu((40., 30.), (800., 600.), |_, cx, _| {
+      102 -    let frame = cx.debug_bounds("menu-panel-0").expect("menu f
+          -rame");                                                       
+      103 -    let first = cx.debug_bounds("menu-item-0-0").expect("first
+          - row");                                                       
+      104 -    let second = cx.debug_bounds("menu-item-0-1").expect("seco
+          -nd row");                                                     
+      105 -    let after_separator = cx.debug_bounds("menu-item-0-3").exp
+          -ect("row after separator");                                   
+      106 -    // M: menu.context.rows: edge row, 4 px pad, 18 px items, 
+          -12 px separators.                                             
+      107 -    assert_eq!(first.origin.y - frame.origin.y, px(5.));      
+      108 -    assert_eq!(first.size.height, px(18.));                   
+      109 -    assert_eq!(second.origin.y - first.origin.y, px(18.));    
+      110 -    assert_eq!(after_separator.origin.y - second.origin.y, px(
+          -18. + 12.));                                                  
+      111 -    assert_eq!(frame.origin, point(px(40.), px(30.)));        
+      100 +        let frame = cx.debug_bounds("menu-panel-0").expect("me
+          +nu frame");                                                   
+      101 +        let first = cx.debug_bounds("menu-item-0-0").expect("f
+          +irst row");                                                   
+      102 +        let second = cx.debug_bounds("menu-item-0-1").expect("
+          +second row");                                                 
+      103 +        let after_separator = cx                              
+      104 +            .debug_bounds("menu-item-0-3")                    
+      105 +            .expect("row after separator");                   
+      106 +        // M: menu.context.rows: edge row, 4 px pad, 18 px ite
+          +ms, 12 px separators.                                         
+      107 +        assert_eq!(first.origin.y - frame.origin.y, px(5.));  
+      108 +        assert_eq!(first.size.height, px(18.));               
+      109 +        assert_eq!(second.origin.y - first.origin.y, px(18.));
+      110 +        assert_eq!(after_separator.origin.y - second.origin.y,
+          + px(18. + 12.));                                              
+      111 +        assert_eq!(frame.origin, point(px(40.), px(30.)));    
+      112      });
+      113  }
+      114 
+      115  #[test]
+      116  fn narrow_menus_have_no_minimum_width() {
+     … +92 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The 0.5 px miss shows widths are fractional, which would also blur the edge
+  hairlines. Rounding menu body widths up to whole pixels.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; sed -i '496s/.*/
+      .fold(0., f32::max)\n            \/\/ Whole pixels, so the edge hairlines
+      stay on device…)
+  ⎿  test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered
+      out; finished in 0.01s
+      M CHANGELOG.md
+     … +18 lines (ctrl+o to expand)
+  ⎿  Updated crates\silvestris\src\menu.rs +4 -1
+      494                  TEXT_INSET + label + tail
+      495              })
+      496              .fold(0., f32::max)
+      497 +            // Whole pixels, so the edge hairlines stay on dev
+          +ice rows.                                                     
+      498 +            .ceil()                                           
+      499      }
+      500 
+      501      #[allow(clippy::too_many_arguments)]
+     ...
+      513          let viewport = window.viewport_size().width.as_f32();
+      514          let body_width = self
+      515              .panel_width(entries, window, cx)
+      514 -            .min((viewport - 2. * VIEWPORT_MARGIN - 2.).max(0.
+          -));                                                           
+      516 +            .min((viewport - 2. * VIEWPORT_MARGIN - 2.).max(0.
+          +))                                                            
+      517 +            .floor();                                         
+      518          let frame_width = body_width + 2.;
+      519          let shortcuts: Vec<(String, Option<String>, bool)> = e
+           ntries
+      520              .iter()
+
+● Width change affects pixels, so re-render the menu page, restore the #106
+  flake files, and accept.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 40 new goldens, nothing else changed. Committing.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● I've committed the menu work for #16 as 7055296. The Arrange By menu from
+  right-click-context-menu-nested.png now matches the capture in row geometry,
+  text position, shadow and submenu placement. #17 and #70 haven't started, so
+  M2 isn't finished.
+
+  Fmt, clippy and the full test suite pass. The golden gate passes with 980
+  goldens; 40 are new, across all four appearances and five scales. The gate
+  also failed source-list-secondary at aqua-light 200% and geist-light 125%.
+  That's the #106 flake, so I put the committed files back before accepting.
+  Nothing is pushed.
+
+  Before committing I found that menu widths came out as fractional pixels. That
+  pushed edges off whole pixels and blurred the hairlines, so widths now round
+  to whole pixels.
+
+  Decision for you
+
+  I changed the shared item-height token from 19 px to 18 px. The 19 came from a
+  menu-bar capture, and Silvestris doesn't draw menu-bar menus. Both contextual
+  captures use 18. This also changes the pop-up button's menu, which no capture
+  shows open. If you'd rather keep 19 and add a separate token for contextual
+  menus, I'll change it.
+
+  Remaining differences from 10.6
+
+  These are logged in docs/exceptions.md:
+  - Edge colour: 10.6's top edge is lighter and its bottom edge darker. I used
+    one value for all four sides, so ours is 6 grey levels too dark at the top
+    and 10 too light at the bottom.
+  - Checkmark position: this is an estimate, because no capture shows a checked
+    menu item.
+  - Gaps before the arrow and the shortcut column: also estimates. No capture
+    has a label long enough to reach either.
+  - Shortcut column position: this was measured from the menu-bar capture, not a
+    contextual one. The submenu arrow sits in the same place in both kinds of
+    menu, so I assumed the shortcut column does too.
+
+  API changes for consumers
+
+  All are listed in CHANGELOG.md:
+  - PopupMenu::open_pop_down: square top corners, for a menu hanging from a
+    toolbar button. open stays the contextual menu with four rounded corners.
+  - PopupMenu::highlight_path: highlights rows and opens submenus without
+    running any command.
+  - Mixed (dash) state: new on CommandDescriptor and CommandSet. Native macOS
+    menus can't show it, so they show the item unchecked.
+  - split_shortcut: splits a shortcut into modifiers and key for the shortcut
+    column.
+  - Three new theme tokens: themes built outside Silvestris must set them.
+
+  Still open
+
+  - #16: not closed yet. The menu now matches the capture; close it if you
+    agree.
+  - #13: also waiting on your agreement to close.
+  - #17 (active/inactive audit): next.
+  - #70 (four appearances and live theme switching): after #17.
+  - Stale capture names: crops.json and the issue bodies still use the old names
+    for the 33 captures that were renamed in hig-09. That needs a separate fix.
+
+✻ Churned for 3m 7s · done 1:37 PM
+
+❯ so, what's still open for M2? what is now complete overall for M2?            
+
+● Of M2's 17 issues, 13 have their work delivered, 3 haven't started, and 1 is a
+  bug I filed this session. None of the 17 is closed on GitHub yet.
+
+  Delivered:
+  - #16 Menus: commit 7055296, this session.
+  - #13 Tab views and group boxes: commits e3730e1 and af0f3ec, this session.
+  - #1–#11 and #19 (pop-up buttons, textured pop-ups, source list, row
+    accessories, disclosure, radio, slider, progress, default button throb, push
+    button states, segmented, checkbox): delivered in the earlier M2 pass. My
+    notes from that pass list them as done, but I haven't re-checked each one's
+    "done when" against the code this session. That check should come before
+    closing them.
+
+  Not started:
+  - #17 Active/inactive window audit: a table of every control's inactive-window
+    appearance, checked against captures, plus a gallery toggle for inactive
+    windows. The menus in #16 have no inactive-window capture either, so that
+    gap lands here.
+  - #70 Four appearances and live theme switching: a test that switches theme
+    while controls are live, and a per-appearance column in docs/coverage.md.
+  - #106 Golden flake: source-list-secondary renders differently from run to run
+    at aqua-light 200% and now also geist-light 125%. Every golden accept has
+    to work around it until it's fixed. It isn't a deliverable, but M2's golden
+    gate isn't reliable while it's open.
+
+  Housekeeping: 33 captures were renamed in hig-09. reference/crops.json and the
+  corpus paths in the issue bodies still use the old names; at least #13 and
+  #16 are affected.
+
+  Next steps:
+  - Fix the capture names.
+  - Do #17, then #70.
+  - Look into #106.
+  - Check #1–#11 and #19 against their "done when" lists.
+  - Close each issue you agree with.
+
+  The branch is 19 commits ahead of origin and not pushed.
+
+✻ Brewed for 9s · done 1:38 PM
+
+❯ alright. for now, what i want you to do - is make sure we have one coherent   
+  branch with all of our M0-M2 work to this point, all integrated. call this    
+  branch devel/sil-cocoa-fixture. before you push this branch to github, i need 
+  you to make sure consumers.md is updated and well documented - anyone who     
+  wants to understand how to consume silvestris and make the most of it, should 
+  be able to read our documentation and piece together how to use it - and      
+  everything it provides. only once everything is integrated and you have       
+  detailed the docs, you can push it.                                           
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Every local and remote branch is already contained in source-list-shell.
+  Checking the stray worktree commit.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All work is on one line. Creating the branch, then reviewing the consumer
+  docs.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The current doc covers pinning and the gap register but doesn't explain how to
+  use Silvestris. Gathering the real API surface before writing.
+
+  Ran 5 shell commands · 1 failed (ctrl+o to expand)
+
+● Writing the consumer guide now. The existing pin, gap-register and pin-moving
+  sections stay; a full usage guide goes in front of them.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(~\AppData\Local\Temp\claude\ca8d946d589f3495\cad8ae04-9051-477e-8525-ff5
+       c79e593ce\scratchpad\guide-head.md)
+  ⎿  Wrote 339 lines to ~\AppData\Local\Temp\claude\ca8d946d589f3495\cad8ae
+     04-9051-477e-8525-ff5c79e593ce\scratchpad\guide-head.md
+       1 # Consuming Silvestris
+       2 
+       3 Silvestris is the GUI layer for GPUI applications that want Mac
+         OS X 10.6
+       4 Aqua (plus a designed Dark Aqua and Geist Light/Dark). It ships
+         the controls,
+       5 windows, command routing, focus, modality, transient surfaces, t
+         ext editing
+       6 and preference widgets. An application supplies its domain model
+         , policy and
+     … +333 lines (ctrl+o to expand)
+
+● Verifying the claims in the control table against the code.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Bash(S=C:/Users/terezi/AppData/Local/Temp/claude/ca8d946d589f3495/cad8ae04-905
+      1-477e-8525-ff5c79e593ce/scratchpad; f=$S/guide-head.md; perl -0pi -e 's/
+                gp…)
+  ⎿  ```rust
+     use silvestris::{ThemeId, ThemePreference};
+     … +54 lines (ctrl+o to expand)
+  ⎿  Updated docs\consumers.md +344 -1
+        1 -# Consumer integration contract                               
+        1 +# Consuming Silvestris                                        
+        2 +                                                              
+        3 +Silvestris is the GUI layer for GPUI applications that want Ma
+          +c OS X 10.6                                                   
+        4 +Aqua (plus a designed Dark Aqua and Geist Light/Dark). It ship
+          +s the controls,                                               
+        5 +windows, command routing, focus, modality, transient surfaces,
+          + text editing                                                 
+        6 +and preference widgets. An application supplies its domain mod
+          +el, policy and                                                
+        7 +command callbacks, and composes the rest from Silvestris.     
+        8 +                                                              
+        9 +This page is the entry point. It covers how to depend on Silve
+          +stris, how to                                                 
+       10 +start an application, what each module provides and where to r
+          +ead more. The                                                 
+       11 +second half is the integration contract: pins, the gap registe
+          +r and how to                                                  
+       12 +move a pin.                                                   
+       13 +                                                              
+       14 +## Contents                                                   
+       15 +                                                              
+       16 +- [Ownership rules](#ownership-rules)                         
+       17 +- [Getting started](#getting-started)                         
+       18 +- [What Silvestris provides](#what-silvestris-provides)       
+       19 +- [Testing a consumer](#testing-a-consumer)                   
+       20 +- [Maturity and evidence](#maturity-and-evidence)             
+       21 +- [Integration contract](#integration-contract)               
+       22 +                                                              
+       23 +## Ownership rules                                            
+       24 +                                                              
+       25 +| Layer | Owns |                                              
+       26 +|---|---|                                                     
+       27 +| Silvestris | Generic controls and their states, windows and 
+          +chrome, themes, command routing, focus and key routing, modali
+          +ty, transient surfaces, the text-editing core, preference widg
+          +ets and storage mechanics |                                   
+       28 +| Your application | Domain models, documents and sessions, fi
+          +le formats, persistence locations, command callbacks, validati
+          +on, app-specific focus or input policy |                      
+       29 +| GPUI | Platform paint and input. Silvestris builds on its fo
+          +cus handles, actions and input handlers and does not replace t
+          +hem |                                                         
+       30 +                                                              
+       31 +Two rules follow from this:                                   
+       32 +                                                              
+       33 +- Do not paint a generic control yourself. If Silvestris lacks
+          + one, file a                                                  
+       34 +  gap (see [Reporting a gap](#reporting-a-gap)) and record it 
+          +in the                                                        
+       35 +  [gap register](#gap-register).                              
+       36 +- Do not patch or vendor Silvestris to fix a bug. Fix it upstr
+          +eam and move                                                  
+       37 +  your pin.                                                   
+       38 +                                                              
+       39 +Domain views (an emulator screen, a texture preview, a code ed
+          +itor) are                                                     
+     … +308 lines (ctrl+o to expand)
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; f=docs/consumers.md; perl
+      -0pi -e 's/^# Integration contract/## Integration contract/m; my
+      $i=index($_,"## Integrati…)
+  ⎿  329:## Maturity and evidence
+     344:## Integration contract
+     350:### Supported dependency forms
+     … +14 lines (ctrl+o to expand)
+  ⎿  Updated README.md +1 -1
+      49  command callbacks. The framework owns generic layout and intera
+          ction state.
+      50  No crate imports Lotus, Azahar or an emulator worker.
+      51 
+      52 +- [Consuming Silvestris: getting started, capability map and in
+         +tegration contract](docs/consumers.md)                         
+      53  - [Coverage matrix](docs/coverage.md)
+      54  - [Visual goldens and the render gate](docs/goldens.md)
+      55  - [Device-pixel snapping](docs/snapping.md)
+     ...
+      59  - [Undo and redo](docs/undo.md)
+      60  - [Documents and the close decision](docs/documents.md)
+      61  - [Application lifecycle and coordinated quit](docs/lifecycle.m
+          d)
+      61 -- [Consumer pins and integration rules](docs/consumers.md)     
+      62  - [Public API changes by commit range](CHANGELOG.md)
+      63  - [Shell composition](docs/shell.md)
+      64  - [Window roles and frame persistence](docs/windows.md)
+  ⎿  Updated docs\consumers.md +11 -12
+      341    (#50).
+      342  - The roadmap and milestones are in [ROADMAP.md](../ROADMAP.md
+           ) (epic #72).
+      343 
+      344 -# Integration contract                                        
+      344 +## Integration contract                                       
+      345 
+      346  Silvestris is consumed as source. Consumers pin an exact revis
+           ion, share its
+      347  GPUI revision and toolchain, and report gaps upstream instead
+           of patching a
+      348  private copy.
+      349 
+      350 -## Supported dependency forms                                 
+      350 +### Supported dependency forms                                
+      351 
+      352  Use a git revision with a committed lockfile:
+      353 
+     ...
+      368  invisible to the other consumers and is lost on the next refre
+           sh. Upstream the
+      369  generic mechanism, then move the pin.
+      370 
+      371 -## Current consumer pins                                      
+      371 +### Current consumer pins                                     
+      372 
+      373  Pins verified on 2026-11-23. Full commit ids, not abbreviation
+           s, belong in
+      374  `Cargo.toml` and `config/pins.toml`.
+     ...
+      386  decides which bounds to persist for which window role.
+      387 
+      388  Sandcat builds against a path dependency into an uncommitted c
+           heckout. Its
+      389 -adoption is deferred until the M1 foundations land. It is not 
+          -a gating                                                      
+      389 +adoption is deferred until Silvestris's own foundations land. 
+          +It is not a gating                                            
+      390  consumer, no provisional API exists for it, and this exception
+            is recorded so
+      391  the pin table does not imply support.
+      392 
+      393 -## Gap register                                               
+      393 +### Gap register                                              
+      394 
+      395  Every consumer-side bespoke UI element found in the 2026-11-23
+            survey, with the
+      396  issue that replaces it. Adoption happens in the consumer repos
+           itory after the
+     ...
+      444  generalise; it does not excuse drawing a generic control by ha
+           nd. The table is
+      445  the single copy: `ROADMAP.md` links here.
+      446 
+      447 -## Upstreamed lotus deltas                                    
+     … +39 lines (ctrl+o to expand)
+
+● Docs assembled. Checking the example's API calls exist, then committing.
+
+● Bash(cd /c/Users/terezi/workdir/silvestris-cont; grep -n "pub fn centered"
+      /c/Users/terezi/.cargo/git/checkouts/zed-a70e2ad075855582/6b72097/crates/g
+      pui/src/geometry…)
+  ⎿  740:    pub fn centered(display_id: Option<DisplayId>, size: Size<Pixe
+     ls>, cx: &App) -> Self {
+     882:    pub fn centered_at(center: Point<T>, size: Size<T>) -> Self {
+     … +2 lines (ctrl+o to expand)
+  ⎿  Updated docs\consumers.md +2 -1
+      452  `TabView::scroll_handle` (`crates/silvestris/src/controls/tab_
+           view.rs`) accepts a
+      453  caller-owned scroll position so an inspector pane can reveal c
+           ontent after a
+      454  layout change instead of depending on a keyed internal handle.
+            Lotus keeps the
+      455 -policy of which pane to reveal and when. Test: `tests/tab_view
+          -.rs` `tall_content_reports_overflow_and_scrolls`.             
+      455 +policy of which pane to reveal and when. Test: `tests/tab_view
+          +.rs`,                                                         
+      456 +`tall_content_reports_overflow_and_scrolls`.                  
+      457 
+      458  Shell inspector focus now transfers in `window.defer`, after t
+           he frame is
+      459  built, on open and on close. A focus change made by another vi
+           ew in the same
+
+  Pushed to devel/sil-cocoa-fixture, ran 1 shell command (ctrl+o to expand)
+
+● devel/sil-cocoa-fixture is pushed to GitHub. It holds all M0–M2 work to date,
+  and docs/consumers.md is now a full guide to consuming Silvestris.
+
+  Integration. Every local and remote branch (29 of them) was already contained
+  in source-list-shell, so nothing needed merging. The new branch starts there,
+  at the menus commit 7055296, and adds one docs commit, 0d5cc60. The tests and
+  gates passed at 7055296; the docs commit changes only Markdown.
+
+  docs/consumers.md keeps the existing pin, gap-register and pin-moving
+  sections. In front of them it now has:
+  - Who owns what: Silvestris, your app and GPUI, and what that means for a
+    consumer: no hand-painted generic controls, no patching or vendoring
+    Silvestris.
+  - Getting started: the dependency setup, including the test-support feature
+    for dev-dependencies, plus a startup example and how to read theme values.
+  - What Silvestris provides: each area (appearance, windows, shell, controls,
+    binding, commands and menus, transients and modality, documents and
+    lifecycle, preferences, text and undo, painting your own views) with its
+    module, main types, what it gives you and the detailed doc to read next.
+  - Control catalogue: every control with its variants. I checked the variant
+    names against the code. ConfirmationSheet and TextArea are flagged as not to
+    be built on until #21/#22 and #58.
+  - Testing a consumer: the test-support harness, fixtures, debug selectors, and
+    what headless tests do and don't prove.
+  - Maturity: pointers to the changelog, the coverage table, the exceptions log
+    and the roadmap.
+
+  I checked that the API calls in the startup example exist in the code, but I
+  haven't compiled the snippet. It also relies on a placeholder root view type,
+  MyRoot, which isn't part of Silvestris.
+
+  The README now lists this page first. I also fixed two stale details in the
+  old sections: the TabView source path and test reference, and the Sandcat note
+  that said its adoption waits on "M1 foundations".
+
+  Not changed:
+  - The consumer pin table is still dated 2026-11-23. I confirmed only chaus's
+    pin; lotus and johjoh aren't checked out locally.
+  - source-list-shell still ends at 7055296, and its remote copy at a711bbb
+    doesn't have this session's work. The new branch is the up-to-date one.
+
+✻ Cooked for 2m 48s · done 1:44 PM
+
+❯ /export                                                                         ⎿  Export cancelled
